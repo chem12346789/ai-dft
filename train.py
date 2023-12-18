@@ -20,7 +20,9 @@ if __name__ == "__main__":
     # Change here to adapt to your data
     # n_channels=1 for rho only
     # n_classes is the output channels of the network
-    model = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
+    model = UNet(
+        n_channels=1, n_classes=args.classes, bilinear=args.bilinear
+    )
     model.double()
     model = model.to(memory_format=torch.channels_last)
 

@@ -78,11 +78,12 @@ for child in (data_path).glob("*"):
             masks_ve[0, :, :] = masks_v[i, :, :].reshape(data_shape)
 
             if args.energy:
-                # masks_ve = np.zeros((2, data.shape[1], data.shape[2]))
+                masks_ve = np.zeros((2, data.shape[1], data.shape[2]))
                 masks_e_file = list(child.glob(f"{method_str}_e_dm.npy"))
                 if len(masks_e_file) == 1:
                     masks_e = np.load(masks_e_file[0])
-                    masks_ve[0, :, :] = masks_e[i, :, :].reshape(data_shape)
+                    masks_ve[0, :, :] = masks_v[i, :, :].reshape(data_shape)
+                    masks_ve[1, :, :] = masks_e[i, :, :].reshape(data_shape)
 
             np.save(imgs_path / data_name, data[i, :, :].reshape(data_shape))
             np.save(masks_path / data_name, masks_ve)
