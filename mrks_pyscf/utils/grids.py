@@ -153,7 +153,6 @@ class Grid(dft.gen_grid.Grids):
             self.coord_list.append(i_atom[1:])
             self.atom_grid[i_atom[0]] = (self.n_rad, self.n_ang)
         self.coord_list = np.array(self.coord_list)
-        print(f"coord_list done. {self.atom_grid}")
 
         self.prune = None
         self.atomic_radii = None

@@ -57,6 +57,22 @@ parser.add_argument(
     default=1.0,
 )
 
+parser.add_argument(
+    "--inv_change_vj",
+    "-v",
+    type=bool,
+    help="Whether to change the vj matrix. Default is False.",
+    default=False,
+)
+
+parser.add_argument(
+    "--inv_step",
+    "-s",
+    type=int,
+    help="Number of steps for inversion. Default is 25000.",
+    default=25000,
+)
+
 args = parser.parse_args()
 
 if len(args.distance_list) == 3:
@@ -68,7 +84,10 @@ else:
 
 molecular = Mol[args.molecular]
 
-path_dir = path / f"data-{args.molecular}-{args.basis}"
+if args.inv_change_vj:
+    path_dir = path / f"data-vj-{args.molecular}-{args.basis}"
+else:
+    path_dir = path / f"data-{args.molecular}-{args.basis}"
 if not path_dir.exists():
     path_dir.mkdir(parents=True)
 
@@ -81,7 +100,6 @@ logger.setLevel(logging.DEBUG)
 
 for coorinate in distance_l:
     molecular[0][1] = coorinate
-    molecular[1][1] = -coorinate
 
     basis = {}
 
@@ -95,7 +113,6 @@ for coorinate in distance_l:
     mol = pyscf.M(
         atom=molecular,
         basis=basis,
-        unit="B",
     )
     print(f"The distance is {coorinate}.")
 
@@ -103,8 +120,10 @@ for coorinate in distance_l:
         mol,
         frac_old=args.frac_old,
         level=args.level,
+        inv_step=args.inv_step,
         path=path_dir / f"{coorinate:.4f}",
         logger=logger,
+        inv_change_vj=args.inv_change_vj,
     )
     mrks_inv.kernel(method="cisd")
     mrks_inv.inv_prepare()

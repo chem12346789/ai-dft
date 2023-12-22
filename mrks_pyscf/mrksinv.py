@@ -30,22 +30,28 @@ class Mrksinv:
         mol,
         frac_old=0.8,
         level=3,
+        inv_step=25000,
+        scf_step=2500,
         path=Path(__file__).resolve().parents[0],
         logger=None,
+        inv_change_vj=False,
     ):
         self.mol = mol
         s_0_ao = mol.intor("int1e_ovlp")
-        self.S = LA.fractional_matrix_power(s_0_ao, -0.5).real
+        self.mats = LA.fractional_matrix_power(s_0_ao, -0.5).real
         self.nocc = mol.nelec[0]
         self.frac_old = frac_old
         self.device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
+        self.inv_change_vj = inv_change_vj
 
         self.path = path
         # make directory if not exist
         if not self.path.exists():
             self.path.mkdir(parents=True)
+        self.inv_step = inv_step
+        self.scf_step = scf_step
 
         self.logger = logger
         self.logger.info(f"Path: {self.path} \n")
@@ -71,7 +77,8 @@ class Mrksinv:
         ao_2 = ni.eval_ao(self.mol, self.grids.coords, deriv=2)
         self.ao_2_diag = ao_2[4, :, :] + ao_2[7, :, :] + ao_2[9, :, :]
 
-        self.h1e = self.myhf.get_hcore()
+        self.nuc = self.mol.intor("int1e_nuc")
+        self.h1e = self.nuc + self.mol.intor("int1e_kin")
         self.h1_mo = np.einsum("ab,ai,bj->ij", self.h1e, self.mo, self.mo)
         self.eri = self.mol.intor("int2e")
         self.eri_mo = pyscf.ao2mo.kernel(self.eri, self.mo, compact=False)
@@ -110,6 +117,8 @@ class Mrksinv:
         self.vxc = None
         self.exc_kin_correct = None
         self.v_vxc_e_taup = None
+        self.taup_rho_wf = None
+        self.taup_rho_ks = None
         self.emax = None
 
         self.dm1_inv = None
@@ -139,46 +148,15 @@ class Mrksinv:
                 f"Total energy: {self.e:<10.2e}\n" f"The dm1 and dm2 are generated.\n"
             )
 
-    def save_kernel_dm12(self, if_2rdm=True):
+    def save_kernel_dm12(self):
         """
-        This function is used to save the dm1 and dm2 to the file.
+        Do NOT use this function. Cost too much disk space.
         """
-        if self.dm1 is None:
-            self.logger.info("dm1 are not calculated.\n")
-        else:
-            np.save(self.path / "dm1.npy", self.dm1)
-            np.save(self.path / "dm1_mo.npy", self.dm1_mo)
-            np.save(self.path / "e.npy", self.e)
-            np.save(self.path / "h1e.npy", self.h1e)
-            np.save(self.path / "h1_mo.npy", self.h1_mo)
-            np.save(self.path / "eri.npy", self.eri)
-            np.save(self.path / "eri_mo.npy", self.eri_mo)
 
-        if self.dm2 is None:
-            self.logger.info("dm2 are not calculated\n")
-        else:
-            if if_2rdm:
-                np.save(self.path / "dm2.npy", self.dm2)
-                np.save(self.path / "dm2_mo.npy", self.dm2_mo)
-
-    def load_kernel_dm12(self, if_2rdm=True):
+    def load_kernel_dm12(self):
         """
-        This function is used to load the dm1 and dm2 from the file.
+        Do NOT use this function.
         """
-        if (self.dm1 is None) and (self.path / "dm1.npy").exists():
-            self.dm1 = np.load(self.path / "dm1.npy")
-            self.dm1_mo = np.load(self.path / "dm1_mo.npy")
-            self.e = np.load(self.path / "e.npy")
-            self.h1e = np.load(self.path / "h1e.npy")
-            self.h1_mo = np.load(self.path / "h1_mo.npy")
-            self.eri = np.load(self.path / "eri.npy")
-            self.eri_mo = np.load(self.path / "eri_mo.npy")
-            if if_2rdm:
-                self.dm2 = np.load(self.path / "dm2.npy")
-                self.dm2_mo = np.load(self.path / "dm2_mo.npy")
-        else:
-            self.logger.info("dm1 dm2 are not found.\n")
-            self.kernel(method="fci")
 
     def inv_prepare(self):
         """
@@ -193,7 +171,7 @@ class Mrksinv:
         This function is used to do the total inverse calculation.
         """
         self.inverse()
-        self.check_energy()
+        self.check()
         self.save_data()
 
     def gen_e_vxc(self):
@@ -296,7 +274,7 @@ class Mrksinv:
         eigs_e_dm1 = eigs_e_dm1 / 2
         eigs_v_dm1_cuda = torch.from_numpy(eigs_v_dm1).to(self.device)
 
-        taup_rho_wf = gen_taup_rho(
+        self.taup_rho_wf = gen_taup_rho(
             self.aux_function.oe_taup_rho,
             dm1_r,
             eigs_v_dm1_cuda,
@@ -307,7 +285,7 @@ class Mrksinv:
         self.logger.info("\nTaup_rho done.\n")
 
         self.emax = np.max(e_bar_r_wf)
-        self.v_vxc_e_taup = -e_bar_r_wf + taup_rho_wf
+        self.v_vxc_e_taup = -e_bar_r_wf + self.taup_rho_wf
 
         self.logger.info(
             f"\nSummary of prepare_inverse, \n {torch.cuda.memory_summary()}.\n\n"
@@ -315,23 +293,7 @@ class Mrksinv:
         del self.dm1_mo, self.h1_mo
         torch.cuda.empty_cache()
 
-    def save_prepare_inverse(self):
-        """
-        This function is used to save the data for the inverse calculation.
-        """
-        np.save(self.path / "emax.npy", self.emax)
-        np.save(self.path / "v_vxc_e_taup.npy", self.v_vxc_e_taup)
-        np.save(self.path / "exc.npy", self.exc)
-
-    def load_prepare_inverse(self):
-        """
-        This function is used to load the data for the inverse calculation.
-        """
-        self.emax = np.load(self.path / "emax.npy")
-        self.v_vxc_e_taup = np.load(self.path / "v_vxc_e_taup.npy")
-        self.exc = np.load(self.path / "exc.npy")
-
-    def inverse(self, epochs=25000):
+    def inverse(self, epochs=self.inv_step):
         """
         This function is used to do the inverse calculation.
         """
@@ -355,7 +317,7 @@ class Mrksinv:
             )
             ebar_ks = ebar_ks.cpu().numpy() / dm1_inv_r
 
-            taup_rho_ks = gen_taup_rho(
+            self.taup_rho_ks = gen_taup_rho(
                 self.aux_function.oe_taup_rho,
                 dm1_inv_r,
                 mo[:, : self.nocc],
@@ -363,7 +325,7 @@ class Mrksinv:
                 backend="torch",
             )
 
-            self.vxc = self.v_vxc_e_taup + ebar_ks - taup_rho_ks
+            self.vxc = self.v_vxc_e_taup + ebar_ks - self.taup_rho_ks
             if i > 0:
                 error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
                 if i % 100 == 0:
@@ -387,49 +349,33 @@ class Mrksinv:
             xc_v = self.aux_function.oe_fock(
                 self.vxc, self.grids.weights, backend="torch"
             )
-            fock_a = self.S @ (self.h1e + self.vj + xc_v) @ self.S
+            if self.inv_change_vj:
+                vj = self.myhf.get_jk(self.mol, self.dm1_inv, 1)[0]
+                self.vj = vj * (1 - self.frac_old) + self.vj * self.frac_old
+            fock_a = self.mats @ (self.h1e + self.vj + xc_v) @ self.mats
             eigvecs, mo = np.linalg.eigh(fock_a)
-            mo = self.S @ mo
+            mo = self.mats @ mo
             dm1_inv_old = self.dm1_inv.copy()
             self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
             mo = torch.from_numpy(mo).to(self.device)
         self.logger.info("\ninverse done.\n\n")
 
-    def check_density(self):
+    def check(self):
         """
-        This function is used to check the density matrix.
+        This function is used to check the density matrix and the energy.
         """
-        dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv * 2, backend="torch")
+        dm1_inv = self.dm1_inv * 2
+        dm1_inv_r = self.aux_function.oe_rho_r(dm1_inv, backend="torch")
         dm1_r = self.aux_function.oe_rho_r(self.dm1, backend="torch")
 
         error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
         self.logger.info(f"\nerror of dm1_inv, {error_inv_r:<10.2e}")
 
-    def check_energy(self):
-        """
-        This function is used to check the energy.
-        """
-        nuc = self.mol.intor("int1e_nuc")
-        eri0 = self.mol.intor("int2e")
-
-        e_nuc = self.oe_dm1_energy(nuc, self.dm1, backend="torch").real
-        e_vj = self.oe_dm2_energy(eri0, self.dm1, self.dm1, backend="torch").real
-
-        e_nuc_inv = self.oe_dm1_energy(nuc, self.dm1_inv * 2, backend="torch").real
-        e_vj_inv = self.oe_dm2_energy(
-            eri0, self.dm1_inv * 2, self.dm1_inv * 2, backend="torch"
-        ).real
+        e_nuc = self.oe_dm1_energy(self.nuc, self.dm1, backend="torch").real
+        e_vj = self.oe_dm2_energy(self.eri, self.dm1, self.dm1, backend="torch").real
 
         au2kjmol = 2625.5
-        self.logger.info(
-            f"\nerror of inv: {((e_nuc_inv - e_nuc) * au2kjmol):<10.2e} "
-            f"{((0.5 * (e_vj_inv - e_vj)) * au2kjmol):<10.2e} "
-            f"{((e_nuc_inv - e_nuc + 0.5 * (e_vj_inv - e_vj)) * au2kjmol):<10.2e}"
-        )
-
         t_r = -0.5 * np.einsum("uv, gu, gv -> g", self.dm1, self.ao_0, self.ao_2_diag)
-
-        # We not add the dm1_test part for safety.
         self.exc_kin_correct = self.exc + t_r
 
         ene_t_vc = (
@@ -488,20 +434,20 @@ class Mrksinv:
         vxc = self.vxc
         xc_v = self.aux_function.oe_fock(vxc, self.grids.weights, backend="torch")
 
-        FLAG = True
-        STEP = 0
-        while FLAG:
-            STEP += 1
+        flag = True
+        step = 0
+        while flag:
+            step += 1
             vj = self.myhf.get_jk(self.mol, dm1, 1)[0]
-            fock_a = self.S @ (self.h1e + vj + xc_v) @ self.S
+            fock_a = self.mats @ (self.h1e + vj + xc_v) @ self.mats
             _, mo = np.linalg.eigh(fock_a)
-            mo = self.S @ mo
+            mo = self.mats @ mo
             dm1_old = dm1.copy()
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
-            if (error < 1e-8) or (STEP > 2500):
-                print(f"error of dm1, {error:.2e}")
-                FLAG = False
+            if (error < 1e-8) or (step > self.scf_step):
+                self.logger.info(f"error of dm1 in the last step, {error:.2e}")
+                flag = False
             dm1 = dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
         return dm1
 
@@ -512,9 +458,8 @@ class Mrksinv:
         if exc_kin_correct is None:
             exc_kin_correct = self.exc_kin_correct
         nuc = self.mol.intor("int1e_nuc")
-        eri0 = self.mol.intor("int2e")
         e_nuc = self.oe_dm1_energy(nuc, dm1, backend="torch").real
-        e_vj = self.oe_dm2_energy(eri0, dm1, dm1, backend="torch").real
+        e_vj = self.oe_dm2_energy(self.eri, dm1, dm1, backend="torch").real
 
         ene_t_vc = (
             e_nuc
