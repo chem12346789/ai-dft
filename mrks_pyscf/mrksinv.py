@@ -459,7 +459,7 @@ class Mrksinv:
             dm1_old = dm1.copy()
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
-            if (error < 1e-8) or (step > self.scf_step):
+            if (error < 1e-12) or (step > self.scf_step):
                 self.logger.info(f"error of dm1 in the last step, {error:.2e}")
                 flag = False
             dm1 = dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
