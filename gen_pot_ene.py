@@ -14,7 +14,7 @@ from src.mrks_pyscf.mrksinv import Mrksinv
 from src.mrks_pyscf.utils.mol import Mol, BASIS
 
 path = Path(__file__).resolve().parents[1] / "data"
-parser = argparse.ArgumentParser(description="Obtain data from npy files")
+parser = argparse.ArgumentParser(description="Generate the inversed potential and energy.")
 
 parser.add_argument(
     "--molecular",
@@ -73,6 +73,15 @@ parser.add_argument(
     default=25000,
 )
 
+parser.add_argument(
+    "--device",
+    "-de",
+    type=str,
+    choices=["cpu", "cuda"],
+    help="Device for inversion. Default is 'cuda'.",
+    default="cuda",
+)
+
 args = parser.parse_args()
 
 if len(args.distance_list) == 3:
@@ -100,6 +109,7 @@ logger.setLevel(logging.DEBUG)
 
 for coorinate in distance_l:
     molecular[0][1] = coorinate
+    logger.info("%s", f"The distance is {coorinate}.")
 
     basis = {}
 
@@ -114,7 +124,6 @@ for coorinate in distance_l:
         atom=molecular,
         basis=basis,
     )
-    print(f"The distance is {coorinate}.")
 
     mrks_inv = Mrksinv(
         mol,
@@ -124,7 +133,9 @@ for coorinate in distance_l:
         path=path_dir / f"{coorinate:.4f}",
         logger=logger,
         inv_change_vj=args.inv_change_vj,
+        device="args.device",
     )
+
     mrks_inv.kernel(method="cisd")
     mrks_inv.inv_prepare()
     mrks_inv.inv()

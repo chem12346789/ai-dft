@@ -35,15 +35,19 @@ class Mrksinv:
         path=Path(__file__).resolve().parents[0],
         logger=None,
         inv_change_vj=False,
+        device=None,
     ):
         self.mol = mol
         s_0_ao = mol.intor("int1e_ovlp")
         self.mats = LA.fractional_matrix_power(s_0_ao, -0.5).real
         self.nocc = mol.nelec[0]
         self.frac_old = frac_old
-        self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
+        if device is None:
+            self.device = (
+                torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            )
+        else:
+            self.device = device
         self.inv_change_vj = inv_change_vj
 
         self.path = path
