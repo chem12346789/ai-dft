@@ -14,7 +14,9 @@ from src.mrks_pyscf.mrksinv import Mrksinv
 from src.mrks_pyscf.utils.mol import Mol, BASIS
 
 path = Path(__file__).resolve().parents[1] / "data"
-parser = argparse.ArgumentParser(description="Generate the inversed potential and energy.")
+parser = argparse.ArgumentParser(
+    description="Generate the inversed potential and energy."
+)
 
 parser.add_argument(
     "--molecular",
@@ -94,9 +96,9 @@ else:
 molecular = Mol[args.molecular]
 
 if args.inv_change_vj:
-    path_dir = path / f"data-vj-{args.molecular}-{args.basis}"
+    path_dir = path / f"data-vj-{args.molecular}-{args.basis}-{args.level}"
 else:
-    path_dir = path / f"data-{args.molecular}-{args.basis}"
+    path_dir = path / f"data-{args.molecular}-{args.basis}-{args.level}"
 if not path_dir.exists():
     path_dir.mkdir(parents=True)
 
