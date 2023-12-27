@@ -127,6 +127,7 @@ def gen_atomic_grids(
 
 
 def modified_build(grids, mol=None, **kwargs):
+    """Build the grids with the given atomic grids."""
     if mol is None:
         mol = grids.mol
     atom_grids_tab = gen_atomic_grids(mol, grids.atom_grid, grids.radi_method, **kwargs)
@@ -157,18 +158,17 @@ class Grid(dft.gen_grid.Grids):
         self.prune = None
         self.atomic_radii = None
         self.radii_adjust = None
-        self.becke_scheme = dft.gen_grid.stratmann
+        self.becke_scheme = dft.gen_grid.original_becke
         self.radi_method = dft.radi.gauss_chebyshev
         modified_build(self)
 
-        coords_2d = self.coords.reshape(self.mol.natm, self.n_ang, self.n_rad, 3)
+        self.x_2d = self.coords[:, 0].reshape(self.mol.natm, self.n_ang, self.n_rad)
+        self.y_2d = self.coords[:, 1].reshape(self.mol.natm, self.n_ang, self.n_rad)
+        self.z_2d = self.coords[:, 2].reshape(self.mol.natm, self.n_ang, self.n_rad)
         self.index_2d = np.arange(len(self.coords)).reshape(
             self.mol.natm, self.n_ang, self.n_rad
         )
         self.w_2d = self.weights.reshape(self.mol.natm, self.n_ang, self.n_rad)
-        self.x_2d = coords_2d[:, :, :, 0]
-        self.y_2d = coords_2d[:, :, :, 1]
-        self.z_2d = coords_2d[:, :, :, 2]
 
         self.index_2d = np.transpose(self.index_2d, axes=[0, 2, 1])
         self.w_2d = np.transpose(self.w_2d, axes=[0, 2, 1])
@@ -182,7 +182,7 @@ class Grid(dft.gen_grid.Grids):
                 self.x_2d[i][j] = self.x_2d[i][j][x_arg]
                 self.y_2d[i][j] = self.y_2d[i][j][x_arg]
                 self.z_2d[i][j] = self.z_2d[i][j][x_arg]
-                self.index_2d[i][j] = self.index_2d[i][j][x_arg]
+                # self.index_2d[i][j] = self.index_2d[i][j][x_arg]
                 self.w_2d[i][j] = self.w_2d[i][j][x_arg]
 
     def vector_to_matrix(self, vector: np.ndarray):
@@ -210,23 +210,23 @@ class Grid(dft.gen_grid.Grids):
         index_range = np.ndindex(self.n_rad, self.n_ang)
         for i, (j, k) in enumerate(index_range):
             vector[i] = matrix[atom_number, j, k]
-            atom_x[i] = self.x[self.index_2d[atom_number, j, k]]
-            atom_y[i] = self.y[self.index_2d[atom_number, j, k]]
-            atom_z[i] = self.z[self.index_2d[atom_number, j, k]]
+            atom_x[i] = self.coords[:, 0][self.index_2d[atom_number, j, k]]
+            atom_y[i] = self.coords[:, 1][self.index_2d[atom_number, j, k]]
+            atom_z[i] = self.coords[:, 2][self.index_2d[atom_number, j, k]]
         return atom_x, atom_y, atom_z, vector
 
 
 def rotate(mol, angle_list=None):
-    """Return the 3D rotation of the coord_list by Euler angles alpha, beta and gamma.
+    """Return the 3D rotation of the coord_list by Euler angles alpha, beta, and gamma.
 
     @param coord_list: The list of coordinates.
-    @param angle_list: The list of Euler angles. If None, we use random angles. If 'x', 'y', 'z', we rotate the coord_list among x, y, z axis by 90 degree.
+    @param angle_list: The list of Euler angles. If None, we use random angles. If 'x', 'y', or 'z', we rotate the coord_list among the x, y, or z axis by 90 degrees.
 
     @return  The angular and radial grid number.
     """
     if angle_list is None:
         return mol
-    elif isinstance(angle_list, list):
+    if isinstance(angle_list, list):
         alpha, beta, gamma = angle_list
     elif isinstance(angle_list, str):
         if angle_list == "x":

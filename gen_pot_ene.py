@@ -133,7 +133,7 @@ for coorinate in distance_l:
         path=path_dir / f"{coorinate:.4f}",
         logger=logger,
         inv_change_vj=args.inv_change_vj,
-        device="args.device",
+        device=args.device,
     )
 
     mrks_inv.kernel(method="cisd")

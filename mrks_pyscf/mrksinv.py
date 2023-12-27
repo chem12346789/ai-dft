@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 import torch
 import numpy as np
-import gc
+import matplotlib.pyplot as plt
 
 import opt_einsum as oe
 from scipy import linalg as LA
@@ -44,10 +44,12 @@ class Mrksinv:
         self.frac_old = frac_old
         if device is None:
             self.device = (
-                torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+                torch.device("cuda")
+                if torch.cuda.is_available()
+                else torch.device("cpu")
             )
         else:
-            self.device = device
+            self.device = torch.device(device)
         self.inv_change_vj = inv_change_vj
 
         self.path = path
@@ -430,6 +432,12 @@ class Mrksinv:
         np.save(self.path / "rho_scf_mrks.npy", rho_0_grid)
         np.save(self.path / "rho_t_mrks.npy", rho_t_grid)
         np.save(self.path / "dm1_inv.npy", self.dm1_inv)
+
+        f, axes = plt.subplots(self.mol.natm, 2)
+        for i in range(self.mol.natm):
+            axes[i, 0].imshow(-rho_t_grid[0, :, :], cmap="Greys", aspect="auto")
+            axes[i, 1].imshow(vxc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
+        plt.savefig(self.path / "fig.pdf")
 
     def scf(self, dm1):
         """
