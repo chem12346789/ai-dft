@@ -293,7 +293,7 @@ class Mrksinv:
         del self.dm1_mo, self.h1_mo
         torch.cuda.empty_cache()
 
-    def inverse(self, epochs=self.inv_step):
+    def inverse(self):
         """
         This function is used to do the inverse calculation.
         """
@@ -304,7 +304,7 @@ class Mrksinv:
             self.dm1_inv, backend="torch"
         )
 
-        for i in range(epochs):
+        for i in range(self.inv_step):
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
             potential_shift = self.emax - np.max(eigvecs[: self.nocc])
             eigvecs_cuda = torch.from_numpy(eigvecs).to(self.device)
