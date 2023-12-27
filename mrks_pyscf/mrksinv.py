@@ -433,10 +433,12 @@ class Mrksinv:
         np.save(self.path / "rho_t_mrks.npy", rho_t_grid)
         np.save(self.path / "dm1_inv.npy", self.dm1_inv)
 
-        f, axes = plt.subplots(self.mol.natm, 2)
+        f, axes = plt.subplots(self.mol.natm, 4)
         for i in range(self.mol.natm):
             axes[i, 0].imshow(-rho_t_grid[0, :, :], cmap="Greys", aspect="auto")
             axes[i, 1].imshow(vxc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
+            axes[i, 2].imshow(exc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
+            axes[i, 3].imshow(exc_dm_grid[0, :, :], cmap="Greys", aspect="auto")
         plt.savefig(self.path / "fig.pdf")
 
     def scf(self, dm1):
