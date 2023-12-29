@@ -81,8 +81,7 @@ for data_i in args.data:
         if (len(data_file) == 1) and (len(masks_v_file) == 1):
             data = np.load(data_file[0])
             masks_v = np.load(masks_v_file[0])
-            # for i in range(data.shape[0]):
-            for i in [1]:
+            for i in range(data.shape[0]):
                 data_name = f"{data_path.parts[-1]}-{child.parts[-1]}-{i}.npy"
                 data_shape = (1, data.shape[1], data.shape[2])
                 masks_ve = np.zeros((1, data.shape[1], data.shape[2]))
