@@ -118,9 +118,9 @@ Path(path_dir / "inv.log").unlink(missing_ok=True)
 logger.addHandler(logging.FileHandler(path_dir / "inv.log"))
 logger.setLevel(logging.DEBUG)
 
-for coorinate in distance_l:
-    molecular[0][1] = coorinate
-    logger.info("%s", f"The distance is {coorinate}.")
+for coordinate in distance_l:
+    molecular[0][1] = coordinate
+    logger.info("%s", f"The distance is {coordinate}.")
 
     basis = {}
 
@@ -141,7 +141,7 @@ for coorinate in distance_l:
         frac_old=args.frac_old,
         level=args.level,
         inv_step=args.inv_step,
-        path=path_dir / f"{coorinate:.4f}",
+        path=path_dir / f"{coordinate:.4f}",
         logger=logger,
         inv_change_vj=args.inv_change_vj,
         device=args.device,

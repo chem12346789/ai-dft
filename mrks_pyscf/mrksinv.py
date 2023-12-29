@@ -131,23 +131,24 @@ class Mrksinv:
         self.eigs_e_dm1 = None
         self.eigs_v_dm1 = None
 
-    def kernel(self, method="fci"):
+    def kernel(self, method="fci", gen_dm2=True):
         """
         This function is used to do the quantum chemistry calculation.
         """
         if ((self.dm1 is not None)) and ((self.dm2 is not None)):
             self.logger.info("dm1 and dm2 are already calculated.\n")
         else:
-            self.e, self.dm1_mo, self.dm2_mo = kernel(method, self.myhf)
+            self.e, self.dm1_mo, self.dm2_mo = kernel(method, self.myhf, gen_dm2)
             self.logger.info("dm1_mo, dm2_mo done.\n")
             self.dm1 = self.oe_dm1_ao(self.dm1_mo, self.mo, self.mo)
-            self.dm2 = self.oe_dm2_ao(
-                self.dm2_mo,
-                self.mo,
-                self.mo,
-                self.mo,
-                self.mo,
-            )
+            if gen_dm2:
+                self.dm2 = self.oe_dm2_ao(
+                    self.dm2_mo,
+                    self.mo,
+                    self.mo,
+                    self.mo,
+                    self.mo,
+                )
             self.logger.info("dm1 dm2 done.\n")
             self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
             self.logger.info(
