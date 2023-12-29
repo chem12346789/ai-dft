@@ -345,7 +345,10 @@ class Mrksinv:
                 elif i % 10 == 0:
                     self.logger.info(".")
                 sys.stdout.flush()
-                self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
+                if self.inv_change_vj:
+                    self.dm1_inv = self.dm1_inv * (1 - self.frac_old) + dm1_inv_old * self.frac_old
+                else:
+                    self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
                 if error_vxc < 1e-6:
                     break
             else:
@@ -355,9 +358,6 @@ class Mrksinv:
             xc_v = self.aux_function.oe_fock(
                 self.vxc, self.grids.weights, backend="torch"
             )
-            if self.inv_change_vj:
-                vj = self.myhf.get_jk(self.mol, self.dm1_inv, 1)[0]
-                self.vj = vj * (1 - self.frac_old) + self.vj * self.frac_old
             fock_a = self.mats @ (self.h1e + self.vj + xc_v) @ self.mats
             eigvecs, mo = np.linalg.eigh(fock_a)
             mo = self.mats @ mo
