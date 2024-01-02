@@ -205,7 +205,6 @@ class Mrksinv:
                 self.logger.info(f"\n1Rdm, Grid {i:<8} of {len(self.grids.coords):<8}")
             elif i % 10 == 0:
                 self.logger.info(".")
-            sys.stdout.flush()
 
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
@@ -345,7 +344,6 @@ class Mrksinv:
                     )
                 elif i % 10 == 0:
                     self.logger.info(".")
-                sys.stdout.flush()
                 self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
                 if error_vxc < 1e-6:
                     break
@@ -460,9 +458,12 @@ class Mrksinv:
             dm1_old = dm1.copy()
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
-            if (error < 1e-12) or (step > self.scf_step):
+            if (error < 1e-10) or (step > self.scf_step):
                 self.logger.info(f"error of dm1 in the last step, {error:.2e}")
                 flag = False
+            else:
+                if step % 100 == 0:
+                    self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}")
             dm1 = dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
         return dm1
 
