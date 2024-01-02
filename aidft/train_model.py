@@ -159,7 +159,6 @@ def train_model(
                     model, val_loader, device, amp, criterion, experiment
                 )
                 scheduler.step(val_score)
-
                 pbar.set_postfix(
                     **{"loss (batch)": loss.item(), "error": val_score.float().cpu()}
                 )

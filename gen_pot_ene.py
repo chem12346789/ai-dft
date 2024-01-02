@@ -84,6 +84,15 @@ parser.add_argument(
     default="cuda",
 )
 
+parser.add_argument(
+    "--method",
+    "-me",
+    type=str,
+    choices=["cisd", "fci", "ccsd", "ccsdt"],
+    help="Method for quantum chemistry calculation. Default is 'cisd'.",
+    default="cisd",
+)
+
 args = parser.parse_args()
 
 if len(args.distance_list) == 3:
@@ -96,9 +105,11 @@ else:
 molecular = Mol[args.molecular]
 
 if args.inv_change_vj:
-    path_dir = path / f"data-vj-{args.molecular}-{args.basis}-{args.level}"
+    path_dir = (
+        path / f"data-vj-{args.molecular}-{args.basis}-{args.method}-{args.level}"
+    )
 else:
-    path_dir = path / f"data-{args.molecular}-{args.basis}-{args.level}"
+    path_dir = path / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}"
 if not path_dir.exists():
     path_dir.mkdir(parents=True)
 
@@ -138,7 +149,7 @@ for coordinate in distance_l:
         device=args.device,
     )
 
-    mrks_inv.kernel(method="cisd")
+    mrks_inv.kernel(method=args.method)
     mrks_inv.inv_prepare()
     mrks_inv.inv()
     del mrks_inv, mol

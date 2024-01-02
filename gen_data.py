@@ -66,6 +66,7 @@ imgs_path.mkdir(parents=True, exist_ok=True)
 masks_path.mkdir(parents=True, exist_ok=True)
 clean_dir(imgs_path)
 clean_dir(masks_path)
+print(f"data: {args.data}")
 
 error_message = ""
 method_str = args.method
@@ -75,6 +76,7 @@ for data_i in args.data:
     for child in (data_path).glob("*"):
         if not child.is_dir():
             continue
+        print(f"Processing {child.parts[-1]}")
         data_file = list(child.glob(f"rho_t_{method_str}.npy"))
         masks_v_file = list(child.glob(f"{method_str}.npy"))
 
@@ -104,15 +106,15 @@ for data_i in args.data:
                 np.save(imgs_path / data_name, data[i, :, :].reshape(data_shape))
                 np.save(masks_path / data_name, masks_ve)
 
-            if args.energy:
+                if args.energy:
+                    print(
+                        f"""{child.parts[-1]} max of masks_e {np.max(masks_e):.3e} """
+                        f"""min of masks {np.min(masks_e):.3e}"""
+                    )
                 print(
-                    f"""{child.parts[-1]} max of masks_e {np.max(masks_e):.3e} """
-                    f"""min of masks {np.min(masks_e):.3e}"""
+                    f"""{child.parts[-1]} max of masks_v {np.max(masks_v):.3e} """
+                    f"""min of masks {np.min(masks_v):.3e}"""
                 )
-            print(
-                f"""{child.parts[-1]} max of masks_v {np.max(masks_v):.3e} """
-                f"""min of masks {np.min(masks_v):.3e}"""
-            )
         else:
             error_message += f"""{child.parts[-1]} not found\n"""
 print("\n")
