@@ -86,7 +86,12 @@ def get_args_train(parser: argparse.ArgumentParser):
     More details.
     """
     parser.add_argument(
-        "--epochs", "-e", metavar="E", type=int, default=5000, help="Number of epochs"
+        "--epochs",
+        "-e",
+        metavar="E",
+        type=int,
+        default=5000,
+        help="Number of epochs",
     )
 
     parser.add_argument(
@@ -117,7 +122,11 @@ def get_args_train(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--scale", "-s", type=float, default=1, help="Downscaling factor of the images"
+        "--scale",
+        "-s",
+        type=float,
+        default=1,
+        help="Downscaling factor of the images",
     )
 
     parser.add_argument(
@@ -139,7 +148,18 @@ def get_args_train(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--amp", action="store_true", default=False, help="Use mixed precision"
+        "--amp",
+        action="store_true",
+        default=False,
+        help="Use mixed precision",
+    )
+
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="unet",
+        choices=["unet", "unet_small"],
+        help="Witch model we used to do the machine learning.",
     )
 
 

@@ -106,15 +106,15 @@ for data_i in args.data:
                 np.save(imgs_path / data_name, data[i, :, :].reshape(data_shape))
                 np.save(masks_path / data_name, masks_ve)
 
-            if args.energy:
+                if args.energy:
+                    print(
+                        f"""{child.parts[-1]} max of masks_e {np.max(masks_e):.3e} """
+                        f"""min of masks {np.min(masks_e):.3e}"""
+                    )
                 print(
-                    f"""{child.parts[-1]} max of masks_e {np.max(masks_e):.3e} """
-                    f"""min of masks {np.min(masks_e):.3e}"""
+                    f"""{child.parts[-1]} max of masks_v {np.max(masks_v):.3e} """
+                    f"""min of masks {np.min(masks_v):.3e}"""
                 )
-            print(
-                f"""{child.parts[-1]} max of masks_v {np.max(masks_v):.3e} """
-                f"""min of masks {np.min(masks_v):.3e}"""
-            )
         else:
             error_message += f"""{child.parts[-1]} not found\n"""
 print("\n")

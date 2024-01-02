@@ -90,7 +90,7 @@ parser.add_argument(
     type=str,
     choices=["cisd", "fci", "ccsd", "ccsdt"],
     help="Method for quantum chemistry calculation. Default is 'cisd'.",
-    default="DFT",
+    default="cisd",
 )
 
 args = parser.parse_args()
@@ -105,7 +105,9 @@ else:
 molecular = Mol[args.molecular]
 
 if args.inv_change_vj:
-    path_dir = path / f"data-vj-{args.molecular}-{args.basis}-{args.method}-{args.level}"
+    path_dir = (
+        path / f"data-vj-{args.molecular}-{args.basis}-{args.method}-{args.level}"
+    )
 else:
     path_dir = path / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}"
 if not path_dir.exists():

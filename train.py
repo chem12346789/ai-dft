@@ -2,7 +2,6 @@ import argparse
 import logging
 import torch
 
-from src.aidft.unet.unet_model import UNet
 from src.aidft.get_args import get_args_train, get_args_model
 from src.aidft.train_model import train_model
 
@@ -14,15 +13,20 @@ if __name__ == "__main__":
     get_args_model(parser)
     args = parser.parse_args()
 
+    if args.model == "unet_small":
+        from src.aidft.unet.unet_model_small import UNet
+    elif args.model == "unet":
+        from src.aidft.unet.unet_model import UNet
+    else:
+        raise ValueError("Unknown model")
+
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Change here to adapt to your data
     # n_channels=1 for rho only
     # n_classes is the output channels of the network
-    model = UNet(
-        n_channels=1, n_classes=args.classes, bilinear=args.bilinear
-    )
+    model = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
     model.double()
     model = model.to(memory_format=torch.channels_last)
 
