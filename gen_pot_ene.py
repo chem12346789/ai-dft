@@ -11,7 +11,7 @@ import pyscf
 import argparse
 
 from src.mrks_pyscf.mrksinv import Mrksinv
-from src.mrks_pyscf.utils.mol import Mol, BASIS
+from src.mrks_pyscf.utils.mol import Mol, BASIS, old_function
 
 path = Path(__file__).resolve().parents[1] / "data"
 parser = argparse.ArgumentParser(
@@ -32,14 +32,6 @@ parser.add_argument(
     type=str,
     default="cc-pv5z",
     help="Name of basis. We use cc-pv5z as default. Note we will remove core correlation of H atom; See https://github.com/pyscf/pyscf/issues/1795",
-)
-
-parser.add_argument(
-    "--frac_old",
-    "-f",
-    type=float,
-    help="Used for SCF process to determine the fraction of old density matrix. Default is 0.8.",
-    default=0.8,
 )
 
 parser.add_argument(
@@ -120,9 +112,9 @@ Path(path_dir / "inv.log").unlink(missing_ok=True)
 logger.addHandler(logging.FileHandler(path_dir / "inv.log"))
 logger.setLevel(logging.DEBUG)
 
-for coordinate in distance_l:
-    molecular[0][1] = coordinate
-    logger.info("%s", f"The distance is {coordinate}.")
+for distance in distance_l:
+    molecular[0][1] = distance
+    logger.info("%s", f"The distance is {distance}.")
 
     basis = {}
 
@@ -140,10 +132,10 @@ for coordinate in distance_l:
 
     mrks_inv = Mrksinv(
         mol,
-        frac_old=args.frac_old,
+        frac_old=old_function(distance),
         level=args.level,
         inv_step=args.inv_step,
-        path=path_dir / f"{coordinate:.4f}",
+        path=path_dir / f"{distance:.4f}",
         logger=logger,
         inv_change_vj=args.inv_change_vj,
         device=args.device,

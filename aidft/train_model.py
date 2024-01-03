@@ -25,8 +25,8 @@ def train_model(
     train: int = 200,
     save_checkpoint: bool = True,
     amp: bool = False,
-    weight_decay: float = 1e-8,
-    momentum: float = 0.999,
+    weight_decay: float = 1e-5,
+    momentum: float = 0.9,
     gradient_clipping: float = 1.0,
 ):
     """Documentation for a function.
@@ -105,11 +105,10 @@ def train_model(
 
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
     criterion = nn.MSELoss()
-    division_epoch = 100
+    division_epoch = 50
     val_score = None
 
     # 5. Begin training
-
     with tqdm(total=epochs, unit="epoch") as pbar:
         for epoch in range(1, epochs + 1):
             model.train()
@@ -161,10 +160,17 @@ def train_model(
                 pbar.set_postfix(
                     **{"loss (batch)": loss.item(), "error": val_score.float().cpu()}
                 )
+                experiment.log(
+                    {
+                        "val loss": loss.item(),
+                        "learning rate": optimizer.param_groups[0]["lr"],
+                    }
+                )
 
                 if save_checkpoint:
                     Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
                     state_dict_ = model.state_dict()
                     torch.save(
-                        state_dict_, str(dir_checkpoint / "checkpoint_epoch.pth")
+                        state_dict_,
+                        str(dir_checkpoint / f"checkpoint_epoch-{epoch}.pth"),
                     )

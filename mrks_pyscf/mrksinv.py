@@ -303,7 +303,6 @@ class Mrksinv:
         This function is used to do the inverse calculation.
         """
         eigvecs = self.myhf.mo_energy.copy()
-        mo = torch.from_numpy(self.mo).to(self.device)
         self.dm1_inv = self.dm1.copy() / 2
         self.v_vxc_e_taup += self.exc / self.aux_function.oe_rho_r(
             self.dm1_inv, backend="torch"
@@ -313,6 +312,7 @@ class Mrksinv:
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
             potential_shift = self.emax - np.max(eigvecs[: self.nocc])
             eigvecs_cuda = torch.from_numpy(eigvecs).to(self.device)
+            mo = torch.from_numpy(self.mo).to(self.device)
 
             ebar_ks = self.aux_function.oe_ebar_r_ks(
                 eigvecs_cuda[: self.nocc] + potential_shift,
@@ -346,10 +346,7 @@ class Mrksinv:
                     self.logger.info(".")
                 self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
                 if error_vxc < 1e-6:
-                    if self.inv_change_vj:
-                        self.dm1_inv = self.dm1_inv * (1 - self.frac_old) + dm1_inv_old * self.frac_old
-                    else:
-                        break
+                    break
             else:
                 self.logger.info(f"Begin inverse calculation. step: {i:<38} ")
 
@@ -362,7 +359,17 @@ class Mrksinv:
             mo = self.mats @ mo
             dm1_inv_old = self.dm1_inv.copy()
             self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
-            mo = torch.from_numpy(mo).to(self.device)
+
+            if self.inv_change_vj:
+                for i in range(self.scf_step):
+                    vj = self.myhf.get_jk(self.mol, self.dm1_inv, 1)[0]
+                    fock_a = self.mats @ (self.h1e + vj + xc_v) @ self.mats
+                    eigvecs, mo = np.linalg.eigh(fock_a)
+                    mo = self.mats @ mo
+                    self.dm1_inv = self.dm1_inv.copy() * self.frac_old
+                    self.dm1_inv += (
+                        mo[:, : self.nocc] @ mo[:, : self.nocc].T * (1 - self.frac_old)
+                    )
         self.logger.info("\ninverse done.\n\n")
 
     def check(self):
@@ -391,7 +398,7 @@ class Mrksinv:
         )
 
         self.logger.info(
-            f"\nerror of energy: {((ene_t_vc - self.e) * au2kjmol):<10.2e}\n"
+            f"\nerror of energy: {((ene_t_vc - self.e) * au2kjmol):<10.2e} kj/mol\n"
         )
 
     def save_data(self):

@@ -35,3 +35,15 @@ BASIS = {
     "cc-pcvtz": "cc-pvtz",
     "cc-pcvdz": "cc-pvdz",
 }
+
+
+def old_function(distance):
+    '''
+    This function is used to determine the factor of mixing old and new density matrix in SCF process
+    '''
+    if distance < 1.5:
+        return 0.8
+    if distance < 2.5:
+        return 0.95
+    if distance < 3.5:
+        return 0.975

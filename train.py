@@ -49,14 +49,18 @@ if __name__ == "__main__":
     try:
         train_model(
             model=model,
+            device=device,
             epochs=args.epochs,
             batch_size=args.batch_size,
             learning_rate=args.lr,
-            device=device,
             name=args.name,
             val=args.val,
             train=args.train,
+            save_checkpoint=True,
             amp=args.amp,
+            weight_decay=1e-5,
+            momentum=0.9,
+            gradient_clipping=1.0,
         )
 
     except torch.cuda.OutOfMemoryError:

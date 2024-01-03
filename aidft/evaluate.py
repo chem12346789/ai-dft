@@ -38,8 +38,6 @@ def evaluate(net, dataloader, device, amp, criterion, experiment):
             "masks": {
                 "true_0": wandb.Image(mask_true[0].float().cpu()),
                 "pred_0": wandb.Image(mask_pred[0].float().cpu()),
-                "true_1": wandb.Image(mask_true[1].float().cpu()),
-                "pred_1": wandb.Image(mask_pred[1].float().cpu()),
             },
         }
     )
