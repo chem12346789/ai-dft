@@ -1,10 +1,4 @@
-"""@package docstring
-Documentation for this module.
- 
-More details.
-"""
 import logging
-import gc
 from pathlib import Path
 import numpy as np
 import pyscf
@@ -77,14 +71,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--inv_step",
-    "-s",
-    type=int,
-    help="Number of steps for inversion. Default is 25000.",
-    default=25000,
-)
-
-parser.add_argument(
     "--device",
     "-de",
     type=str,
@@ -138,8 +124,8 @@ if not path_dir.exists():
 logger = logging.getLogger(__name__)
 logging.StreamHandler.terminator = ""
 # clear the log
-Path(path_dir / "inv.log").unlink(missing_ok=True)
-logger.addHandler(logging.FileHandler(path_dir / "inv.log"))
+Path(path_dir / "compare.log").unlink(missing_ok=True)
+logger.addHandler(logging.FileHandler(path_dir / "compare.log"))
 logger.setLevel(logging.DEBUG)
 
 for distance in distance_l:
@@ -164,16 +150,44 @@ for distance in distance_l:
         mol,
         frac_old=old_function(distance),
         level=args.level,
-        inv_step=args.inv_step,
-        path=path_dir / f"{distance:.4f}",
+        scf_step=25000,
         logger=logger,
-        inv_change_vj=args.inv_change_vj,
         device=args.device,
     )
+    mrks_inv.kernel(method=args.method, gen_dm2=False)
+    print("Inverse done")
 
-    mrks_inv.kernel(method=args.method)
-    mrks_inv.inv_prepare()
-    mrks_inv.inv()
-    del mrks_inv, mol
+    mdft = mol.KS()
+    mdft.xc = "b3lyp"
+    mdft.kernel()
+    dm1_dft = mdft.make_rdm1()
+    logger.info("%s", f"ene_dft: {2625.5 * mdft.e_tot:16.10e}")
+    logger.info("%s", f"ene_exa: {2625.5 * mrks_inv.e:16.10e}")
+
+    mrks_inv.vxc = mrks_inv.grids.matrix_to_vector(
+        np.load(path_dir / f"{distance:.4f}" / "mrks.npy")
+    )
+    dm1_inv = 2 * np.load(path_dir / f"{distance:.4f}" / "dm1_inv.npy")
+    dm1_scf = mrks_inv.scf(dm1_dft)
+
+    dm1_exa_r = mrks_inv.aux_function.oe_rho_r(mrks_inv.dm1, backend="torch")
+    dm1_dft_r = mrks_inv.aux_function.oe_rho_r(dm1_dft, backend="torch")
+    dm1_inv_r = mrks_inv.aux_function.oe_rho_r(dm1_inv, backend="torch")
+    dm1_scf_r = mrks_inv.aux_function.oe_rho_r(dm1_scf, backend="torch")
+    dm1_dft_error = np.sum(np.abs(dm1_exa_r - dm1_dft_r) * mrks_inv.grids.weights)
+    dm1_inv_error = np.sum(np.abs(dm1_exa_r - dm1_inv_r) * mrks_inv.grids.weights)
+    dm1_scf_error = np.sum(np.abs(dm1_exa_r - dm1_scf_r) * mrks_inv.grids.weights)
+    logger.info("%s", f"dm1_dft_error: {dm1_dft_error:16.10e}")
+    logger.info("%s", f"dm1_inv_error: {dm1_inv_error:16.10e}")
+    logger.info("%s", f"dm1_scf_error: {dm1_scf_error:16.10e}")
+
+    mrks_inv.exc_kin_correct = mrks_inv.grids.matrix_to_vector(
+        np.load(path_dir / f"{distance:.4f}" / "mrks_e.npy")
+    )
+    logger.info("%s", f"energy_inv: {2625.5 * mrks_inv.gen_energy(dm1_inv)}")
+    logger.info("%s", f"energy_scf: {2625.5 * mrks_inv.gen_energy(dm1_scf)}")
+    logger.info("\n")
+    del mrks_inv
+    del mdft
+    # torch.cuda.empty_cache()
     gc.collect()
-    print("All done.\n")

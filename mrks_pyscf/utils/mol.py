@@ -37,13 +37,26 @@ BASIS = {
 }
 
 
-def old_function(distance):
-    '''
+def old_function1(distance):
+    """
     This function is used to determine the factor of mixing old and new density matrix in SCF process
-    '''
+    """
     if distance < 1.5:
         return 0.8
     if distance < 2.5:
         return 0.95
     if distance < 3.5:
         return 0.975
+
+
+def old_function2(distance):
+    """
+    This function is used to determine the factor of mixing old and new density matrix in SCF process
+    """
+    if distance < 1.5:
+        return 0.9
+    if distance < 2.5:
+        return 0.95
+    if distance < 3.5:
+        return 0.975
+
