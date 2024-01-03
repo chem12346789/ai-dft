@@ -36,6 +36,7 @@ class Mrksinv:
         logger=None,
         inv_change_vj=False,
         device=None,
+        noisy_print=False,
     ):
         self.mol = mol
         s_0_ao = mol.intor("int1e_ovlp")
@@ -51,6 +52,7 @@ class Mrksinv:
         else:
             self.device = torch.device(device)
         self.inv_change_vj = inv_change_vj
+        self.noise_print = noisy_print
 
         self.path = path
         # make directory if not exist
@@ -334,7 +336,7 @@ class Mrksinv:
             if i > 0:
                 error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
                 error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
-                if i % 100 == 0:
+                if self.noise_print:
                     self.logger.info(
                         "\n%s %s %s %s ",
                         f"step:{i:<8}",
@@ -342,8 +344,18 @@ class Mrksinv:
                         f"dm: {error_dm1:<10.2e}",
                         f"shift: {potential_shift:<10.2e}",
                     )
-                elif i % 10 == 0:
-                    self.logger.info(".")
+                else:
+                    if i % 100 == 0:
+                        self.logger.info(
+                            "\n%s %s %s %s ",
+                            f"step:{i:<8}",
+                            f"error of vxc: {error_vxc:<10.2e}",
+                            f"dm: {error_dm1:<10.2e}",
+                            f"shift: {potential_shift:<10.2e}",
+                        )
+                    elif i % 10 == 0:
+                        self.logger.info(".")
+
                 self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
                 if error_vxc < 1e-6:
                     break
@@ -360,16 +372,30 @@ class Mrksinv:
             dm1_inv_old = self.dm1_inv.copy()
             self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
 
-            if self.inv_change_vj:
-                for i in range(self.scf_step):
-                    vj = self.myhf.get_jk(self.mol, self.dm1_inv, 1)[0]
-                    fock_a = self.mats @ (self.h1e + vj + xc_v) @ self.mats
-                    eigvecs, mo = np.linalg.eigh(fock_a)
-                    mo = self.mats @ mo
-                    self.dm1_inv = self.dm1_inv.copy() * self.frac_old
-                    self.dm1_inv += (
-                        mo[:, : self.nocc] @ mo[:, : self.nocc].T * (1 - self.frac_old)
-                    )
+            if i > 0:
+                if self.inv_change_vj:
+                    if error_vxc < 2e-6:
+                        for i in range(self.scf_step):
+                            vj = self.myhf.get_jk(self.mol, self.dm1_inv, 1)[0]
+                            fock_a = self.mats @ (self.h1e + vj + xc_v) @ self.mats
+                            eigvecs, mo = np.linalg.eigh(fock_a)
+                            mo = self.mats @ mo
+                            dm1_old = self.dm1_inv.copy()
+                            dm1 = mo[:, : self.nocc] @ mo[:, : self.nocc].T
+                            error = np.linalg.norm(dm1 - dm1_old)
+                            if error < 1e-10:
+                                self.logger.info(
+                                    f"error of dm1 in the last step, {error:.2e}"
+                                )
+                                break
+                            else:
+                                if i % 100 == 0:
+                                    self.logger.info(
+                                        f"step: {i:<8} error of dm1, {error:.2e}"
+                                    )
+                                self.dm1_inv = (
+                                    dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
+                                )
         self.logger.info("\ninverse done.\n\n")
 
     def check(self):
