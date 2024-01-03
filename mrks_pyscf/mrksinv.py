@@ -233,7 +233,6 @@ class Mrksinv:
                 self.logger.info(f"\n2Rdm, Grid {i:<8} of {len(self.grids.coords):<8}")
             elif i % 10 == 0:
                 self.logger.info(".")
-            sys.stdout.flush()
             ao_0_i = torch.from_numpy(self.ao_0[i]).to(self.device)
 
             with self.mol.with_rinv_origin(coord):
@@ -334,23 +333,23 @@ class Mrksinv:
             self.vxc = self.v_vxc_e_taup + ebar_ks - self.taup_rho_ks
             if i > 0:
                 error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
+                error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
                 if i % 100 == 0:
                     self.logger.info(
                         "\n%s %s %s %s ",
                         f"step:{i:<8}",
                         f"error of vxc: {error_vxc:<10.2e}",
-                        f"dm: {np.linalg.norm(self.dm1_inv - dm1_inv_old):<10.2e}",
+                        f"dm: {error_dm1:<10.2e}",
                         f"shift: {potential_shift:<10.2e}",
                     )
                 elif i % 10 == 0:
                     self.logger.info(".")
-                sys.stdout.flush()
-                if self.inv_change_vj:
-                    self.dm1_inv = self.dm1_inv * (1 - self.frac_old) + dm1_inv_old * self.frac_old
-                else:
-                    self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
+                self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
                 if error_vxc < 1e-6:
-                    break
+                    if self.inv_change_vj:
+                        self.dm1_inv = self.dm1_inv * (1 - self.frac_old) + dm1_inv_old * self.frac_old
+                    else:
+                        break
             else:
                 self.logger.info(f"Begin inverse calculation. step: {i:<38} ")
 
