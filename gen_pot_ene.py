@@ -94,6 +94,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--noisy_print",
+    "-n",
+    type=str,
+    default="False",
+    help="Whether to noisy print. Default is 'False'.",
+)
+
+parser.add_argument(
     "--method",
     "-me",
     type=str,
@@ -169,6 +177,7 @@ for distance in distance_l:
         logger=logger,
         inv_change_vj=args.inv_change_vj,
         device=args.device,
+        noisy_print=args.noisy_print,
     )
 
     mrks_inv.kernel(method=args.method)
