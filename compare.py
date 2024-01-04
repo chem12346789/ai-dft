@@ -172,6 +172,7 @@ for distance in distance_l:
     )
     logger.info("%s", f"energy_inv: {2625.5 * mrks_inv.gen_energy(dm1_inv)}")
     logger.info("%s", f"energy_scf: {2625.5 * mrks_inv.gen_energy(dm1_scf)}")
+    logger.info("%s", f"energy_exa: {2625.5 * mrks_inv.gen_energy(mrks_inv.dm1)}")
     logger.info("\n")
     del mrks_inv
     del mdft
