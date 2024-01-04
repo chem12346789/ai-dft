@@ -34,7 +34,6 @@ class Mrksinv:
         scf_step=2500,
         path=Path(__file__).resolve().parents[0],
         logger=None,
-        inv_change_vj=False,
         device=None,
         noisy_print=False,
     ):
@@ -51,7 +50,6 @@ class Mrksinv:
             )
         else:
             self.device = torch.device(device)
-        self.inv_change_vj = inv_change_vj
         self.noise_print = noisy_print
 
         self.path = path
@@ -304,6 +302,7 @@ class Mrksinv:
         """
         This function is used to do the inverse calculation.
         """
+        mo = self.mo.copy()
         eigvecs = self.myhf.mo_energy.copy()
         self.dm1_inv = self.dm1.copy() / 2
         self.v_vxc_e_taup += self.exc / self.aux_function.oe_rho_r(
@@ -314,7 +313,7 @@ class Mrksinv:
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
             potential_shift = self.emax - np.max(eigvecs[: self.nocc])
             eigvecs_cuda = torch.from_numpy(eigvecs).to(self.device)
-            mo = torch.from_numpy(self.mo).to(self.device)
+            mo = torch.from_numpy(mo).to(self.device)
 
             ebar_ks = self.aux_function.oe_ebar_r_ks(
                 eigvecs_cuda[: self.nocc] + potential_shift,
@@ -371,31 +370,6 @@ class Mrksinv:
             mo = self.mats @ mo
             dm1_inv_old = self.dm1_inv.copy()
             self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
-
-            if i > 0:
-                if self.inv_change_vj:
-                    if error_vxc < 2e-6:
-                        for i in range(self.scf_step):
-                            vj = self.myhf.get_jk(self.mol, self.dm1_inv, 1)[0]
-                            fock_a = self.mats @ (self.h1e + vj + xc_v) @ self.mats
-                            eigvecs, mo = np.linalg.eigh(fock_a)
-                            mo = self.mats @ mo
-                            dm1_old = self.dm1_inv.copy()
-                            dm1 = mo[:, : self.nocc] @ mo[:, : self.nocc].T
-                            error = np.linalg.norm(dm1 - dm1_old)
-                            if error < 1e-10:
-                                self.logger.info(
-                                    f"error of dm1 in the last step, {error:.2e}"
-                                )
-                                break
-                            else:
-                                if i % 100 == 0:
-                                    self.logger.info(
-                                        f"step: {i:<8} error of dm1, {error:.2e}"
-                                    )
-                                self.dm1_inv = (
-                                    dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
-                                )
         self.logger.info("\ninverse done.\n\n")
 
     def check(self):

@@ -46,14 +46,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--inv_change_vj",
-    "-v",
-    type=bool,
-    help="Whether to change the vj matrix. Default is False.",
-    default=False,
-)
-
-parser.add_argument(
     "--old_factor_scheme",
     "-fs",
     type=int,
@@ -112,12 +104,6 @@ else:
 
 molecular = Mol[args.molecular]
 
-if args.inv_change_vj:
-    path_dir = (
-        path / f"data-vj-{args.molecular}-{args.basis}-{args.method}-{args.level}"
-    )
-else:
-    path_dir = path / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}"
 if not path_dir.exists():
     path_dir.mkdir(parents=True)
 

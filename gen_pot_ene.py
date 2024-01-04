@@ -52,14 +52,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--inv_change_vj",
-    "-v",
-    type=bool,
-    help="Whether to change the vj matrix. Default is False.",
-    default=False,
-)
-
-parser.add_argument(
     "--old_factor_scheme",
     "-fs",
     type=int,
@@ -122,7 +114,7 @@ else:
         """
         This function is used to determine the factor of mixing old and new density matrix in SCF process
         """
-        return parser.parse_args
+        return args.old_factor
 
 
 if len(args.distance_list) == 3:
@@ -134,12 +126,7 @@ else:
 
 molecular = Mol[args.molecular]
 
-if args.inv_change_vj:
-    path_dir = (
-        path / f"data-vj-{args.molecular}-{args.basis}-{args.method}-{args.level}"
-    )
-else:
-    path_dir = path / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}"
+path_dir = path / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}"
 if not path_dir.exists():
     path_dir.mkdir(parents=True)
 
@@ -175,7 +162,6 @@ for distance in distance_l:
         inv_step=args.inv_step,
         path=path_dir / f"{distance:.4f}",
         logger=logger,
-        inv_change_vj=args.inv_change_vj,
         device=args.device,
         noisy_print=args.noisy_print,
     )
