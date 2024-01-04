@@ -90,27 +90,8 @@ class Mrksinv:
         self.eri_mo = pyscf.ao2mo.kernel(self.eri, self.mo, compact=False)
         self.aux_function = Auxfunction(self)
 
-        shapes = np.shape(self.h1e), np.shape(self.h1e)
-        self.oe_dm1_energy = oe.contract_expression("ij,ji->", *shapes)
-
-        shapes = (
-            (self.norb, self.norb, self.norb, self.norb),
-            np.shape(self.h1e),
-            np.shape(self.h1e),
-        )
-        self.oe_dm2_energy = oe.contract_expression("pqrs,pq,rs->", *shapes)
-
         shapes = np.shape(self.h1e), np.shape(self.h1e), np.shape(self.h1e)
         self.oe_dm1_ao = oe.contract_expression("ij,pi,qj->pq", *shapes)
-
-        shapes = (
-            (self.norb, self.norb, self.norb, self.norb),
-            np.shape(self.h1e),
-            np.shape(self.h1e),
-            np.shape(self.h1e),
-            np.shape(self.h1e),
-        )
-        self.oe_dm2_ao = oe.contract_expression("pqrs,ip,jq,ur,vs->ijuv", *shapes)
 
         self.dm1 = None
         self.dm2 = None
@@ -140,9 +121,10 @@ class Mrksinv:
         else:
             self.e, self.dm1_mo, self.dm2_mo = kernel(method, self.myhf, gen_dm2)
             self.logger.info("dm1_mo, dm2_mo done.\n")
-            self.dm1 = self.oe_dm1_ao(self.dm1_mo, self.mo, self.mo)
+            self.dm1 = oe.contract("ij,pi,qj->pq", self.dm1_mo, self.mo, self.mo)
             if gen_dm2:
-                self.dm2 = self.oe_dm2_ao(
+                self.dm2 = oe.contract(
+                    "pqrs,ip,jq,ur,vs->ijuv",
                     self.dm2_mo,
                     self.mo,
                     self.mo,
@@ -383,8 +365,8 @@ class Mrksinv:
         error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
         self.logger.info(f"\nerror of dm1_inv, {error_inv_r:<10.2e}")
 
-        e_nuc = self.oe_dm1_energy(self.nuc, self.dm1, backend="torch").real
-        e_vj = self.oe_dm2_energy(self.eri, self.dm1, self.dm1, backend="torch").real
+        e_nuc = oe.contract("ij,ji->", self.nuc, self.dm1)
+        e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
 
         au2kjmol = 2625.5
         t_r = -0.5 * np.einsum("uv, gu, gv -> g", self.dm1, self.ao_0, self.ao_2_diag)
@@ -481,8 +463,8 @@ class Mrksinv:
         if exc_kin_correct is None:
             exc_kin_correct = self.exc_kin_correct
         nuc = self.mol.intor("int1e_nuc")
-        e_nuc = self.oe_dm1_energy(nuc, dm1, backend="torch").real
-        e_vj = self.oe_dm2_energy(self.eri, dm1, dm1, backend="torch").real
+        e_nuc = oe.contract("ij,ji->", nuc, dm1)
+        e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
 
         ene_t_vc = (
             e_nuc

@@ -104,6 +104,7 @@ else:
 
 molecular = Mol[args.molecular]
 
+path_dir = path / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}"
 if not path_dir.exists():
     path_dir.mkdir(parents=True)
 
@@ -176,5 +177,5 @@ for distance in distance_l:
     logger.info("\n")
     del mrks_inv
     del mdft
-    # torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
     gc.collect()
