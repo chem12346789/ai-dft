@@ -352,7 +352,7 @@ class Mrksinv:
                         self.logger.info(".")
 
                 self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
-                if error_vxc < 1e-6:
+                if error_vxc < 1e-4:
                     self.tau_rho_ks = gen_tau_rho(
                         self.aux_function.oe_tau_rho,
                         dm1_inv_r,
