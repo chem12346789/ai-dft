@@ -425,7 +425,7 @@ class Mrksinv:
             + self.mol.energy_nuc()
             + e_vj * 0.5
             + (w_vec * self.grids.weights).sum()
-            - 2 * ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
+            - ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
 
         self.logger.info(
