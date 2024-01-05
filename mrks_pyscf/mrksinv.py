@@ -20,6 +20,7 @@ from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
 from .utils.gen_taup_rho import gen_taup_rho, gen_tau_rho
+from .utils.gen_w import gen_taup_w
 
 
 class Mrksinv:
@@ -353,14 +354,6 @@ class Mrksinv:
 
                 self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
                 if error_vxc < 1e-4:
-                    self.tau_rho_ks = gen_tau_rho(
-                        self.aux_function.oe_tau_rho,
-                        dm1_inv_r,
-                        mo[:, : self.nocc],
-                        np.ones(self.nocc) * 2,
-                        backend="torch",
-                    )
-                    self.logger.info("\nTau_rho_ks done.\n")
                     break
             else:
                 self.logger.info(f"Begin inverse calculation. step: {i:<38} ")
@@ -374,6 +367,15 @@ class Mrksinv:
             mo = self.mats @ mo
             dm1_inv_old = self.dm1_inv.copy()
             self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
+
+        self.tau_rho_ks = gen_tau_rho(
+            self.aux_function.oe_tau_rho,
+            dm1_inv_r,
+            mo[:, : self.nocc],
+            np.ones(self.nocc) * 2,
+            backend="torch",
+        )
+        self.logger.info("\nTau_rho_ks done.\n")
         self.logger.info("\ninverse done.\n\n")
 
     def check(self):
@@ -387,7 +389,7 @@ class Mrksinv:
         error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
         self.logger.info(f"\nerror of dm1_inv, {error_inv_r:<10.5e}")
 
-        rho_0 = self.aux_function.oe_rho_r(self.dm1_inv * 2)
+        rho_0 = self.aux_function.oe_rho_r(dm1_inv)
         rho_t = self.aux_function.oe_rho_r(self.dm1)
         cut_off_r = np.ones_like(rho_t)
         cut_off_r[rho_t < 1e-10] = 0
@@ -407,15 +409,23 @@ class Mrksinv:
             f"\nerror of exact energy: {((ene_t_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
         )
 
+        w_vec = gen_taup_w(
+            dm1_inv,
+            rho_0,
+            self.ao_0,
+            self.ao_1,
+            self.vxc,
+            self.grids.coords,
+        )
+
         e_nuc = oe.contract("ij,ji->", self.nuc, dm1_inv)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1_inv, dm1_inv)
         ene_0_vc = (
             e_nuc
             + (self.tau_rho_ks * self.grids.weights).sum()
-            + ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
             + self.mol.energy_nuc()
             + e_vj * 0.5
-            + (exc_over_dm * rho_0 * self.grids.weights).sum()
+            + (w_vec * self.grids.weights).sum()
         )
 
         self.logger.info(
@@ -424,6 +434,10 @@ class Mrksinv:
 
         self.logger.info(
             f"correct kinetic energy: {(((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum() * self.au2kjmol):<10.5e} kj/mol\n"
+        )
+
+        self.logger.info(
+            f"error: {(np.sum((w_vec - 2 * (self.tau_rho_wf - self.tau_rho_ks) - self.exc) * self.grids.weights) * self.au2kjmol):<10.5e} kj/mol\n"
         )
 
     def save_data(self):

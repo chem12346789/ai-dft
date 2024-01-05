@@ -44,9 +44,9 @@ def old_function1(distance):
     if distance < 1.5:
         return 0.8
     if distance < 2.5:
-        return 0.95
+        return 0.9
     if distance < 3.5:
-        return 0.975
+        return 0.95
 
 
 def old_function2(distance):

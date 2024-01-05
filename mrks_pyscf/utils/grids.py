@@ -137,7 +137,8 @@ def modified_build(grids, mol=None, **kwargs):
 
 
 class Grid(dft.gen_grid.Grids):
-    """Documentation for a class.
+    """
+    Documentation for a class.
 
     This class is modified from pyscf.dft.gen_grid.Grids. Some default parameters are changed.
     """
