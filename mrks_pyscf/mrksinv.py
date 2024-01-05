@@ -422,10 +422,10 @@ class Mrksinv:
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1_inv, dm1_inv)
         ene_0_vc = (
             e_nuc
-            + (self.tau_rho_ks * self.grids.weights).sum()
             + self.mol.energy_nuc()
             + e_vj * 0.5
             + (w_vec * self.grids.weights).sum()
+            - 2 * ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
 
         self.logger.info(
