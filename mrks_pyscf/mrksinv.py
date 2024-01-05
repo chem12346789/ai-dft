@@ -418,7 +418,7 @@ class Mrksinv:
             self.grids.coords,
         )
 
-        e_nuc = oe.contract("ij,ji->", self.nuc, dm1_inv)
+        e_nuc = oe.contract("ij,ji->", self.h1e, dm1_inv)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1_inv, dm1_inv)
         ene_0_vc = (
             e_nuc
@@ -451,39 +451,39 @@ class Mrksinv:
 
         cut_off_r = np.ones_like(rho_t)
         cut_off_r[rho_t < 1e-10] = 0
-        exc_over_dm = (self.exc_kin_correct + 1e-14) / (rho_t + 1e-14) * cut_off_r
+        # exc_over_dm = (self.exc_kin_correct + 1e-14) / (rho_t + 1e-14) * cut_off_r
 
         vxc_mrks_grid = self.grids.vector_to_matrix(self.vxc)
-        exc_mrks_grid = self.grids.vector_to_matrix(self.exc_kin_correct)
-        exc_dm_grid = self.grids.vector_to_matrix(exc_over_dm)
+        # exc_mrks_grid = self.grids.vector_to_matrix(self.exc_kin_correct)
+        # exc_dm_grid = self.grids.vector_to_matrix(exc_over_dm)
 
         rho_0_check = self.grids.matrix_to_vector(rho_0_grid)
         rho_t_check = self.grids.matrix_to_vector(rho_t_grid)
         vxc_mrks_check = self.grids.matrix_to_vector(vxc_mrks_grid)
-        exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
-        exc_dm_check = self.grids.matrix_to_vector(exc_dm_grid)
+        # exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
+        # exc_dm_check = self.grids.matrix_to_vector(exc_dm_grid)
 
         self.logger.info(
             f"\nCheck! {np.linalg.norm(rho_0 - rho_0_check):<10.5e}\n"
             f"{np.linalg.norm(rho_t - rho_t_check):<10.5e}\n"
             f"{np.linalg.norm(self.vxc - vxc_mrks_check):<10.5e}\n"
-            f"{np.linalg.norm(self.exc_kin_correct - exc_mrks_check):<10.5e}\n"
-            f"{np.linalg.norm(exc_over_dm - exc_dm_check):<10.5e}\n"
+            # f"{np.linalg.norm(self.exc_kin_correct - exc_mrks_check):<10.5e}\n"
+            # f"{np.linalg.norm(exc_over_dm - exc_dm_check):<10.5e}\n"
         )
 
         np.save(self.path / "mrks.npy", vxc_mrks_grid)
-        np.save(self.path / "mrks_e.npy", exc_mrks_grid)
-        np.save(self.path / "mrks_e_dm.npy", exc_dm_grid)
+        # np.save(self.path / "mrks_e.npy", exc_mrks_grid)
+        # np.save(self.path / "mrks_e_dm.npy", exc_dm_grid)
         np.save(self.path / "rho_scf_mrks.npy", rho_0_grid)
         np.save(self.path / "rho_t_mrks.npy", rho_t_grid)
         np.save(self.path / "dm1_inv.npy", self.dm1_inv)
 
-        f, axes = plt.subplots(self.mol.natm, 4)
+        f, axes = plt.subplots(self.mol.natm, 2)
         for i in range(self.mol.natm):
             axes[i, 0].imshow(-rho_t_grid[0, :, :], cmap="Greys", aspect="auto")
             axes[i, 1].imshow(vxc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
-            axes[i, 2].imshow(exc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
-            axes[i, 3].imshow(exc_dm_grid[0, :, :], cmap="Greys", aspect="auto")
+            # axes[i, 2].imshow(exc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
+            # axes[i, 3].imshow(exc_dm_grid[0, :, :], cmap="Greys", aspect="auto")
         plt.savefig(self.path / "fig.pdf")
 
     def scf(self, dm1):
