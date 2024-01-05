@@ -92,7 +92,7 @@ else:
         """
         This function is used to determine the factor of mixing old and new density matrix in SCF process
         """
-        return parser.parse_args
+        return old_factor
 
 
 if len(args.distance_list) == 3:
@@ -148,8 +148,6 @@ for distance in distance_l:
     mdft.xc = "b3lyp"
     mdft.kernel()
     dm1_dft = mdft.make_rdm1()
-    logger.info("%s", f"ene_dft: {2625.5 * mdft.e_tot:16.10e}")
-    logger.info("%s", f"ene_exa: {2625.5 * mrks_inv.e:16.10e}")
 
     mrks_inv.vxc = mrks_inv.grids.matrix_to_vector(
         np.load(path_dir / f"{distance:.4f}" / "mrks.npy")
@@ -164,18 +162,29 @@ for distance in distance_l:
     dm1_dft_error = np.sum(np.abs(dm1_exa_r - dm1_dft_r) * mrks_inv.grids.weights)
     dm1_inv_error = np.sum(np.abs(dm1_exa_r - dm1_inv_r) * mrks_inv.grids.weights)
     dm1_scf_error = np.sum(np.abs(dm1_exa_r - dm1_scf_r) * mrks_inv.grids.weights)
-    logger.info("%s", f"dm1_dft_error: {dm1_dft_error:16.10e}")
-    logger.info("%s", f"dm1_inv_error: {dm1_inv_error:16.10e}")
-    logger.info("%s", f"dm1_scf_error: {dm1_scf_error:16.10e}")
+    dm1_scf_inv_error = np.sum(np.abs(dm1_inv_r - dm1_scf_r) * mrks_inv.grids.weights)
+    logger.info("%s", f"dm1_dft_error: {dm1_dft_error:16.10e}\n")
+    logger.info("%s", f"dm1_inv_error: {dm1_inv_error:16.10e}\n")
+    logger.info("%s", f"dm1_scf_error: {dm1_scf_error:16.10e}\n")
+    logger.info("%s", f"dm1_scf_inv_error: {dm1_scf_inv_error:16.10e}\n")
 
-    mrks_inv.exc_kin_correct = mrks_inv.grids.matrix_to_vector(
-        np.load(path_dir / f"{distance:.4f}" / "mrks_e.npy")
+    exc_kin_over_dm = mrks_inv.grids.matrix_to_vector(
+        np.load(path_dir / f"{distance:.4f}" / "mrks_e_dm.npy")
     )
-    logger.info("%s", f"energy_inv: {2625.5 * mrks_inv.gen_energy(dm1_inv)}")
-    logger.info("%s", f"energy_scf: {2625.5 * mrks_inv.gen_energy(dm1_scf)}")
-    logger.info("%s", f"energy_exa: {2625.5 * mrks_inv.gen_energy(mrks_inv.dm1)}")
+    logger.info(
+        "%s",
+        f"energy_inv: {2625.5 * mrks_inv.gen_energy(dm1_inv, exc_kin_over_dm):16.10f}\n",
+    )
+    logger.info(
+        "%s",
+        f"energy_scf: {2625.5 * mrks_inv.gen_energy(dm1_scf, exc_kin_over_dm):16.10f}\n",
+    )
+    logger.info(
+        "%s",
+        f"energy_exa: {2625.5 * mrks_inv.gen_energy(mrks_inv.dm1, exc_kin_over_dm):16.10f}\n",
+    )
+    logger.info("%s", f"ene_dft: {2625.5 * mdft.e_tot:16.10f}\n")
+    logger.info("%s", f"ene_exa: {2625.5 * mrks_inv.e:16.10f}\n")
     logger.info("\n")
     del mrks_inv
     del mdft
-    torch.cuda.empty_cache()
-    gc.collect()

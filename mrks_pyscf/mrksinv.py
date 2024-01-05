@@ -447,7 +447,7 @@ class Mrksinv:
             dm1_old = dm1.copy()
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
-            if (error < 1e-10) or (step > self.scf_step):
+            if (error < 1e-8) or (step > self.scf_step):
                 self.logger.info(f"error of dm1 in the last step, {error:.2e}")
                 flag = False
             else:
@@ -456,12 +456,11 @@ class Mrksinv:
             dm1 = dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
         return dm1
 
-    def gen_energy(self, dm1, exc_kin_correct=None):
+    def gen_energy(self, dm1, exc_over_dm=None):
         """
         This function is used to check the energy.
         """
-        if exc_kin_correct is None:
-            exc_kin_correct = self.exc_kin_correct
+        rho_0 = np.einsum("uv, gu, gv -> g", dm1, self.ao_0, self.ao_0)
         nuc = self.mol.intor("int1e_nuc")
         e_nuc = oe.contract("ij,ji->", nuc, dm1)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
@@ -470,7 +469,7 @@ class Mrksinv:
             e_nuc
             + self.mol.energy_nuc()
             + e_vj * 0.5
-            + (self.exc_kin_correct * self.grids.weights).sum()
+            + (exc_over_dm * rho_0 * self.grids.weights).sum()
         )
 
         return ene_t_vc

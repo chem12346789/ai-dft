@@ -58,8 +58,8 @@ if __name__ == "__main__":
             train=args.train,
             save_checkpoint=True,
             amp=args.amp,
-            weight_decay=1e-5,
-            momentum=0.9,
+            weight_decay=1e-7,
+            momentum=0.999,
             gradient_clipping=1.0,
         )
 
