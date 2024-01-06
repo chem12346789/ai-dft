@@ -10,7 +10,7 @@ import torch
 import opt_einsum as oe
 
 
-def gen_taup_w(dm1, dm1_r, ao_0, ao_1, vxc, coords):
+def gen_w_vec(dm1, dm1_r, ao_0, ao_1, vxc, coords):
     """
     Documentation for a function.
 

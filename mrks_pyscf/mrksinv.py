@@ -20,7 +20,7 @@ from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
 from .utils.gen_taup_rho import gen_taup_rho, gen_tau_rho
-from .utils.gen_w import gen_taup_w
+from .utils.gen_w import gen_w_vec
 
 
 class Mrksinv:
@@ -394,7 +394,7 @@ class Mrksinv:
         cut_off_r[dm1_r < 1e-10] = 0
         exc_over_dm = (self.exc + 1e-14) / (dm1_r + 1e-14) * cut_off_r
 
-        w_vec = gen_taup_w(
+        w_vec = gen_w_vec(
             dm1,
             dm1_r,
             self.ao_0,
@@ -410,13 +410,14 @@ class Mrksinv:
             + self.mol.energy_nuc()
             + e_vj * 0.5
             + (w_vec * self.grids.weights).sum()
+            - 2 * ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
 
         self.logger.info(
             f"\nerror of exact energy: {((ene_t_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
         )
 
-        w_vec_inv = gen_taup_w(
+        w_vec_inv = gen_w_vec(
             dm1_inv,
             dm1_inv_r,
             self.ao_0,
