@@ -384,16 +384,24 @@ class Mrksinv:
         """
         dm1_inv = self.dm1_inv * 2
         dm1_inv_r = self.aux_function.oe_rho_r(dm1_inv, backend="torch")
+        dm1 = self.dm1.copy()
         dm1_r = self.aux_function.oe_rho_r(self.dm1, backend="torch")
 
         error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
         self.logger.info(f"\nerror of dm1_inv, {error_inv_r:<10.5e}")
 
-        rho_0 = self.aux_function.oe_rho_r(dm1_inv)
-        rho_t = self.aux_function.oe_rho_r(self.dm1)
-        cut_off_r = np.ones_like(rho_t)
-        cut_off_r[rho_t < 1e-10] = 0
-        exc_over_dm = (self.exc + 1e-14) / (rho_t + 1e-14) * cut_off_r
+        cut_off_r = np.ones_like(dm1_r)
+        cut_off_r[dm1_r < 1e-10] = 0
+        exc_over_dm = (self.exc + 1e-14) / (dm1_r + 1e-14) * cut_off_r
+
+        w_vec = gen_taup_w(
+            dm1,
+            dm1_r,
+            self.ao_0,
+            self.ao_1,
+            self.vxc,
+            self.grids.coords,
+        )
 
         e_nuc = oe.contract("ij,ji->", self.nuc, self.dm1)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
@@ -409,9 +417,9 @@ class Mrksinv:
             f"\nerror of exact energy: {((ene_t_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
         )
 
-        w_vec = gen_taup_w(
+        w_vec_inv = gen_taup_w(
             dm1_inv,
-            rho_0,
+            dm1_inv_r,
             self.ao_0,
             self.ao_1,
             self.vxc,
@@ -424,14 +432,14 @@ class Mrksinv:
             e_nuc
             + self.mol.energy_nuc()
             + e_vj * 0.5
-            + (w_vec * self.grids.weights).sum()
+            + (w_vec_inv * self.grids.weights).sum()
             - ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
 
         self.logger.info(
             f"error of inverse energy: {((ene_0_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
         )
-
+                 
         self.logger.info(
             f"correct kinetic energy: {(((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum() * self.au2kjmol):<10.5e} kj/mol\n"
         )
