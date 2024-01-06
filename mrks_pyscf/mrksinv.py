@@ -403,14 +403,13 @@ class Mrksinv:
             self.grids.coords,
         )
 
-        e_nuc = oe.contract("ij,ji->", self.nuc, self.dm1)
+        e_nuc = oe.contract("ij,ji->", self.h1e, self.dm1)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
         ene_t_vc = (
             e_nuc
-            + (self.tau_rho_wf * self.grids.weights).sum()
             + self.mol.energy_nuc()
             + e_vj * 0.5
-            + (exc_over_dm * rho_t * self.grids.weights).sum()
+            + (w_vec * self.grids.weights).sum()
         )
 
         self.logger.info(
@@ -426,12 +425,12 @@ class Mrksinv:
             self.grids.coords,
         )
 
-        e_nuc = oe.contract("ij,ji->", self.h1e, dm1_inv)
-        e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1_inv, dm1_inv)
+        e_nuc_inv = oe.contract("ij,ji->", self.h1e, dm1_inv)
+        e_vj_inv = oe.contract("pqrs,pq,rs->", self.eri, dm1_inv, dm1_inv)
         ene_0_vc = (
-            e_nuc
+            e_nuc_inv
             + self.mol.energy_nuc()
-            + e_vj * 0.5
+            + e_vj_inv * 0.5
             + (w_vec_inv * self.grids.weights).sum()
             - ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
@@ -439,7 +438,7 @@ class Mrksinv:
         self.logger.info(
             f"error of inverse energy: {((ene_0_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
         )
-                 
+
         self.logger.info(
             f"correct kinetic energy: {(((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum() * self.au2kjmol):<10.5e} kj/mol\n"
         )
