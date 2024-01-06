@@ -353,7 +353,7 @@ class Mrksinv:
                         self.logger.info(".")
 
                 self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
-                if error_vxc < 1e-4:
+                if error_vxc < 1e-6:
                     break
             else:
                 self.logger.info(f"Begin inverse calculation. step: {i:<38} ")
@@ -387,12 +387,17 @@ class Mrksinv:
         dm1 = self.dm1.copy()
         dm1_r = self.aux_function.oe_rho_r(self.dm1, backend="torch")
 
-        error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
-        self.logger.info(f"\nerror of dm1_inv, {error_inv_r:<10.5e}")
+        mdft = self.mol.KS()
+        mdft.xc = "b3lyp"
+        mdft.kernel()
+        dm1_dft = mdft.make_rdm1()
+        dm1_scf = self.scf(dm1_dft)
+        dm1_scf_r = self.aux_function.oe_rho_r(dm1_scf, backend="torch")
 
-        cut_off_r = np.ones_like(dm1_r)
-        cut_off_r[dm1_r < 1e-10] = 0
-        exc_over_dm = (self.exc + 1e-14) / (dm1_r + 1e-14) * cut_off_r
+        error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
+        error_scf_r = np.sum(np.abs(dm1_scf_r - dm1_r) * self.grids.weights)
+        self.logger.info(f"\nerror of dm1_inv, {error_inv_r:<10.5e}")
+        self.logger.info(f"\nerror of dm1_scf, {error_scf_r:<10.5e}")
 
         w_vec = gen_w_vec(
             dm1,
@@ -402,7 +407,6 @@ class Mrksinv:
             self.vxc,
             self.grids.coords,
         )
-
         e_nuc = oe.contract("ij,ji->", self.h1e, self.dm1)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
         ene_t_vc = (
@@ -412,7 +416,6 @@ class Mrksinv:
             + (w_vec * self.grids.weights).sum()
             - 2 * ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
-
         self.logger.info(
             f"\nerror of exact energy: {((ene_t_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
         )
@@ -425,7 +428,6 @@ class Mrksinv:
             self.vxc,
             self.grids.coords,
         )
-
         e_nuc_inv = oe.contract("ij,ji->", self.h1e, dm1_inv)
         e_vj_inv = oe.contract("pqrs,pq,rs->", self.eri, dm1_inv, dm1_inv)
         ene_0_vc = (
@@ -435,9 +437,29 @@ class Mrksinv:
             + (w_vec_inv * self.grids.weights).sum()
             - ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
-
         self.logger.info(
             f"error of inverse energy: {((ene_0_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
+        )
+
+        w_vec_scf = gen_w_vec(
+            dm1_scf,
+            dm1_scf_r,
+            self.ao_0,
+            self.ao_1,
+            self.vxc,
+            self.grids.coords,
+        )
+        e_nuc_scf = oe.contract("ij,ji->", self.h1e, dm1_scf)
+        e_vj_scf = oe.contract("pqrs,pq,rs->", self.eri, dm1_scf, dm1_scf)
+        ene_0_vc = (
+            e_nuc_scf
+            + self.mol.energy_nuc()
+            + e_vj_scf * 0.5
+            + (w_vec_scf * self.grids.weights).sum()
+            - ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
+        )
+        self.logger.info(
+            f"error of scf energy: {((ene_0_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
         )
 
         self.logger.info(
@@ -513,11 +535,11 @@ class Mrksinv:
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
             if (error < 1e-8) or (step > self.scf_step):
-                self.logger.info(f"error of dm1 in the last step, {error:.2e}")
+                self.logger.info(f"error of dm1 in the last step, {error:.2e}\n")
                 flag = False
             else:
                 if step % 100 == 0:
-                    self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}")
+                    self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}\n")
             dm1 = dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
         return dm1
 
