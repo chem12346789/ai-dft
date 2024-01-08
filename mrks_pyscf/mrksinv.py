@@ -164,9 +164,7 @@ class Mrksinv:
                     "pqrs,ip,jq,ur,vs->ijuv", self.dm2_mo, C, C, C, C
                 )
         else:
-            D2a = wfn.Da().np
-            D2b = wfn.Db().np
-            self.dm1 = D2a + D2b
+            self.dm1 = wfn.Da().np + wfn.Db().np
             self.dm1_mo = oe.contract(
                 "ij,pi,qj->pq",
                 self.dm1,
@@ -186,6 +184,7 @@ class Mrksinv:
                     (self.mo).T @ self.mat_s,
                     (self.mo).T @ self.mat_s,
                 )
+        self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
 
     def kernel(self, method="fci", gen_dm2=True):
         """
