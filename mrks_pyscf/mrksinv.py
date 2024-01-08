@@ -39,8 +39,8 @@ class Mrksinv:
         noisy_print=False,
     ):
         self.mol = mol
-        s_0_ao = mol.intor("int1e_ovlp")
-        self.mats = LA.fractional_matrix_power(s_0_ao, -0.5).real
+        self.mat_s = mol.intor("int1e_ovlp")
+        self.mat_hs = LA.fractional_matrix_power(self.mat_s, -0.5).real
         self.nocc = mol.nelec[0]
         self.frac_old = frac_old
         if device is None:
@@ -362,9 +362,9 @@ class Mrksinv:
             xc_v = self.aux_function.oe_fock(
                 self.vxc, self.grids.weights, backend="torch"
             )
-            fock_a = self.mats @ (self.h1e + self.vj + xc_v) @ self.mats
+            fock_a = self.mat_hs @ (self.h1e + self.vj + xc_v) @ self.mat_hs
             eigvecs, mo = np.linalg.eigh(fock_a)
-            mo = self.mats @ mo
+            mo = self.mat_hs @ mo
             dm1_inv_old = self.dm1_inv.copy()
             self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
 
@@ -412,7 +412,6 @@ class Mrksinv:
             + (w_vec * self.grids.weights).sum()
             - 2 * ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
-
         self.logger.info(
             f"\nerror of exact energy: {((ene_t_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
         )
@@ -425,7 +424,6 @@ class Mrksinv:
             self.vxc,
             self.grids.coords,
         )
-
         e_nuc_inv = oe.contract("ij,ji->", self.h1e, dm1_inv)
         e_vj_inv = oe.contract("pqrs,pq,rs->", self.eri, dm1_inv, dm1_inv)
         ene_0_vc = (
@@ -506,9 +504,9 @@ class Mrksinv:
         while flag:
             step += 1
             vj = self.myhf.get_jk(self.mol, dm1, 1)[0]
-            fock_a = self.mats @ (self.h1e + vj + xc_v) @ self.mats
+            fock_a = self.mat_hs @ (self.h1e + vj + xc_v) @ self.mat_hs
             _, mo = np.linalg.eigh(fock_a)
-            mo = self.mats @ mo
+            mo = self.mat_hs @ mo
             dm1_old = dm1.copy()
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
