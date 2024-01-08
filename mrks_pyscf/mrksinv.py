@@ -16,6 +16,8 @@ from scipy import linalg as LA
 import pyscf
 from pyscf import dft
 
+import psi4
+
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
@@ -117,6 +119,74 @@ class Mrksinv:
         self.eigs_e_dm1 = None
         self.eigs_v_dm1 = None
 
+    def kernel_psi4(self, method="fci", basis="STO-3G", gen_dm2=True):
+        """
+        This function is used to do the quantum chemistry calculation.
+        """
+        mol_str = ""
+        for atom in self.mol.atom:
+            mol_str += f"{atom[0]} {atom[1]} {atom[2]} {atom[3]}\n"
+        mol_str += "noreorient\n"
+        mol_str += "nocom\n"
+        mol_str += "units angstrom\n"
+        mol_str += "symmetry c1\n"
+        mol = psi4.geometry(mol_str)
+
+        psi4.set_output_file("output.dat", True)
+        psi4.core.set_num_threads(8)
+        psi4.core.clean()
+        psi4.set_options(
+            {
+                "reference": "rhf",
+                "opdm": True,
+                "tpdm": True,
+            }
+        )
+
+        self.e, wfn = psi4.energy(f"{method}/{basis}", return_wfn=True, molecule=mol)
+        C = wfn.Ca()
+        if wfn == "CIWavefunction":
+            self.dm1_mo = wfn.get_opdm(-1, -1, "SUM", True).np
+            self.dm1 = oe.contract("pq,ip,jq->ij", self.dm1_mo, C, C)
+
+            if gen_dm2:
+                # obtain the memory of 2-RDM
+                self.logger.info(
+                    "\s", f"memory of 2-RDM: {(self.dm1.shape[0] ** 4) * 8.e-9 * 2} GB"
+                )
+                self.logger.info(
+                    "\s",
+                    f"Total energy: {self.e:16.10f}\n"
+                    f"The dm1 and dm2 are generated.\n",
+                )
+                self.dm2_mo = wfn.get_tpdm("SUM", True).np
+                self.dm2 = oe.contract(
+                    "pqrs,ip,jq,ur,vs->ijuv", self.dm2_mo, C, C, C, C
+                )
+        else:
+            D2a = wfn.Da().np
+            D2b = wfn.Db().np
+            self.dm1 = D2a + D2b
+            self.dm1_mo = oe.contract(
+                "ij,pi,qj->pq",
+                self.dm1,
+                (self.mo).T @ self.mat_s,
+                (self.mo).T @ self.mat_s,
+            )
+            if gen_dm2:
+                self.dm2 = (
+                    np.einsum("ij,kl->ijkl", self.dm1, self.dm1)
+                    - np.einsum("ij,kl->iklj", self.dm1, self.dm1) / 2
+                )
+                self.dm2_mo = oe.contract(
+                    "pqrs,ip,jq,ur,vs->ijuv",
+                    self.dm2,
+                    (self.mo).T @ self.mat_s,
+                    (self.mo).T @ self.mat_s,
+                    (self.mo).T @ self.mat_s,
+                    (self.mo).T @ self.mat_s,
+                )
+
     def kernel(self, method="fci", gen_dm2=True):
         """
         This function is used to do the quantum chemistry calculation.
@@ -131,7 +201,7 @@ class Mrksinv:
                 self.dm1 = self.dm1_mo.copy()
                 if gen_dm2:
                     self.dm2 = self.dm2_mo.copy()
-                self.dm2_mo = oe.contract(
+                self.dm1_mo = oe.contract(
                     "ij,pi,qj->pq",
                     self.dm1,
                     (self.mo).T @ self.mat_s,

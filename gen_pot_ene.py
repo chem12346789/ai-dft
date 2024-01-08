@@ -11,7 +11,7 @@ import pyscf
 import argparse
 
 from src.mrks_pyscf.mrksinv import Mrksinv
-from src.mrks_pyscf.utils.mol import Mol, BASIS
+from src.mrks_pyscf.utils.mol import Mol, BASIS, BASIS_PSI4
 
 path = Path(__file__).resolve().parents[1] / "data"
 parser = argparse.ArgumentParser(
@@ -102,6 +102,14 @@ parser.add_argument(
     default="cisd",
 )
 
+parser.add_argument(
+    "--psi4",
+    "-p",
+    type=bool,
+    help="If use psi4 to calculate the energy. Default is False.",
+    default=False,
+)
+
 args = parser.parse_args()
 
 if args.old_factor_scheme == 1:
@@ -141,14 +149,18 @@ for distance in distance_l:
     molecular[0][1] = distance
     logger.info("%s", f"The distance is {distance}.")
 
-    basis = {}
-
-    for i_atom in molecular:
-        basis[i_atom[0]] = (
-            BASIS[args.basis]
-            if ((i_atom[0] == "H") and (args.basis in BASIS))
-            else args.basis
-        )
+    if args.psi4:
+        basis = {}
+        for i_atom in molecular:
+            basis[i_atom[0]] = BASIS_PSI4[args.basis][i_atom[0]]
+    else:
+        basis = {}
+        for i_atom in molecular:
+            basis[i_atom[0]] = (
+                BASIS[args.basis]
+                if ((i_atom[0] == "H") and (args.basis in BASIS))
+                else args.basis
+            )
 
     mol = pyscf.M(
         atom=molecular,
@@ -166,7 +178,11 @@ for distance in distance_l:
         noisy_print=args.noisy_print,
     )
 
-    mrks_inv.kernel(method=args.method)
+    if args.psi4:
+        mrks_inv.kernel_psi4(method=args.method, basis=args.basis)
+    else:
+        mrks_inv.kernel(method=args.method)
+
     mrks_inv.inv_prepare()
     mrks_inv.inv()
     del mrks_inv, mol
