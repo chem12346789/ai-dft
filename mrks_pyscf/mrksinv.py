@@ -105,7 +105,7 @@ class Mrksinv:
         self.vj = None
         self.exc = None
         self.vxc = None
-        self.exc_kin_correct = None
+        self.exc_over_dm = None
         self.v_vxc_e_taup = None
         self.taup_rho_wf = None
         self.taup_rho_ks = None
@@ -126,20 +126,42 @@ class Mrksinv:
         else:
             self.e, self.dm1_mo, self.dm2_mo = kernel(method, self.myhf, gen_dm2)
             self.logger.info("dm1_mo, dm2_mo done.\n")
-            self.dm1 = oe.contract("ij,pi,qj->pq", self.dm1_mo, self.mo, self.mo)
-            if gen_dm2:
-                self.dm2 = oe.contract(
-                    "pqrs,ip,jq,ur,vs->ijuv",
-                    self.dm2_mo,
-                    self.mo,
-                    self.mo,
-                    self.mo,
-                    self.mo,
+
+            if method == "hf":
+                self.dm1 = self.dm1_mo.copy()
+                if gen_dm2:
+                    self.dm2 = self.dm2_mo.copy()
+                self.dm2_mo = oe.contract(
+                    "ij,pi,qj->pq",
+                    self.dm1,
+                    (self.mo).T @ self.mat_s,
+                    (self.mo).T @ self.mat_s,
                 )
+                if gen_dm2:
+                    self.dm2_mo = oe.contract(
+                        "pqrs,ip,jq,ur,vs->ijuv",
+                        self.dm2,
+                        (self.mo).T @ self.mat_s,
+                        (self.mo).T @ self.mat_s,
+                        (self.mo).T @ self.mat_s,
+                        (self.mo).T @ self.mat_s,
+                    )
+
+            else:
+                self.dm1 = oe.contract("ij,pi,qj->pq", self.dm1_mo, self.mo, self.mo)
+                if gen_dm2:
+                    self.dm2 = oe.contract(
+                        "pqrs,ip,jq,ur,vs->ijuv",
+                        self.dm2_mo,
+                        self.mo,
+                        self.mo,
+                        self.mo,
+                        self.mo,
+                    )
             self.logger.info("dm1 dm2 done.\n")
             self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
             self.logger.info(
-                f"Total energy: {self.e:<10.5e}\n" f"The dm1 and dm2 are generated.\n"
+                f"Total energy: {self.e:16.10f}\n" f"The dm1 and dm2 are generated.\n"
             )
 
     def save_kernel_dm12(self):
@@ -234,7 +256,7 @@ class Mrksinv:
             - np.einsum("pqrs,pq,rs", self.eri, self.dm1, self.dm1).real / 2
         )
         self.logger.info(
-            f"\nenergy: {ene_vc:<10.4e}, error {error:<10.5e}\n"
+            f"\nenergy: {ene_vc:<10.4e}, error {error:16.10f}\n"
             f"The exchange-correlation energy is generated.\n\n"
         )
 
@@ -302,9 +324,12 @@ class Mrksinv:
         mo = self.mo.copy()
         eigvecs = self.myhf.mo_energy.copy()
         self.dm1_inv = self.dm1.copy() / 2
-        self.v_vxc_e_taup += self.exc / self.aux_function.oe_rho_r(
-            self.dm1_inv, backend="torch"
-        )
+
+        dm1_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
+        cut_off_r = np.ones_like(dm1_r)
+        cut_off_r[dm1_r < 1e-10] = 0
+        self.exc_over_dm = (self.exc + 1e-14) / (dm1_r + 1e-14) * cut_off_r
+        self.v_vxc_e_taup += self.exc_over_dm
 
         for i in range(self.inv_step):
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
@@ -336,24 +361,24 @@ class Mrksinv:
                     self.logger.info(
                         "\n%s %s %s %s ",
                         f"step:{i:<8}",
-                        f"error of vxc: {error_vxc:<10.5e}",
-                        f"dm: {error_dm1:<10.5e}",
-                        f"shift: {potential_shift:<10.5e}",
+                        f"error of vxc: {error_vxc::<10.5e}",
+                        f"dm: {error_dm1::<10.5e}",
+                        f"shift: {potential_shift::<10.5e}",
                     )
                 else:
                     if i % 100 == 0:
                         self.logger.info(
                             "\n%s %s %s %s ",
                             f"step:{i:<8}",
-                            f"error of vxc: {error_vxc:<10.5e}",
-                            f"dm: {error_dm1:<10.5e}",
-                            f"shift: {potential_shift:<10.5e}",
+                            f"error of vxc: {error_vxc::<10.5e}",
+                            f"dm: {error_dm1::<10.5e}",
+                            f"shift: {potential_shift::<10.5e}",
                         )
                     elif i % 10 == 0:
                         self.logger.info(".")
 
                 self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
-                if error_vxc < 1e-4:
+                if error_vxc < 1e-6:
                     break
             else:
                 self.logger.info(f"Begin inverse calculation. step: {i:<38} ")
@@ -368,6 +393,9 @@ class Mrksinv:
             dm1_inv_old = self.dm1_inv.copy()
             self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
 
+        dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
+        if mo is np.ndarray:
+            mo = torch.from_numpy(mo).to(self.device)
         self.tau_rho_ks = gen_tau_rho(
             self.aux_function.oe_tau_rho,
             dm1_inv_r,
@@ -387,12 +415,19 @@ class Mrksinv:
         dm1 = self.dm1.copy()
         dm1_r = self.aux_function.oe_rho_r(self.dm1, backend="torch")
 
-        error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
-        self.logger.info(f"\nerror of dm1_inv, {error_inv_r:<10.5e}")
+        mdft = self.mol.KS()
+        mdft.xc = "b3lyp"
+        mdft.kernel()
+        dm1_dft = mdft.make_rdm1()
+        dm1_scf = self.scf(dm1_dft)
+        dm1_scf_r = self.aux_function.oe_rho_r(dm1_scf, backend="torch")
 
-        cut_off_r = np.ones_like(dm1_r)
-        cut_off_r[dm1_r < 1e-10] = 0
-        exc_over_dm = (self.exc + 1e-14) / (dm1_r + 1e-14) * cut_off_r
+        error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
+        error_scf_r = np.sum(np.abs(dm1_scf_r - dm1_r) * self.grids.weights)
+        self.logger.info(f"\nerror of dm1_inv, {error_inv_r:16.10f}")
+        self.logger.info(f"\nerror of dm1_scf, {error_scf_r:16.10f}")
+
+        self.logger.info(f"\nuse the w function to check the energy.\n")
 
         w_vec = gen_w_vec(
             dm1,
@@ -402,7 +437,6 @@ class Mrksinv:
             self.vxc,
             self.grids.coords,
         )
-
         e_nuc = oe.contract("ij,ji->", self.h1e, self.dm1)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
         ene_t_vc = (
@@ -413,7 +447,7 @@ class Mrksinv:
             - 2 * ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
         self.logger.info(
-            f"\nerror of exact energy: {((ene_t_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
+            f"\nexact energy: {((ene_t_vc - self.e) * self.au2kjmol):16.10f} kj/mol\n"
         )
 
         w_vec_inv = gen_w_vec(
@@ -426,24 +460,59 @@ class Mrksinv:
         )
         e_nuc_inv = oe.contract("ij,ji->", self.h1e, dm1_inv)
         e_vj_inv = oe.contract("pqrs,pq,rs->", self.eri, dm1_inv, dm1_inv)
-        ene_0_vc = (
+        ene_0_vc_inv = (
             e_nuc_inv
             + self.mol.energy_nuc()
             + e_vj_inv * 0.5
             + (w_vec_inv * self.grids.weights).sum()
             - ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
         )
-
         self.logger.info(
-            f"error of inverse energy: {((ene_0_vc - self.e) * self.au2kjmol):<10.5e} kj/mol\n"
+            f"inverse energy: {((ene_0_vc_inv - self.e) * self.au2kjmol):16.10f} kj/mol\n"
+        )
+
+        w_vec_scf = gen_w_vec(
+            dm1_scf,
+            dm1_scf_r,
+            self.ao_0,
+            self.ao_1,
+            self.vxc,
+            self.grids.coords,
+        )
+        e_nuc_scf = oe.contract("ij,ji->", self.h1e, dm1_scf)
+        e_vj_scf = oe.contract("pqrs,pq,rs->", self.eri, dm1_scf, dm1_scf)
+        ene_0_vc_scf = (
+            e_nuc_scf
+            + self.mol.energy_nuc()
+            + e_vj_scf * 0.5
+            + (w_vec_scf * self.grids.weights).sum()
+            - ((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum()
+        )
+        self.logger.info(
+            f"scf energy: {((ene_0_vc_scf - self.e) * self.au2kjmol):16.10f} kj/mol\n"
         )
 
         self.logger.info(
-            f"correct kinetic energy: {(((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum() * self.au2kjmol):<10.5e} kj/mol\n"
+            "%s",
+            f"energy_inv: {2625.5 * (self.gen_energy(dm1_inv, if_kin_correct=True) - self.e):16.10f}\n",
+        )
+        self.logger.info(
+            "%s",
+            f"energy_scf: {2625.5 * (self.gen_energy(dm1_scf, if_kin_correct=True) - self.e):16.10f}\n",
+        )
+        self.logger.info(
+            "%s",
+            f"energy_exa: {2625.5 * (self.gen_energy(self.dm1) - self.e):16.10f}\n",
+        )
+        self.logger.info("%s", f"ene_dft: {2625.5 * (mdft.e_tot - self.e):16.10f}\n")
+        self.logger.info("%s", f"ene_exa: {2625.5 * self.e:16.10f}\n")
+
+        self.logger.info(
+            f"correct kinetic energy: {(((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights).sum() * self.au2kjmol):16.10f} kj/mol\n"
         )
 
         self.logger.info(
-            f"error: {(np.sum((w_vec - 2 * (self.tau_rho_wf - self.tau_rho_ks) - self.exc) * self.grids.weights) * self.au2kjmol):<10.5e} kj/mol\n"
+            f"error: {(np.sum((w_vec - 2 * (self.tau_rho_wf - self.tau_rho_ks) - self.exc) * self.grids.weights) * self.au2kjmol):16.10f} kj/mol\n"
         )
 
     def save_data(self):
@@ -455,41 +524,41 @@ class Mrksinv:
         rho_t = self.aux_function.oe_rho_r(self.dm1)
         rho_t_grid = self.grids.vector_to_matrix(rho_t)
 
-        cut_off_r = np.ones_like(rho_t)
-        cut_off_r[rho_t < 1e-10] = 0
-        # exc_over_dm = (self.exc_kin_correct + 1e-14) / (rho_t + 1e-14) * cut_off_r
-
         vxc_mrks_grid = self.grids.vector_to_matrix(self.vxc)
-        # exc_mrks_grid = self.grids.vector_to_matrix(self.exc_kin_correct)
-        # exc_dm_grid = self.grids.vector_to_matrix(exc_over_dm)
+        exc_mrks_grid = self.grids.vector_to_matrix(self.exc)
+        exc_dm_grid = self.grids.vector_to_matrix(self.exc_over_dm)
+        tr_grid = self.grids.vector_to_matrix(self.tau_rho_wf - self.tau_rho_ks)
 
         rho_0_check = self.grids.matrix_to_vector(rho_0_grid)
         rho_t_check = self.grids.matrix_to_vector(rho_t_grid)
         vxc_mrks_check = self.grids.matrix_to_vector(vxc_mrks_grid)
-        # exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
-        # exc_dm_check = self.grids.matrix_to_vector(exc_dm_grid)
+        exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
+        exc_dm_check = self.grids.matrix_to_vector(exc_dm_grid)
+        tr_check = self.grids.matrix_to_vector(tr_grid)
 
         self.logger.info(
-            f"\nCheck! {np.linalg.norm(rho_0 - rho_0_check):<10.5e}\n"
-            f"{np.linalg.norm(rho_t - rho_t_check):<10.5e}\n"
-            f"{np.linalg.norm(self.vxc - vxc_mrks_check):<10.5e}\n"
-            # f"{np.linalg.norm(self.exc_kin_correct - exc_mrks_check):<10.5e}\n"
-            # f"{np.linalg.norm(exc_over_dm - exc_dm_check):<10.5e}\n"
+            f"\nCheck! {np.linalg.norm(rho_0 - rho_0_check):16.10f}\n"
+            f"{np.linalg.norm(rho_t - rho_t_check):16.10f}\n"
+            f"{np.linalg.norm(self.vxc - vxc_mrks_check):16.10f}\n"
+            f"{np.linalg.norm(self.exc - exc_mrks_check):16.10f}\n"
+            f"{np.linalg.norm(self.exc_over_dm - exc_dm_check):16.10f}\n"
+            f"{np.linalg.norm(self.tau_rho_wf - self.tau_rho_ks - tr_check):16.10f}\n"
         )
 
         np.save(self.path / "mrks.npy", vxc_mrks_grid)
-        # np.save(self.path / "mrks_e.npy", exc_mrks_grid)
-        # np.save(self.path / "mrks_e_dm.npy", exc_dm_grid)
-        np.save(self.path / "rho_scf_mrks.npy", rho_0_grid)
+        np.save(self.path / "mrks_e.npy", exc_mrks_grid)
+        np.save(self.path / "mrks_e_dm.npy", exc_dm_grid)
+        np.save(self.path / "rho_inv_mrks.npy", rho_0_grid)
         np.save(self.path / "rho_t_mrks.npy", rho_t_grid)
-        np.save(self.path / "dm1_inv.npy", self.dm1_inv)
+        np.save(self.path / "tr.npy", tr_grid)
 
-        f, axes = plt.subplots(self.mol.natm, 2)
+        f, axes = plt.subplots(self.mol.natm, 5)
         for i in range(self.mol.natm):
             axes[i, 0].imshow(-rho_t_grid[0, :, :], cmap="Greys", aspect="auto")
             axes[i, 1].imshow(vxc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
-            # axes[i, 2].imshow(exc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
-            # axes[i, 3].imshow(exc_dm_grid[0, :, :], cmap="Greys", aspect="auto")
+            axes[i, 2].imshow(exc_mrks_grid[0, :, :], cmap="Greys", aspect="auto")
+            axes[i, 3].imshow(exc_dm_grid[0, :, :], cmap="Greys", aspect="auto")
+            axes[i, 3].imshow(tr_grid[0, :, :], cmap="Greys", aspect="auto")
         plt.savefig(self.path / "fig.pdf")
 
     def scf(self, dm1):
@@ -511,28 +580,34 @@ class Mrksinv:
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
             if (error < 1e-8) or (step > self.scf_step):
-                self.logger.info(f"error of dm1 in the last step, {error:.2e}")
+                self.logger.info(f"error of dm1 in the last step, {error:.2e}\n")
                 flag = False
             else:
                 if step % 100 == 0:
-                    self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}")
+                    self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}\n")
             dm1 = dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
         return dm1
 
-    def gen_energy(self, dm1, exc_over_dm=None):
+    def gen_energy(
+        self,
+        dm1,
+        if_kin_correct=False,
+    ):
         """
         This function is used to check the energy.
         """
         rho_0 = np.einsum("uv, gu, gv -> g", dm1, self.ao_0, self.ao_0)
-        nuc = self.mol.intor("int1e_nuc")
-        e_nuc = oe.contract("ij,ji->", nuc, dm1)
+        e_h1 = oe.contract("ij,ji->", self.h1e, dm1)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
 
         ene_t_vc = (
-            e_nuc
+            e_h1
             + self.mol.energy_nuc()
             + e_vj * 0.5
-            + (exc_over_dm * rho_0 * self.grids.weights).sum()
+            + np.sum((self.exc_over_dm * rho_0 / 2) * self.grids.weights)
         )
+
+        if if_kin_correct:
+            ene_t_vc += np.sum((self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights)
 
         return ene_t_vc

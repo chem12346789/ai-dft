@@ -21,6 +21,11 @@ def kernel(method, myhf, gen_dm2):
         dm1_mo, dm2_mo = cisolver.make_rdm12(
             fcivec, myhf.mo_coeff.shape[1], myhf.mol.nelectron
         )
+    elif method == "hf":
+        dm1_mo = myhf.make_rdm1()
+        if gen_dm2:
+            dm2_mo = myhf.make_rdm2()
+        e = myhf.e_tot
     elif method == "ccsd":
         mycc = pyscf.cc.CCSD(myhf).run()
         e = mycc.e_tot
