@@ -34,7 +34,8 @@ class Args:
     scf_step: int
     device: str
     noisy_print: bool
-    if_psi4: bool
+    psi4: bool
+    basis: str
     frac_old: float
 
 
@@ -54,10 +55,11 @@ class Mrksinv:
         device=None,
         noisy_print=False,
         if_psi4=False,
+        basis="sto-3g",
     ):
         if args is None:
             self.args = Args(
-                level, inv_step, scf_step, device, noisy_print, if_psi4, frac_old
+                level, inv_step, scf_step, device, noisy_print, if_psi4, basis, frac_old
             )
         else:
             self.args = Args(
@@ -66,7 +68,8 @@ class Mrksinv:
                 args.scf_step,
                 args.device,
                 args.noisy_print,
-                args.if_psi4,
+                args.psi4,
+                args.basis,
                 frac_old,
             )
             self.args = args
@@ -84,17 +87,17 @@ class Mrksinv:
         if not self.path.exists():
             self.path.mkdir(parents=True)
 
-        if args.psi4:
+        if self.args.psi4:
             basis = {}
             for i_atom in molecular:
-                basis[i_atom[0]] = BASIS_PSI4[args.basis][i_atom[0]]
+                basis[i_atom[0]] = BASIS_PSI4[self.args.basis][i_atom[0]]
         else:
             basis = {}
             for i_atom in molecular:
                 basis[i_atom[0]] = (
-                    BASIS[args.basis]
-                    if ((i_atom[0] == "H") and (args.basis in BASIS))
-                    else args.basis
+                    BASIS[self.args.basis]
+                    if ((i_atom[0] == "H") and (self.args.basis in BASIS))
+                    else self.args.basis
                 )
 
         mol = pyscf.M(
@@ -163,9 +166,18 @@ class Mrksinv:
         self.eigs_e_dm1 = None
         self.eigs_v_dm1 = None
 
-    def kernel_psi4(self, method="fci", basis="STO-3G", gen_dm2=True):
+    def kernel(self, method="fci", gen_dm2=True):
         """
         This function is used to do the quantum chemistry calculation.
+        """
+        if self.args.psi4:
+            self.kernel_psi4(method, gen_dm2=gen_dm2)
+        else:
+            self.kernel_pyscf(method, gen_dm2=gen_dm2)
+
+    def kernel_psi4(self, method="fci", gen_dm2=True):
+        """
+        This function is used to do the quantum chemistry calculation using psi4.
         """
         mol_str = ""
         for atom in self.mol.atom:
@@ -187,7 +199,9 @@ class Mrksinv:
             }
         )
 
-        self.e, wfn = psi4.energy(f"{method}/{basis}", return_wfn=True, molecule=mol)
+        self.e, wfn = psi4.energy(
+            f"{method}/{self.args.basis}", return_wfn=True, molecule=mol
+        )
         if method == "hf":
             self.logger.info("HF method.\n")
             self.dm1 = wfn.Da().np + wfn.Db().np
@@ -235,9 +249,9 @@ class Mrksinv:
                 )
         self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
 
-    def kernel(self, method="fci", gen_dm2=True):
+    def kernel_pyscf(self, method="fci", gen_dm2=True):
         """
-        This function is used to do the quantum chemistry calculation.
+        This function is used to do the quantum chemistry calculation using pyscf.
         """
         if ((self.dm1 is not None)) and ((self.dm2 is not None)):
             self.logger.info("dm1 and dm2 are already calculated.\n")
