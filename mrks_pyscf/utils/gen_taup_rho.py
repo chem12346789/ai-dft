@@ -54,7 +54,7 @@ def gen_tau_rho(
                 logger.info(f"\nstep:{setp:<8} of {norb:<8}")
             if setp % 10 == 0:
                 logger.info(".")
-        part = oe_tau_rho(eigs_v_dm1[:, i], eigs_v_dm1[:, i], backend=backend)
+        part = oe_tau_rho(eigs_v_dm1[:, i], eigs_v_dm1[:, i], backend=backend) * 2
         taup += part.cpu().numpy() * eigs_e_dm1[i]
     taup_rho = -taup * 0.5
     return taup_rho

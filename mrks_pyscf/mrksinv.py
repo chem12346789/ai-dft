@@ -24,7 +24,7 @@ from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
 from .utils.gen_taup_rho import gen_taup_rho, gen_tau_rho
 from .utils.gen_w import gen_w_vec
-from .utils.mol import BASIS, BASIS_PSI4
+from .utils.mol import BASIS
 
 
 @dataclass
@@ -195,7 +195,6 @@ class Mrksinv:
                         (self.mo).T @ self.mat_s,
                         (self.mo).T @ self.mat_s,
                     )
-
             else:
                 self.dm1 = oe.contract("ij,pi,qj->pq", self.dm1_mo, self.mo, self.mo)
                 if gen_dm2:
@@ -207,6 +206,7 @@ class Mrksinv:
                         self.mo,
                         self.mo,
                     )
+
             self.logger.info("dm1 dm2 done.\n")
             self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
             self.logger.info(
@@ -244,8 +244,6 @@ class Mrksinv:
         This function is used to generate the exchange-correlation energy on the grid.
         """
         dm1_r = self.aux_function.oe_rho_r(self.dm1)
-
-        # 1rdm
         dm1_cuda = torch.from_numpy(self.dm1).to(self.device)
 
         expr_rinv_dm1_r = oe.contract_expression(
@@ -351,7 +349,7 @@ class Mrksinv:
             self.aux_function.oe_tau_rho,
             dm1_r,
             eigs_v_dm1_cuda,
-            eigs_e_dm1 * 2,
+            eigs_e_dm1,
             backend="torch",
             logger=self.logger,
         )
@@ -451,7 +449,7 @@ class Mrksinv:
             self.aux_function.oe_tau_rho,
             dm1_inv_r,
             mo[:, : self.nocc],
-            np.ones(self.nocc) * 2,
+            np.ones(self.nocc),
             backend="torch",
         )
         self.logger.info("\nTau_rho_ks done.\n")
