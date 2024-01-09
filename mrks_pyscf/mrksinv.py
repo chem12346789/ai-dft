@@ -19,16 +19,20 @@ from pyscf import dft
 
 import psi4
 
-from src.mrks_pyscf.utils.grids import Grid
-from src.mrks_pyscf.utils.aux_function import Auxfunction
-from src.mrks_pyscf.utils.kernel import kernel
-from src.mrks_pyscf.utils.gen_taup_rho import gen_taup_rho, gen_tau_rho
-from src.mrks_pyscf.utils.gen_w import gen_w_vec
-from src.mrks_pyscf.utils.mol import BASIS, BASIS_PSI4
+from .utils.grids import Grid
+from .utils.aux_function import Auxfunction
+from .utils.kernel import kernel
+from .utils.gen_taup_rho import gen_taup_rho, gen_tau_rho
+from .utils.gen_w import gen_w_vec
+from .utils.mol import BASIS, BASIS_PSI4
 
 
 @dataclass
 class Args:
+    """
+    This class is used to store the arguments.
+    """
+
     level: int
     inv_step: int
     scf_step: int
@@ -91,7 +95,9 @@ class Mrksinv:
         if self.args.psi4:
             basis = {}
             for i_atom in molecular:
-                basis[i_atom[0]] = BASIS_PSI4[self.args.basis][i_atom[0]]
+                basis[i_atom[0]] = pyscf.gto.basis.parse(
+                    BASIS_PSI4[self.args.basis][i_atom[0]]
+                )
         else:
             basis = {}
             for i_atom in molecular:
@@ -197,6 +203,7 @@ class Mrksinv:
                 "reference": "rhf",
                 "opdm": True,
                 "tpdm": True,
+                "SCF_TYPE": "DIRECT",
             }
         )
 
@@ -209,9 +216,10 @@ class Mrksinv:
             self.dm1_mo = oe.contract(
                 "ij,pi,qj->pq",
                 self.dm1,
-                (self.mo).T @ self.mat_s,
-                (self.mo).T @ self.mat_s,
+                (wfn.Ca().np).T @ wfn.S().np,
+                (wfn.Ca().np).T @ wfn.S().np,
             )
+            self.dm1 = oe.contract("ij,pi,qj->pq", self.dm1_mo, self.mo, self.mo)
             if gen_dm2:
                 self.dm2 = (
                     np.einsum("ij,kl->ijkl", self.dm1, self.dm1)
@@ -220,15 +228,25 @@ class Mrksinv:
                 self.dm2_mo = oe.contract(
                     "pqrs,ip,jq,ur,vs->ijuv",
                     self.dm2,
-                    (self.mo).T @ self.mat_s,
-                    (self.mo).T @ self.mat_s,
-                    (self.mo).T @ self.mat_s,
-                    (self.mo).T @ self.mat_s,
+                    (wfn.Ca().np).T @ wfn.S().np,
+                    (wfn.Ca().np).T @ wfn.S().np,
+                    (wfn.Ca().np).T @ wfn.S().np,
+                    (wfn.Ca().np).T @ wfn.S().np,
+                )
+                self.dm2 = oe.contract(
+                    "pqrs,ip,jq,ur,vs->ijuv",
+                    self.dm2_mo,
+                    self.mo,
+                    self.mo,
+                    self.mo,
+                    self.mo,
                 )
         else:
             self.logger.info("CI method.\n")
             self.dm1_mo = wfn.get_opdm(-1, -1, "SUM", True).np
-            self.dm1 = oe.contract("ij,pi,qj->pq", self.dm1_mo, self.mo, self.mo)
+            self.dm1 = oe.contract(
+                "ij,pi,qj->pq", self.dm1_mo, wfn.Ca().np, wfn.Ca().np
+            )
 
             if gen_dm2:
                 # obtain the memory of 2-RDM
@@ -243,10 +261,10 @@ class Mrksinv:
                 self.dm2 = oe.contract(
                     "pqrs,ip,jq,ur,vs->ijuv",
                     self.dm2_mo,
-                    self.mo,
-                    self.mo,
-                    self.mo,
-                    self.mo,
+                    wfn.Ca().np,
+                    wfn.Ca().np,
+                    wfn.Ca().np,
+                    wfn.Ca().np,
                 )
         self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
 
