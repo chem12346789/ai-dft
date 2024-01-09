@@ -58,12 +58,11 @@ class Mrksinv:
         scf_step=2500,
         device=None,
         noisy_print=False,
-        if_psi4=False,
         basis="sto-3g",
     ):
         if args is None:
             self.args = Args(
-                level, inv_step, scf_step, device, noisy_print, if_psi4, basis, frac_old
+                level, inv_step, scf_step, device, noisy_print, basis, frac_old
             )
         else:
             self.args = Args(
@@ -72,7 +71,6 @@ class Mrksinv:
                 args.scf_step,
                 args.device,
                 args.noisy_print,
-                args.psi4,
                 args.basis,
                 frac_old,
             )
@@ -149,9 +147,6 @@ class Mrksinv:
         self.eri_mo = pyscf.ao2mo.kernel(self.eri, self.mo, compact=False)
         self.aux_function = Auxfunction(self)
 
-        shapes = np.shape(self.h1e), np.shape(self.h1e), np.shape(self.h1e)
-        self.oe_dm1_ao = oe.contract_expression("ij,pi,qj->pq", *shapes)
-
         self.dm1 = None
         self.dm2 = None
         self.dm1_mo = None
@@ -177,96 +172,7 @@ class Mrksinv:
         """
         This function is used to do the quantum chemistry calculation.
         """
-        if self.args.psi4:
-            self.kernel_psi4(method, gen_dm2=gen_dm2)
-        else:
-            self.kernel_pyscf(method, gen_dm2=gen_dm2)
-
-    def kernel_psi4(self, method="fci", gen_dm2=True):
-        """
-        This function is used to do the quantum chemistry calculation using psi4.
-        """
-        mol_str = ""
-        for atom in self.mol.atom:
-            mol_str += f"{atom[0]} {atom[1]} {atom[2]} {atom[3]}\n"
-        mol_str += "noreorient\n"
-        mol_str += "nocom\n"
-        mol_str += "units angstrom\n"
-        mol_str += "symmetry c1\n"
-        mol = psi4.geometry(mol_str)
-
-        psi4.set_output_file("output.dat", True)
-        psi4.core.set_num_threads(12)
-        psi4.core.clean()
-        psi4.set_options(
-            {
-                "reference": "rhf",
-                "opdm": True,
-                "tpdm": True,
-                "SCF_TYPE": "DIRECT",
-            }
-        )
-
-        self.e, wfn = psi4.energy(
-            f"{method}/{self.args.basis}", return_wfn=True, molecule=mol
-        )
-        if method == "hf":
-            self.logger.info("HF method.\n")
-            self.dm1 = wfn.Da().np + wfn.Db().np
-            self.dm1_mo = oe.contract(
-                "ij,pi,qj->pq",
-                self.dm1,
-                (wfn.Ca().np).T @ wfn.S().np,
-                (wfn.Ca().np).T @ wfn.S().np,
-            )
-            self.dm1 = oe.contract("ij,pi,qj->pq", self.dm1_mo, self.mo, self.mo)
-            if gen_dm2:
-                self.dm2 = (
-                    np.einsum("ij,kl->ijkl", self.dm1, self.dm1)
-                    - np.einsum("ij,kl->iklj", self.dm1, self.dm1) / 2
-                )
-                self.dm2_mo = oe.contract(
-                    "pqrs,ip,jq,ur,vs->ijuv",
-                    self.dm2,
-                    (wfn.Ca().np).T @ wfn.S().np,
-                    (wfn.Ca().np).T @ wfn.S().np,
-                    (wfn.Ca().np).T @ wfn.S().np,
-                    (wfn.Ca().np).T @ wfn.S().np,
-                )
-                self.dm2 = oe.contract(
-                    "pqrs,ip,jq,ur,vs->ijuv",
-                    self.dm2_mo,
-                    self.mo,
-                    self.mo,
-                    self.mo,
-                    self.mo,
-                )
-        else:
-            self.logger.info("CI method.\n")
-            self.dm1_mo = wfn.get_opdm(-1, -1, "SUM", True).np
-            self.dm1 = oe.contract(
-                "ij,pi,qj->pq", self.dm1_mo, wfn.Ca().np, wfn.Ca().np
-            )
-
-            if gen_dm2:
-                # obtain the memory of 2-RDM
-                self.logger.info(
-                    f"memory of 2-RDM: {(self.dm1.shape[0] ** 4) * 8.e-9 * 2} GB\n"
-                )
-                self.logger.info(
-                    f"Total energy: {self.e:16.10f}\n"
-                    f"The dm1 and dm2 are generated.\n",
-                )
-                self.dm2_mo = wfn.get_tpdm("SUM", True).np
-                self.dm2 = oe.contract(
-                    "pqrs,ip,jq,ur,vs->ijuv",
-                    self.dm2_mo,
-                    wfn.Ca().np,
-                    wfn.Ca().np,
-                    wfn.Ca().np,
-                    wfn.Ca().np,
-                )
-        self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
+        self.kernel_pyscf(method, gen_dm2=gen_dm2)
 
     def kernel_pyscf(self, method="fci", gen_dm2=True):
         """

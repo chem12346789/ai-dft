@@ -104,7 +104,7 @@ def train_model(
     )  # goal: minimize the error
 
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
-    criterion = nn.MSELoss()
+    criterion = nn.MSELoss(reduction="sum")
     division_epoch = 50
     val_score = None
 

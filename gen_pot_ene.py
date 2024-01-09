@@ -116,16 +116,12 @@ parser.add_argument(
     "--method",
     "-me",
     type=str,
-    choices=["cisd", "cisdt", "fci", "detci", "ccsd", "ccsdt", "hf"],
+    choices=["cisd", "fci", "ccsd", "ccsdt", "hf"],
     help="Method for quantum chemistry calculation. Default is 'cisd'.",
     default="cisd",
 )
 
 args = parser.parse_args()
-
-if args.method == "cisdt":
-    if args.psi4 is False:
-        raise ValueError("CISDT is not supported by pyscf.")
 
 if len(args.distance_list) == 3:
     distance_l = np.linspace(
