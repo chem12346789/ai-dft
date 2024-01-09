@@ -105,14 +105,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--psi4",
-    "-p",
-    type=bool,
-    help="If use psi4 to calculate the energy. Default is False.",
-    default=False,
-)
-
-parser.add_argument(
     "--method",
     "-me",
     type=str,

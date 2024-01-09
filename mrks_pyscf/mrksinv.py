@@ -38,7 +38,6 @@ class Args:
     scf_step: int
     device: str
     noisy_print: bool
-    psi4: bool
     basis: str
     frac_old: float
 
@@ -90,20 +89,13 @@ class Mrksinv:
         if not self.path.exists():
             self.path.mkdir(parents=True)
 
-        if self.args.psi4:
-            basis = {}
-            for i_atom in molecular:
-                basis[i_atom[0]] = pyscf.gto.basis.parse(
-                    BASIS_PSI4[self.args.basis][i_atom[0]]
-                )
-        else:
-            basis = {}
-            for i_atom in molecular:
-                basis[i_atom[0]] = (
-                    BASIS[self.args.basis]
-                    if ((i_atom[0] == "H") and (self.args.basis in BASIS))
-                    else self.args.basis
-                )
+        basis = {}
+        for i_atom in molecular:
+            basis[i_atom[0]] = (
+                BASIS[self.args.basis]
+                if ((i_atom[0] == "H") and (self.args.basis in BASIS))
+                else self.args.basis
+            )
 
         mol = pyscf.M(
             atom=molecular,
