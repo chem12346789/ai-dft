@@ -3,15 +3,18 @@ Documentation for this module.
  
 More details.
 """
+import argparse
 import logging
 import gc
 from pathlib import Path
 import numpy as np
 import pyscf
-import argparse
 
 from src.mrks_pyscf.mrksinv import Mrksinv
-from src.mrks_pyscf.utils.mol import Mol, BASIS, BASIS_PSI4
+from src.mrks_pyscf.utils.mol import Mol
+from src.mrks_pyscf.utils.mol import old_function1
+from src.mrks_pyscf.utils.mol import old_function2
+
 
 path = Path(__file__).resolve().parents[1] / "data"
 parser = argparse.ArgumentParser(
@@ -70,10 +73,18 @@ parser.add_argument(
 
 parser.add_argument(
     "--inv_step",
-    "-s",
+    "-is",
     type=int,
     help="Number of steps for inversion. Default is 25000.",
     default=25000,
+)
+
+parser.add_argument(
+    "--scf_step",
+    "-ss",
+    type=int,
+    help="Number of steps for scf. Default is 2500.",
+    default=2500,
 )
 
 parser.add_argument(
@@ -94,15 +105,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--method",
-    "-me",
-    type=str,
-    choices=["cisd", "fci", "ccsd", "ccsdt", "hf"],
-    help="Method for quantum chemistry calculation. Default is 'cisd'.",
-    default="cisd",
-)
-
-parser.add_argument(
     "--psi4",
     "-p",
     type=bool,
@@ -110,20 +112,20 @@ parser.add_argument(
     default=False,
 )
 
+parser.add_argument(
+    "--method",
+    "-me",
+    type=str,
+    choices=["cisd", "cisdt", "fci", "ccsd", "ccsdt", "hf"],
+    help="Method for quantum chemistry calculation. Default is 'cisd'.",
+    default="cisd",
+)
+
 args = parser.parse_args()
 
-if args.old_factor_scheme == 1:
-    from src.mrks_pyscf.utils.mol import old_function1 as old_function
-elif args.old_factor_scheme == 2:
-    from src.mrks_pyscf.utils.mol import old_function2 as old_function
-else:
-
-    def old_function(distance):
-        """
-        This function is used to determine the factor of mixing old and new density matrix in SCF process
-        """
-        return args.old_factor
-
+if args.method == "cisdt":
+    if args.psi4 is False:
+        raise ValueError("CISDT is not supported by pyscf.")
 
 if len(args.distance_list) == 3:
     distance_l = np.linspace(
@@ -149,33 +151,19 @@ for distance in distance_l:
     molecular[0][1] = distance
     logger.info("%s", f"The distance is {distance}.")
 
-    if args.psi4:
-        basis = {}
-        for i_atom in molecular:
-            basis[i_atom[0]] = BASIS_PSI4[args.basis][i_atom[0]]
+    if args.old_factor_scheme == 1:
+        FRAC_OLD = old_function1(distance)
+    elif args.old_factor_scheme == 2:
+        FRAC_OLD = old_function2(distance)
     else:
-        basis = {}
-        for i_atom in molecular:
-            basis[i_atom[0]] = (
-                BASIS[args.basis]
-                if ((i_atom[0] == "H") and (args.basis in BASIS))
-                else args.basis
-            )
-
-    mol = pyscf.M(
-        atom=molecular,
-        basis=basis,
-    )
+        FRAC_OLD = args.old_factor
 
     mrks_inv = Mrksinv(
-        mol,
-        frac_old=old_function(distance),
-        level=args.level,
-        inv_step=args.inv_step,
+        molecular,
         path=path_dir / f"{distance:.4f}",
+        args=args,
         logger=logger,
-        device=args.device,
-        noisy_print=args.noisy_print,
+        frac_old=FRAC_OLD,
     )
 
     if args.psi4:
@@ -185,6 +173,6 @@ for distance in distance_l:
 
     mrks_inv.inv_prepare()
     mrks_inv.inv()
-    del mrks_inv, mol
+    del mrks_inv
     gc.collect()
     print("All done.\n")

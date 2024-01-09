@@ -9,6 +9,7 @@ import sys
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from dataclasses import dataclass
 
 import opt_einsum as oe
 from scipy import linalg as LA
@@ -18,11 +19,23 @@ from pyscf import dft
 
 import psi4
 
-from .utils.grids import Grid
-from .utils.aux_function import Auxfunction
-from .utils.kernel import kernel
-from .utils.gen_taup_rho import gen_taup_rho, gen_tau_rho
-from .utils.gen_w import gen_w_vec
+from src.mrks_pyscf.utils.grids import Grid
+from src.mrks_pyscf.utils.aux_function import Auxfunction
+from src.mrks_pyscf.utils.kernel import kernel
+from src.mrks_pyscf.utils.gen_taup_rho import gen_taup_rho, gen_tau_rho
+from src.mrks_pyscf.utils.gen_w import gen_w_vec
+from src.mrks_pyscf.utils.mol import BASIS, BASIS_PSI4
+
+
+@dataclass
+class Args:
+    level: int
+    inv_step: int
+    scf_step: int
+    device: str
+    noisy_print: bool
+    if_psi4: bool
+    frac_old: float
 
 
 class Mrksinv:
@@ -30,22 +43,34 @@ class Mrksinv:
 
     def __init__(
         self,
-        mol,
+        molecular,
+        path=Path(__file__).resolve().parents[0],
+        args=None,
+        logger=None,
         frac_old=0.8,
         level=3,
         inv_step=25000,
         scf_step=2500,
-        path=Path(__file__).resolve().parents[0],
-        logger=None,
         device=None,
         noisy_print=False,
+        if_psi4=False,
     ):
-        self.mol = mol
-        self.mat_s = mol.intor("int1e_ovlp")
-        self.mat_hs = LA.fractional_matrix_power(self.mat_s, -0.5).real
-        self.nocc = mol.nelec[0]
-        self.frac_old = frac_old
-        if device is None:
+        if args is None:
+            self.args = Args(
+                level, inv_step, scf_step, device, noisy_print, if_psi4, frac_old
+            )
+        else:
+            self.args = Args(
+                args.level,
+                args.inv_step,
+                args.scf_step,
+                args.device,
+                args.noisy_print,
+                args.if_psi4,
+                frac_old,
+            )
+            self.args = args
+        if self.args.device is None:
             self.device = (
                 torch.device("cuda")
                 if torch.cuda.is_available()
@@ -53,21 +78,40 @@ class Mrksinv:
             )
         else:
             self.device = torch.device(device)
-        self.noise_print = noisy_print
         self.au2kjmol = 2625.5
-
         self.path = path
         # make directory if not exist
         if not self.path.exists():
             self.path.mkdir(parents=True)
-        self.inv_step = inv_step
-        self.scf_step = scf_step
+
+        if args.psi4:
+            basis = {}
+            for i_atom in molecular:
+                basis[i_atom[0]] = BASIS_PSI4[args.basis][i_atom[0]]
+        else:
+            basis = {}
+            for i_atom in molecular:
+                basis[i_atom[0]] = (
+                    BASIS[args.basis]
+                    if ((i_atom[0] == "H") and (args.basis in BASIS))
+                    else args.basis
+                )
+
+        mol = pyscf.M(
+            atom=molecular,
+            basis=basis,
+        )
+
+        self.mol = mol
+        self.mat_s = mol.intor("int1e_ovlp")
+        self.mat_hs = LA.fractional_matrix_power(self.mat_s, -0.5).real
+        self.nocc = mol.nelec[0]
 
         self.logger = logger
         self.logger.info(f"Path: {self.path} \n")
         self.logger.info(f"Device: {self.device} \n")
-        self.logger.info(f"Fraction of old: {self.frac_old} \n")
-        self.logger.info(f"Level of grid: {level} \n")
+        self.logger.info(f"Fraction of old: {self.args.frac_old} \n")
+        self.logger.info(f"Level of grid: {self.args.level} \n")
         self.logger.info(f"Basis set: {self.mol.basis} \n")
         self.logger.info(f"Unit of distance: {self.mol.unit} \n")
         self.logger.info(f"Info of molecule: {self.mol.atom} \n")
@@ -80,7 +124,7 @@ class Mrksinv:
         self.norb = self.myhf.mo_energy.shape[0]
         self.mo = self.myhf.mo_coeff
 
-        self.grids = Grid(self.mol, level)
+        self.grids = Grid(self.mol, self.args.level)
         ni = dft.numint.NumInt()
         self.ao_0 = ni.eval_ao(self.mol, self.grids.coords, deriv=0)
         self.ao_1 = ni.eval_ao(self.mol, self.grids.coords, deriv=1)[1:]
@@ -133,7 +177,7 @@ class Mrksinv:
         mol = psi4.geometry(mol_str)
 
         psi4.set_output_file("output.dat", True)
-        psi4.core.set_num_threads(8)
+        psi4.core.set_num_threads(12)
         psi4.core.clean()
         psi4.set_options(
             {
@@ -144,26 +188,8 @@ class Mrksinv:
         )
 
         self.e, wfn = psi4.energy(f"{method}/{basis}", return_wfn=True, molecule=mol)
-        C = wfn.Ca()
-        if wfn == "CIWavefunction":
-            self.dm1_mo = wfn.get_opdm(-1, -1, "SUM", True).np
-            self.dm1 = oe.contract("pq,ip,jq->ij", self.dm1_mo, C, C)
-
-            if gen_dm2:
-                # obtain the memory of 2-RDM
-                self.logger.info(
-                    "\s", f"memory of 2-RDM: {(self.dm1.shape[0] ** 4) * 8.e-9 * 2} GB"
-                )
-                self.logger.info(
-                    "\s",
-                    f"Total energy: {self.e:16.10f}\n"
-                    f"The dm1 and dm2 are generated.\n",
-                )
-                self.dm2_mo = wfn.get_tpdm("SUM", True).np
-                self.dm2 = oe.contract(
-                    "pqrs,ip,jq,ur,vs->ijuv", self.dm2_mo, C, C, C, C
-                )
-        else:
+        if method == "hf":
+            self.logger.info("HF method.\n")
             self.dm1 = wfn.Da().np + wfn.Db().np
             self.dm1_mo = oe.contract(
                 "ij,pi,qj->pq",
@@ -183,6 +209,29 @@ class Mrksinv:
                     (self.mo).T @ self.mat_s,
                     (self.mo).T @ self.mat_s,
                     (self.mo).T @ self.mat_s,
+                )
+        else:
+            self.logger.info("CI method.\n")
+            self.dm1_mo = wfn.get_opdm(-1, -1, "SUM", True).np
+            self.dm1 = oe.contract("ij,pi,qj->pq", self.dm1_mo, self.mo, self.mo)
+
+            if gen_dm2:
+                # obtain the memory of 2-RDM
+                self.logger.info(
+                    f"memory of 2-RDM: {(self.dm1.shape[0] ** 4) * 8.e-9 * 2} GB\n"
+                )
+                self.logger.info(
+                    f"Total energy: {self.e:16.10f}\n"
+                    f"The dm1 and dm2 are generated.\n",
+                )
+                self.dm2_mo = wfn.get_tpdm("SUM", True).np
+                self.dm2 = oe.contract(
+                    "pqrs,ip,jq,ur,vs->ijuv",
+                    self.dm2_mo,
+                    self.mo,
+                    self.mo,
+                    self.mo,
+                    self.mo,
                 )
         self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
 
@@ -400,7 +449,7 @@ class Mrksinv:
         self.exc_over_dm = (self.exc + 1e-14) / (dm1_r + 1e-14) * cut_off_r
         self.v_vxc_e_taup += self.exc_over_dm
 
-        for i in range(self.inv_step):
+        for i in range(self.args.inv_step):
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
             potential_shift = self.emax - np.max(eigvecs[: self.nocc])
             eigvecs_cuda = torch.from_numpy(eigvecs).to(self.device)
@@ -648,7 +697,7 @@ class Mrksinv:
             dm1_old = dm1.copy()
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
-            if (error < 1e-8) or (step > self.scf_step):
+            if (error < 1e-8) or (step > self.args.scf_step):
                 self.logger.info(f"error of dm1 in the last step, {error:.2e}\n")
                 flag = False
             else:
