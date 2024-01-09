@@ -162,11 +162,7 @@ for distance in distance_l:
         frac_old=FRAC_OLD,
     )
 
-    if args.psi4:
-        mrks_inv.kernel_psi4(method=args.method, basis=args.basis)
-    else:
-        mrks_inv.kernel(method=args.method)
-
+    mrks_inv.kernel(method=args.method)
     mrks_inv.inv_prepare()
     mrks_inv.inv()
     del mrks_inv

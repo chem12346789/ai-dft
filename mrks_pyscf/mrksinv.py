@@ -74,7 +74,7 @@ class Mrksinv:
                 args.basis,
                 frac_old,
             )
-            self.args = args
+            # self.args = args
         if self.args.device is None:
             self.device = (
                 torch.device("cuda")
@@ -127,7 +127,7 @@ class Mrksinv:
         self.mol.verbose = 0
         self.mol.output = self.path / "pyscf.log"
 
-        self.myhf = pyscf.scf.HF(self.mol)
+        self.myhf = pyscf.scf.RHF(self.mol)
         self.myhf.kernel()
         self.norb = self.myhf.mo_energy.shape[0]
         self.mo = self.myhf.mo_coeff
@@ -414,7 +414,7 @@ class Mrksinv:
             if i > 0:
                 error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
                 error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
-                if self.noise_print:
+                if self.args.noisy_print:
                     self.logger.info(
                         "\n%s %s %s %s ",
                         f"step:{i:<8}",
@@ -434,7 +434,9 @@ class Mrksinv:
                     elif i % 10 == 0:
                         self.logger.info(".")
 
-                self.vxc = self.vxc * (1 - self.frac_old) + vxc_old * self.frac_old
+                self.vxc = (
+                    self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
+                )
                 if error_vxc < 1e-6:
                     break
             else:
@@ -642,7 +644,7 @@ class Mrksinv:
             else:
                 if step % 100 == 0:
                     self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}\n")
-            dm1 = dm1 * (1 - self.frac_old) + dm1_old * self.frac_old
+            dm1 = dm1 * (1 - self.args.frac_old) + dm1_old * self.args.frac_old
         return dm1
 
     def gen_energy(
