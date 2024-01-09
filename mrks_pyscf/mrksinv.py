@@ -80,7 +80,8 @@ class Mrksinv:
                 else torch.device("cpu")
             )
         else:
-            self.device = torch.device(device)
+            self.device = torch.device(self.args.device)
+
         self.au2kjmol = 2625.5
         self.path = path
         # make directory if not exist

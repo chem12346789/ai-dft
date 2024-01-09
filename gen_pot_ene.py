@@ -116,7 +116,7 @@ parser.add_argument(
     "--method",
     "-me",
     type=str,
-    choices=["cisd", "cisdt", "fci", "ccsd", "ccsdt", "hf"],
+    choices=["cisd", "cisdt", "fci", "detci", "ccsd", "ccsdt", "hf"],
     help="Method for quantum chemistry calculation. Default is 'cisd'.",
     default="cisd",
 )
