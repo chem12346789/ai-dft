@@ -99,9 +99,9 @@ parser.add_argument(
 parser.add_argument(
     "--noisy_print",
     "-n",
-    type=str,
-    default="False",
-    help="Whether to noisy print. Default is 'False'.",
+    type=bool,
+    default=False,
+    help="Whether to noisy print. Default is False.",
 )
 
 parser.add_argument(
