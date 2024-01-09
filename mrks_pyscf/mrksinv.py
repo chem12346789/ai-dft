@@ -170,12 +170,6 @@ class Mrksinv:
 
     def kernel(self, method="fci", gen_dm2=True):
         """
-        This function is used to do the quantum chemistry calculation.
-        """
-        self.kernel_pyscf(method, gen_dm2=gen_dm2)
-
-    def kernel_pyscf(self, method="fci", gen_dm2=True):
-        """
         This function is used to do the quantum chemistry calculation using pyscf.
         """
         if ((self.dm1 is not None)) and ((self.dm2 is not None)):
