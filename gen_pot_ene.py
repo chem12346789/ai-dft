@@ -105,6 +105,14 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--if_basis_str",
+    "-bs",
+    type=bool,
+    default=False,
+    help="Whether to noisy print. Default is False.",
+)
+
+parser.add_argument(
     "--method",
     "-me",
     type=str,

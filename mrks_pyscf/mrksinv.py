@@ -5,7 +5,6 @@ More details.
 """
 
 from pathlib import Path
-import sys
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,15 +15,16 @@ from scipy import linalg as LA
 
 import pyscf
 from pyscf import dft
-
-import psi4
+from pyscf.gto.basis import parse_gaussian
 
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
 from .utils.gen_taup_rho import gen_taup_rho
 from .utils.gen_w import gen_w_vec
-from .utils.mol import BASIS
+from .utils.mol import BASIS, BASIS_STR
+
+DIRPATH = Path(__file__).resolve().parents[0]
 
 
 @dataclass
@@ -39,6 +39,7 @@ class Args:
     device: str
     noisy_print: bool
     basis: str
+    if_basis_str: bool
     frac_old: float
 
 
@@ -57,11 +58,19 @@ class Mrksinv:
         scf_step=2500,
         device=None,
         noisy_print=False,
+        if_basis_str=False,
         basis="sto-3g",
     ):
         if args is None:
             self.args = Args(
-                level, inv_step, scf_step, device, noisy_print, basis, frac_old
+                level,
+                inv_step,
+                scf_step,
+                device,
+                noisy_print,
+                basis,
+                if_basis_str,
+                frac_old,
             )
         else:
             self.args = Args(
@@ -71,9 +80,13 @@ class Mrksinv:
                 args.device,
                 args.noisy_print,
                 args.basis,
+                args.if_basis_str,
                 frac_old,
             )
-            # self.args = args
+
+        if self.args.if_basis_str:
+            import basis_set_exchange
+
         if self.args.device is None:
             self.device = (
                 torch.device("cuda")
@@ -91,11 +104,19 @@ class Mrksinv:
 
         basis = {}
         for i_atom in molecular:
-            basis[i_atom[0]] = (
-                BASIS[self.args.basis]
-                if ((i_atom[0] == "H") and (self.args.basis in BASIS))
-                else self.args.basis
-            )
+            if self.args.if_basis_str:
+                basis[i_atom[0]] = pyscf.gto.load(
+                    basis_set_exchange.api.get_basis(
+                        self.args.basis, elements=i_atom[0], fmt="nwchem"
+                    ),
+                    i_atom[0],
+                )
+            else:
+                basis[i_atom[0]] = (
+                    BASIS[self.args.basis]
+                    if ((i_atom[0] == "H") and (self.args.basis in BASIS))
+                    else self.args.basis
+                )
 
         mol = pyscf.M(
             atom=molecular,
@@ -250,9 +271,9 @@ class Mrksinv:
         self.exc = np.zeros(len(self.grids.coords))
         self.logger.info(f"\nBefore 1Rdm,\n {torch.cuda.memory_summary()}.\n\n")
         for i, coord in enumerate(self.grids.coords):
-            if i % 100 == 0:
+            if i % 1000 == 0:
                 self.logger.info(f"\n1Rdm, Grid {i:<8} of {len(self.grids.coords):<8}")
-            elif i % 10 == 0:
+            elif i % 100 == 0:
                 self.logger.info(".")
 
             with self.mol.with_rinv_origin(coord):
@@ -278,9 +299,9 @@ class Mrksinv:
         )
 
         for i, coord in enumerate(self.grids.coords):
-            if i % 100 == 0:
+            if i % 1000 == 0:
                 self.logger.info(f"\n2Rdm, Grid {i:<8} of {len(self.grids.coords):<8}")
-            elif i % 10 == 0:
+            elif i % 100 == 0:
                 self.logger.info(".")
             ao_0_i = torch.from_numpy(self.ao_0[i]).to(self.device)
 
@@ -440,7 +461,7 @@ class Mrksinv:
 
         kin = oe.contract("ij,ji->", self.kin, dm1)
         kin_inv = oe.contract("ij,ji->", self.kin, dm1_inv)
-        kin_correct = kin_inv - kin
+        kin_correct = kin - kin_inv
 
         mdft = self.mol.KS()
         mdft.xc = "b3lyp"
@@ -524,25 +545,27 @@ class Mrksinv:
 
         self.logger.info(
             "%s",
-            f"energy_inv: {2625.5 * (self.gen_energy(dm1_inv, kin_correct=kin_correct) - self.e):16.10f}\n",
+            f"energy_inv: {self.au2kjmol * (self.gen_energy(dm1_inv, kin_correct=kin_correct) - self.e):16.10f}\n",
         )
         self.logger.info(
             "%s",
-            f"energy_scf: {2625.5 * (self.gen_energy(dm1_scf, kin_correct=kin_correct) - self.e):16.10f}\n",
+            f"energy_scf: {self.au2kjmol * (self.gen_energy(dm1_scf, kin_correct=kin_correct) - self.e):16.10f}\n",
         )
         self.logger.info(
             "%s",
-            f"energy_exa: {2625.5 * (self.gen_energy(self.dm1) - self.e):16.10f}\n",
+            f"energy_exa: {self.au2kjmol * (self.gen_energy(self.dm1) - self.e):16.10f}\n",
         )
-        self.logger.info("%s", f"ene_dft: {2625.5 * (mdft.e_tot - self.e):16.10f}\n")
-        self.logger.info("%s", f"ene_exa: {2625.5 * self.e:16.10f}\n")
+        self.logger.info(
+            "%s", f"ene_dft: {self.au2kjmol * (mdft.e_tot - self.e):16.10f}\n"
+        )
+        self.logger.info("%s", f"ene_exa: {self.au2kjmol * self.e:16.10f}\n")
 
         self.logger.info(
             f"correct kinetic energy: {(kin_correct * self.au2kjmol):16.10f} kj/mol\n"
         )
 
         self.logger.info(
-            f"error: {((((w_vec - self.exc) * self.grids.weights).sum - 2 * kin_correct) * self.au2kjmol):16.10f} kj/mol\n"
+            f"error: {((((w_vec - self.exc) * self.grids.weights).sum() - 2 * kin_correct) * self.au2kjmol):16.10f} kj/mol\n"
         )
 
     def save_data(self):
