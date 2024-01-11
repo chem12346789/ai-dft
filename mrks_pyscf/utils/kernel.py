@@ -15,6 +15,8 @@ def kernel(method, myhf, gen_dm2):
 
     More details.
     """
+    if_mo = True
+
     if method == "fci":
         cisolver = pyscf.fci.FCI(myhf)
         e, fcivec = cisolver.kernel()
@@ -22,6 +24,7 @@ def kernel(method, myhf, gen_dm2):
             fcivec, myhf.mo_coeff.shape[1], myhf.mol.nelectron
         )
     elif method == "hf":
+        if_mo = False
         dm1_mo = myhf.make_rdm1()
         if gen_dm2:
             dm2_mo = myhf.make_rdm2()
@@ -50,9 +53,27 @@ def kernel(method, myhf, gen_dm2):
         if gen_dm2:
             dm2_mo = myci.make_rdm2()
         e = myci.e_tot
+    elif "casscf" in method:
+        casscf = pyscf.mcscf.CASSCF(myhf, int(method[-2]), int(method[-1]))
+        casscf.kernel()
+        ci = casscf.ci
+        mo_coeff = casscf.mo_coeff
+        nelecas = casscf.nelecas
+        ncas = casscf.ncas
+        ncore = casscf.ncore
+        nmo = mo_coeff.shape[1]
+        casdm1, casdm2 = casscf.fcisolver.make_rdm12(ci, ncas, nelecas)
+        if gen_dm2:
+            dm1_mo, dm2_mo = pyscf.mcscf.addons._make_rdm12_on_mo(
+                casdm1, casdm2, ncore, ncas, nmo
+            )
+        else:
+            if_mo = False
+            dm1_mo = casscf.make_rdm1()
+        e = casscf.e_tot
     else:
         raise NotImplementedError
     if gen_dm2:
-        return e, dm1_mo, dm2_mo
+        return e, dm1_mo, dm2_mo, if_mo
     else:
-        return e, dm1_mo, None
+        return e, dm1_mo, None, if_mo
