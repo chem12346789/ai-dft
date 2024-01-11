@@ -21,7 +21,7 @@ def kernel(method, myhf, gen_dm2):
         cisolver = pyscf.fci.FCI(myhf)
         e, fcivec = cisolver.kernel()
         dm1_mo, dm2_mo = cisolver.make_rdm12(
-            fcivec, myhf.mo_coeff.shape[1], myhf.mol.nelectron
+            fcivec, myhf.mo_coeff.shape[1], myhf.mol.nelec
         )
     elif method == "hf":
         if_mo = False
