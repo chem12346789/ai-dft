@@ -440,6 +440,7 @@ class Mrksinv:
 
         kin = oe.contract("ij,ji->", self.kin, dm1)
         kin_inv = oe.contract("ij,ji->", self.kin, dm1_inv)
+        kin_correct = kin_inv - kin
 
         mdft = self.mol.KS()
         mdft.xc = "b3lyp"
@@ -473,7 +474,7 @@ class Mrksinv:
             + self.mol.energy_nuc()
             + e_vj * 0.5
             + (w_vec * self.grids.weights).sum()
-            - 2 * (kin - kin_inv)
+            - 2 * kin_correct
         )
         self.logger.info(
             f"\nexact energy: {((ene_t_vc - self.e) * self.au2kjmol):16.10f} kj/mol\n"
@@ -494,7 +495,7 @@ class Mrksinv:
             + self.mol.energy_nuc()
             + e_vj_inv * 0.5
             + (w_vec_inv * self.grids.weights).sum()
-            - (kin - kin_inv)
+            - kin_correct
         )
         self.logger.info(
             f"inverse energy: {((ene_0_vc_inv - self.e) * self.au2kjmol):16.10f} kj/mol\n"
@@ -515,7 +516,7 @@ class Mrksinv:
             + self.mol.energy_nuc()
             + e_vj_scf * 0.5
             + (w_vec_scf * self.grids.weights).sum()
-            - (kin - kin_inv)
+            - kin_correct
         )
         self.logger.info(
             f"scf energy: {((ene_0_vc_scf - self.e) * self.au2kjmol):16.10f} kj/mol\n"
@@ -523,11 +524,11 @@ class Mrksinv:
 
         self.logger.info(
             "%s",
-            f"energy_inv: {2625.5 * (self.gen_energy(dm1_inv, kin_correct=kin - kin_inv) - self.e):16.10f}\n",
+            f"energy_inv: {2625.5 * (self.gen_energy(dm1_inv, kin_correct=kin_correct) - self.e):16.10f}\n",
         )
         self.logger.info(
             "%s",
-            f"energy_scf: {2625.5 * (self.gen_energy(dm1_scf, kin_correct=kin - kin_inv) - self.e):16.10f}\n",
+            f"energy_scf: {2625.5 * (self.gen_energy(dm1_scf, kin_correct=kin_correct) - self.e):16.10f}\n",
         )
         self.logger.info(
             "%s",
@@ -537,11 +538,11 @@ class Mrksinv:
         self.logger.info("%s", f"ene_exa: {2625.5 * self.e:16.10f}\n")
 
         self.logger.info(
-            f"correct kinetic energy: {((kin - kin_inv) * self.au2kjmol):16.10f} kj/mol\n"
+            f"correct kinetic energy: {(kin_correct * self.au2kjmol):16.10f} kj/mol\n"
         )
 
         self.logger.info(
-            f"error: {(np.sum((w_vec - self.exc) * self.grids.weights - 2 * (kin - kin_inv)) * self.au2kjmol):16.10f} kj/mol\n"
+            f"error: {((((w_vec - self.exc) * self.grids.weights).sum - 2 * kin_correct) * self.au2kjmol):16.10f} kj/mol\n"
         )
 
     def save_data(self):
