@@ -14,6 +14,8 @@ from src.mrks_pyscf.mrksinv import Mrksinv
 from src.mrks_pyscf.utils.mol import Mol
 from src.mrks_pyscf.utils.mol import old_function1
 from src.mrks_pyscf.utils.mol import old_function2
+from src.mrks_pyscf.utils.mol import old_function3
+from src.mrks_pyscf.utils.mol import old_function4
 
 
 path = Path(__file__).resolve().parents[1] / "data"
@@ -60,7 +62,7 @@ parser.add_argument(
     type=int,
     help="Scheme for old factor. Default is 1. -1 means use given old factor.",
     default=-1,
-    choices=[-1, 1, 2],
+    choices=[-1, 1, 2, 3, 4],
 )
 
 parser.add_argument(
@@ -69,6 +71,22 @@ parser.add_argument(
     type=float,
     help="Old factor. Default is 0.9.",
     default=0.9,
+)
+
+parser.add_argument(
+    "--error_inv",
+    "-ei",
+    type=float,
+    help="Error for inversion. Default is 1e-6.",
+    default=1e-6,
+)
+
+parser.add_argument(
+    "--error_scf",
+    "-es",
+    type=float,
+    help="Error for scf. Default is 1e-6.",
+    default=1e-8,
 )
 
 parser.add_argument(
@@ -151,6 +169,10 @@ for distance in distance_l:
         FRAC_OLD = old_function1(distance)
     elif args.old_factor_scheme == 2:
         FRAC_OLD = old_function2(distance)
+    elif args.old_factor_scheme == 3:
+        FRAC_OLD = old_function3(distance)
+    elif args.old_factor_scheme == 4:
+        FRAC_OLD = old_function4(distance)
     else:
         FRAC_OLD = args.old_factor
 

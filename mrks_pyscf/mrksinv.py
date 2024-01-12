@@ -15,14 +15,13 @@ from scipy import linalg as LA
 
 import pyscf
 from pyscf import dft
-from pyscf.gto.basis import parse_gaussian
 
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
 from .utils.gen_taup_rho import gen_taup_rho
 from .utils.gen_w import gen_w_vec
-from .utils.mol import BASIS, BASIS_STR
+from .utils.mol import BASIS
 
 DIRPATH = Path(__file__).resolve().parents[0]
 
@@ -40,6 +39,8 @@ class Args:
     noisy_print: bool
     basis: str
     if_basis_str: bool
+    error_inv: float
+    error_scf: float
     frac_old: float
 
 
@@ -59,6 +60,8 @@ class Mrksinv:
         device=None,
         noisy_print=False,
         if_basis_str=False,
+        error_inv=1e-6,
+        error_scf=1e-8,
         basis="sto-3g",
     ):
         if args is None:
@@ -70,6 +73,8 @@ class Mrksinv:
                 noisy_print,
                 basis,
                 if_basis_str,
+                error_inv,
+                error_scf,
                 frac_old,
             )
         else:
@@ -81,6 +86,8 @@ class Mrksinv:
                 args.noisy_print,
                 args.basis,
                 args.if_basis_str,
+                args.error_inv,
+                args.error_scf,
                 frac_old,
             )
 
@@ -107,6 +114,10 @@ class Mrksinv:
             if self.args.if_basis_str:
                 basis[i_atom[0]] = pyscf.gto.load(
                     basis_set_exchange.api.get_basis(
+                        BASIS[self.args.basis], elements=i_atom[0], fmt="nwchem"
+                    )
+                    if ((i_atom[0] == "H") and (self.args.basis in BASIS))
+                    else basis_set_exchange.api.get_basis(
                         self.args.basis, elements=i_atom[0], fmt="nwchem"
                     ),
                     i_atom[0],
@@ -405,36 +416,14 @@ class Mrksinv:
             self.vxc = self.v_vxc_e_taup + ebar_ks - self.taup_rho_ks
             if i > 0:
                 error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
-                error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
-                if self.args.noisy_print:
-                    self.logger.info(
-                        "\n%s %s %s %s ",
-                        f"step:{i:<8}",
-                        f"error of vxc: {error_vxc::<10.5e}",
-                        f"dm: {error_dm1::<10.5e}",
-                        f"shift: {potential_shift::<10.5e}",
-                    )
-                else:
-                    if i % 100 == 0:
-                        self.logger.info(
-                            "\n%s %s %s %s ",
-                            f"step:{i:<8}",
-                            f"error of vxc: {error_vxc::<10.5e}",
-                            f"dm: {error_dm1::<10.5e}",
-                            f"shift: {potential_shift::<10.5e}",
-                        )
-                    elif i % 10 == 0:
-                        self.logger.info(".")
-
                 self.vxc = (
                     self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
                 )
-                if error_vxc < 1e-6:
-                    break
+                vxc_old = self.vxc.copy()
             else:
-                self.logger.info(f"Begin inverse calculation. step: {i:<38} ")
+                error_vxc = np.linalg.norm(self.vxc * self.grids.weights)
+                vxc_old = self.vxc.copy()
 
-            vxc_old = self.vxc.copy()
             xc_v = self.aux_function.oe_fock(
                 self.vxc, self.grids.weights, backend="torch"
             )
@@ -443,6 +432,30 @@ class Mrksinv:
             mo = self.mat_hs @ mo
             dm1_inv_old = self.dm1_inv.copy()
             self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
+
+            error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
+            if self.args.noisy_print:
+                self.logger.info(
+                    "\n%s %s %s %s ",
+                    f"step:{i:<8}",
+                    f"error of vxc: {error_vxc::<10.5e}",
+                    f"dm: {error_dm1::<10.5e}",
+                    f"shift: {potential_shift::<10.5e}",
+                )
+            else:
+                if i % 100 == 0:
+                    self.logger.info(
+                        "\n%s %s %s %s ",
+                        f"step:{i:<8}",
+                        f"error of vxc: {error_vxc::<10.5e}",
+                        f"dm: {error_dm1::<10.5e}",
+                        f"shift: {potential_shift::<10.5e}",
+                    )
+                elif i % 10 == 0:
+                    self.logger.info(".")
+
+            if (i > 0) and (error_vxc < self.args.error_inv):
+                break
 
         dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
         if isinstance(mo, np.ndarray):
@@ -627,7 +640,7 @@ class Mrksinv:
             dm1_old = dm1.copy()
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
-            if (error < 1e-8) or (step > self.args.scf_step):
+            if (error < self.args.error_scf) or (step > self.args.scf_step):
                 self.logger.info(f"error of dm1 in the last step, {error:.2e}\n")
                 flag = False
             else:

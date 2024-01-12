@@ -24,9 +24,9 @@ def gen_taup_rho(
         for j in range(i + 1):
             if logger is not None:
                 setp = i * (i + 1) // 2 + j
-                if setp % 100 == 0:
+                if setp % 1000 == 0:
                     logger.info(f"\nstep:{setp:<8} of {norb * (norb + 1) // 2:<8}")
-                if setp % 10 == 0:
+                if setp % 100 == 0:
                     logger.info(".")
             if i != j:
                 part = oe_taup_rho(eigs_v_dm1[:, i], eigs_v_dm1[:, j], backend=backend)
@@ -50,9 +50,9 @@ def gen_tau_rho(
     for i in range(norb):
         if logger is not None:
             setp = i
-            if setp % 100 == 0:
+            if setp % 1000 == 0:
                 logger.info(f"\nstep:{setp:<8} of {norb:<8}")
-            if setp % 10 == 0:
+            if setp % 100 == 0:
                 logger.info(".")
         part = oe_tau_rho(eigs_v_dm1[:, i], eigs_v_dm1[:, i], backend=backend) * 2
         taup += part.cpu().numpy() * eigs_e_dm1[i]
