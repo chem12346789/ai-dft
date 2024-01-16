@@ -25,21 +25,37 @@ Mol = {
 }
 
 BASIS = {
+    # aug-cc-pwcv
     "augccpwcv6z": "aug-cc-pv6z",
     "augccpwcv5z": "aug-cc-pv5z",
     "augccpwcvqz": "aug-cc-pvqz",
     "augccpwcvtz": "aug-cc-pvtz",
     "augccpwcvdz": "aug-cc-pvdz",
-    "cc-pcv6z": "cc-pv6z",
-    "cc-pcv5z": "cc-pv5z",
-    "cc-pcvqz": "cc-pvqz",
-    "cc-pcvtz": "cc-pvtz",
-    "cc-pcvdz": "cc-pvdz",
+    # aug-cc-pcv
     "aug-cc-pcv6z": "aug-cc-pv6z",
     "aug-cc-pcv5z": "aug-cc-pv5z",
     "aug-cc-pcvqz": "aug-cc-pvqz",
     "aug-cc-pcvtz": "aug-cc-pvtz",
     "aug-cc-pcvdz": "aug-cc-pvdz",
+    # ccpwpcv
+    "ccpwpcv6z": "cc-pv6z",
+    "ccpwpcv5z": "cc-pv5z",
+    "ccpwpcvqz": "cc-pvqz",
+    "ccpwpcvtz": "cc-pvtz",
+    "ccpwpcvdz": "cc-pvdz",
+    # cc-pcv
+    "cc-pcv6z": "cc-pv6z",
+    "cc-pcv5z": "cc-pv5z",
+    "cc-pcvqz": "cc-pvqz",
+    "cc-pcvtz": "cc-pvtz",
+    "cc-pcvdz": "cc-pvdz",
+}
+
+BASISTRAN = {
+    "AhlrichspVDZ": "Ahlrichs pVDZ",
+    "AhlrichsTZV": "Ahlrichs TZV",
+    "AhlrichsVDZ": "Ahlrichs VDZ",
+    "AhlrichsVTZ": "Ahlrichs VTZ",
 }
 
 

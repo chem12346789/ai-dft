@@ -145,12 +145,15 @@ if len(args.distance_list) == 3:
     distance_l = np.linspace(
         args.distance_list[0], args.distance_list[1], int(args.distance_list[2])
     )
+    path_dir = (
+        path
+        / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}_{distance_l[0]}_{distance_l[1]}_{distance_l[2]}"
+    )
 else:
     distance_l = args.distance
 
 molecular = Mol[args.molecular]
 
-path_dir = path / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}"
 if not path_dir.exists():
     path_dir.mkdir(parents=True)
 

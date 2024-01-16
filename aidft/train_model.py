@@ -25,8 +25,8 @@ def train_model(
     train: int = 200,
     save_checkpoint: bool = True,
     amp: bool = False,
-    weight_decay: float = 1e-5,
-    momentum: float = 0.9,
+    weight_decay: float = 1e-6,
+    momentum: float = 0.999,
     gradient_clipping: float = 1.0,
 ):
     """Documentation for a function.
