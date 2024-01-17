@@ -54,7 +54,9 @@ def kernel(method, myhf, gen_dm2):
             dm2_mo = myci.make_rdm2()
         e = myci.e_tot
     elif "casscf" in method:
-        casscf = pyscf.mcscf.CASSCF(myhf, int(method[-2]), int(method[-1]))
+        casscf = pyscf.mcscf.CASSCF(
+            myhf, int(method.split("-")[-2]), int(method.split("-")[-1])
+        )
         casscf.kernel()
         ci = casscf.ci
         mo_coeff = casscf.mo_coeff
@@ -62,8 +64,8 @@ def kernel(method, myhf, gen_dm2):
         ncas = casscf.ncas
         ncore = casscf.ncore
         nmo = mo_coeff.shape[1]
-        casdm1, casdm2 = casscf.fcisolver.make_rdm12(ci, ncas, nelecas)
         if gen_dm2:
+            casdm1, casdm2 = casscf.fcisolver.make_rdm12(ci, ncas, nelecas)
             dm1_mo, dm2_mo = pyscf.mcscf.addons._make_rdm12_on_mo(
                 casdm1, casdm2, ncore, ncas, nmo
             )
