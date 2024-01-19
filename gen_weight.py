@@ -10,13 +10,13 @@ from pathlib import Path
 import numpy as np
 import pyscf
 
-from src.mrks_pyscf.mrksinv import Mrksinv
-from src.mrks_pyscf.utils.parser import parser_inv
-from src.mrks_pyscf.utils.mol import Mol
-from src.mrks_pyscf.utils.mol import old_function1
-from src.mrks_pyscf.utils.mol import old_function2
-from src.mrks_pyscf.utils.mol import old_function3
-from src.mrks_pyscf.utils.mol import old_function4
+from mrks_pyscf.mrksinv import Mrksinv
+from mrks_pyscf.utils.parser import parser_inv
+from mrks_pyscf.utils.mol import Mol
+from mrks_pyscf.utils.mol import old_function1
+from mrks_pyscf.utils.mol import old_function2
+from mrks_pyscf.utils.mol import old_function3
+from mrks_pyscf.utils.mol import old_function4
 
 
 path = Path(__file__).resolve().parents[1] / "data"

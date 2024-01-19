@@ -43,6 +43,14 @@ class Auxfunction:
             optimize="auto",
         )
 
+        self.oe_taul_rho = oe.contract_expression(
+            "n,kpn->pk",
+            (mrks_inv.norb,),
+            mrks_inv.ao_1,
+            constants=[1],
+            optimize="auto",
+        )
+
         self.oe_tau_rho = oe.contract_expression(
             "pm,m,n,pn->p",
             mrks_inv.ao_0,

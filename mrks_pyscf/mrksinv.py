@@ -9,18 +9,18 @@ from dataclasses import dataclass
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import pickle
 
 import opt_einsum as oe
 from scipy import linalg as LA
 
 import pyscf
 from pyscf import dft
+import json
 
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
-from .utils.gen_taup_rho import gen_taup_rho
+from .utils.gen_tau_rho import gen_taul_rho as gen_tau_rho
 from .utils.gen_w import gen_w_vec
 from .utils.mol import BASIS, BASISTRAN
 
@@ -351,13 +351,12 @@ class Mrksinv:
         generalized_fock = self.dm1_mo @ self.h1_mo + oe.contract(
             "rsnq,rsmq->mn", self.eri_mo, self.dm2_mo
         )
-        dm1_inv = self.dm1.copy()
-        dm1_r = self.aux_function.oe_rho_r(dm1_inv, backend="torch")
+        dm1_r = self.aux_function.oe_rho_r(self.dm1.copy() / 2, backend="torch")
 
         generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
         eig_e, eig_v = np.linalg.eigh(generalized_fock)
         eig_v = self.mo @ eig_v
-        eig_e = eig_e
+        eig_e = eig_e / 2
         e_bar_r_wf = (
             self.aux_function.oe_ebar_r_wf(eig_e, eig_v, eig_v, backend="torch") / dm1_r
         )
@@ -365,11 +364,11 @@ class Mrksinv:
 
         eigs_e_dm1, eigs_v_dm1 = np.linalg.eigh(self.dm1_mo)
         eigs_v_dm1 = self.mo @ eigs_v_dm1
-        eigs_e_dm1 = eigs_e_dm1
+        eigs_e_dm1 = eigs_e_dm1 / 2
         eigs_v_dm1_cuda = torch.from_numpy(eigs_v_dm1).to(self.device)
 
-        self.taup_rho_wf = gen_taup_rho(
-            self.aux_function.oe_taup_rho,
+        self.taup_rho_wf = gen_tau_rho(
+            self.aux_function,
             dm1_r,
             eigs_v_dm1_cuda,
             eigs_e_dm1,
@@ -393,7 +392,7 @@ class Mrksinv:
         """
         mo = self.mo.copy()
         eigvecs = self.myhf.mo_energy.copy()
-        self.dm1_inv = self.dm1.copy()
+        self.dm1_inv = self.dm1.copy() / 2
         self.v_vxc_e_taup += self.exc_over_dm * 2
 
         for i in range(self.args.inv_step):
@@ -410,8 +409,8 @@ class Mrksinv:
             )
             ebar_ks = ebar_ks.cpu().numpy() / dm1_inv_r
 
-            self.taup_rho_ks = gen_taup_rho(
-                self.aux_function.oe_taup_rho,
+            self.taup_rho_ks = gen_tau_rho(
+                self.aux_function,
                 dm1_inv_r,
                 mo[:, : self.nocc],
                 np.ones(self.nocc),
@@ -436,7 +435,7 @@ class Mrksinv:
             eigvecs, mo = np.linalg.eigh(fock_a)
             mo = self.mat_hs @ mo
             dm1_inv_old = self.dm1_inv.copy()
-            self.dm1_inv = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
+            self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
 
             error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
             if self.args.noisy_print:
@@ -473,7 +472,7 @@ class Mrksinv:
         mdft.xc = "b3lyp"
         mdft.kernel()
 
-        dm1_inv = self.dm1_inv
+        dm1_inv = self.dm1_inv * 2
         dm1_inv_r = self.aux_function.oe_rho_r(dm1_inv, backend="torch")
         dm1 = self.dm1.copy()
         dm1_r = self.aux_function.oe_rho_r(self.dm1, backend="torch")
@@ -486,14 +485,15 @@ class Mrksinv:
         kin_inv = oe.contract("ij,ji->", self.kin, dm1_inv)
         kin_correct = kin - kin_inv
 
-        # kin_correct = np.sum(
-        #     (self.taup_rho_wf - self.taup_rho_ks) * self.grids.weights
-        # )
+        kin_correct1 = 2 * np.sum(
+            (self.taup_rho_wf - self.taup_rho_ks) * self.grids.weights
+        )
 
         save_data = {}
         save_data["energy_dft"] = self.au2kjmol * (mdft.e_tot - self.e)
         save_data["energy"] = self.au2kjmol * self.e
         save_data["correct kinetic energy"] = kin_correct * self.au2kjmol
+        save_data["correct kinetic energy1"] = kin_correct1 * self.au2kjmol
 
         error_inv_r = np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)
         error_scf_r = np.sum(np.abs(dm1_scf_r - dm1_r) * self.grids.weights)
@@ -502,23 +502,45 @@ class Mrksinv:
         save_data["error of dm1_scf"] = error_scf_r
         save_data["error of dm1_dft"] = error_dft_r
 
+        self.logger.info(
+            f"\nCheck! {error_inv_r:16.10f}\n"
+            f"{error_scf_r:16.10f}\n"
+            f"{error_dft_r:16.10f}\n"
+        )
+
         save_data["energy_inv"] = self.au2kjmol * (
             self.gen_energy(dm1_inv, kin_correct=kin_correct) - self.e
         )
         save_data["energy_scf"] = self.au2kjmol * (
             self.gen_energy(dm1_scf, kin_correct=kin_correct) - self.e
         )
+        save_data["energy_inv1"] = self.au2kjmol * (
+            self.gen_energy(dm1_inv, kin_correct=kin_correct1) - self.e
+        )
+        save_data["energy_scf1"] = self.au2kjmol * (
+            self.gen_energy(dm1_scf, kin_correct=kin_correct1) - self.e
+        )
         save_data["energy_exa"] = self.au2kjmol * (self.gen_energy(self.dm1) - self.e)
 
-        save_data["exact energy"] = self.gen_energy_w(dm1, dm1_r, kin_correct) - self.e
-        save_data["inverse energy"] = self.au2kjmol * (
+        save_data["energy_exa_w"] = self.gen_energy_w(dm1, dm1_r, kin_correct) - self.e
+        save_data["energy_inv_w"] = self.au2kjmol * (
             self.gen_energy_w(dm1_inv, dm1_inv_r, kin_correct) - self.e
         )
-        save_data["scf energy"] = self.au2kjmol * (
+        save_data["energy_scf_w"] = self.au2kjmol * (
             self.gen_energy_w(dm1_scf, dm1_scf_r, kin_correct) - self.e
         )
+        save_data["energy_exa_w1"] = (
+            self.gen_energy_w(dm1, dm1_r, kin_correct1) - self.e
+        )
+        save_data["energy_inv_w1"] = self.au2kjmol * (
+            self.gen_energy_w(dm1_inv, dm1_inv_r, kin_correct1) - self.e
+        )
+        save_data["energy_scf_w1"] = self.au2kjmol * (
+            self.gen_energy_w(dm1_scf, dm1_scf_r, kin_correct1) - self.e
+        )
 
-        np.save(self.path / "save_data.npy", save_data)
+        with open(self.path / "save_data.json", "w") as f:
+            json.dump(save_data, f, indent=4)
 
     def save_data(self):
         """
@@ -601,7 +623,6 @@ class Mrksinv:
         """
         This function is used to check the energy.
         """
-        rho_0 = np.einsum("uv, gu, gv -> g", dm1, self.ao_0, self.ao_0)
         e_h1 = oe.contract("ij,ji->", self.h1e, dm1)
         e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
 

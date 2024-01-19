@@ -4,8 +4,8 @@ import numpy as np
 import pyscf
 import argparse
 
-from src.mrks_pyscf.mrksinv import Mrksinv
-from src.mrks_pyscf.utils.mol import Mol, BASIS
+from mrks_pyscf.mrksinv import Mrksinv
+from mrks_pyscf.utils.mol import Mol, BASIS
 
 path = Path(__file__).resolve().parents[1] / "data"
 parser = argparse.ArgumentParser(
