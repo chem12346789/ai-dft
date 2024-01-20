@@ -20,7 +20,7 @@ import json
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
-from .utils.gen_tau_rho import gen_taul_rho as gen_tau_rho
+from .utils.gen_tau_rho import gen_taup_rho as gen_tau_rho
 from .utils.gen_w import gen_w_vec
 from .utils.mol import BASIS, BASISTRAN
 
