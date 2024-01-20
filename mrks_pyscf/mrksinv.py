@@ -20,7 +20,7 @@ import json
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
-from .utils.gen_tau_rho import gen_taul_rho as gen_tau_rho
+from .utils.gen_tau_rho import gen_taup_rho as gen_tau_rho
 from .utils.gen_w import gen_w_vec
 from .utils.mol import BASIS, BASISTRAN
 
@@ -378,7 +378,7 @@ class Mrksinv:
         self.logger.info("\nTaup_rho done.\n")
 
         self.emax = np.max(e_bar_r_wf)
-        self.v_vxc_e_taup = -e_bar_r_wf + self.taup_rho_wf / dm1_r
+        self.v_vxc_e_taup = -e_bar_r_wf
 
         self.logger.info(
             f"\nSummary of prepare_inverse, \n {torch.cuda.memory_summary()}.\n\n"
@@ -417,7 +417,11 @@ class Mrksinv:
                 backend="torch",
             )
 
-            self.vxc = self.v_vxc_e_taup + ebar_ks - self.taup_rho_ks / dm1_inv_r
+            self.vxc = (
+                self.v_vxc_e_taup
+                + ebar_ks
+                + (self.taup_rho_wf - self.taup_rho_ks) / dm1_inv_r
+            )
             if i > 0:
                 error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
                 self.vxc = (
