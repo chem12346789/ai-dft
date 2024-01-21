@@ -84,7 +84,6 @@ for distance in distance_l:
         mrks_inv.load_prepare_inverse()
     else:
         mrks_inv.kernel(method=args.method)
-        mrks_inv.inv_prepare()
         if args.save:
             mrks_inv.save_prepare_inverse()
     mrks_inv.inv()

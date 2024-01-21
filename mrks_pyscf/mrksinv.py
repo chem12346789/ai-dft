@@ -16,6 +16,7 @@ from scipy import linalg as LA
 import pyscf
 from pyscf import dft
 import json
+import gc
 
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
@@ -235,10 +236,11 @@ class Mrksinv:
                     )
 
             self.logger.info("dm1 dm2 done.\n")
-            self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
             self.logger.info(
                 f"Total energy: {self.e:16.10f}\n" f"The dm1 and dm2 are generated.\n"
             )
+        self.gen_e_vxc()
+        self.gen_e_bar_wf()
 
     def save_kernel_dm12(self):
         """
@@ -250,18 +252,11 @@ class Mrksinv:
         Do NOT use this function.
         """
 
-    def inv_prepare(self):
-        """
-        This function is used to do the total inverse calculation.
-        Note all the data will be transform to the torch tensor.
-        """
-        self.gen_e_vxc()
-        self.prepare_inverse()
-
     def inv(self):
         """
         This function is used to do the total inverse calculation.
         """
+        self.gen_taup_rho_wf()
         self.inverse()
         self.check()
         self.save_data()
@@ -297,11 +292,9 @@ class Mrksinv:
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
                 rinv = torch.from_numpy(rinv).to(self.device)
-                rinv_dm2_r = expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch")
-                self.exc_over_dm[i] += rinv_dm2_r / 2
-
-            del rinv_dm2_r
-            torch.cuda.empty_cache()
+                self.exc_over_dm[i] += (
+                    expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch") / 2
+                )
 
         del dm2_cuda
         torch.cuda.empty_cache()
@@ -343,9 +336,10 @@ class Mrksinv:
 
         self.logger.info(f"\nSummary of Exc, \n {torch.cuda.memory_summary()}.\n\n")
         del self.dm2
+        gc.collect()
         torch.cuda.empty_cache()
 
-    def prepare_inverse(self):
+    def gen_e_bar_wf(self):
         """
         This function is used to prepare the inverse calculation.
         """
@@ -353,6 +347,9 @@ class Mrksinv:
             "rsnq,rsmq->mn", self.eri_mo, self.dm2_mo
         )
         dm1_r = self.aux_function.oe_rho_r(self.dm1.copy() / 2, backend="torch")
+        del self.dm2_mo, self.h1_mo
+        gc.collect()
+        torch.cuda.empty_cache()
 
         generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
         eig_e, eig_v = np.linalg.eigh(generalized_fock)
@@ -363,10 +360,48 @@ class Mrksinv:
         )
         self.logger.info("E_bar_r_wf done.\n")
 
+        self.emax = np.max(e_bar_r_wf)
+        self.v_vxc_e_taup = -e_bar_r_wf
+
+    def save_prepare_inverse(self):
+        """
+        Do NOT use this function all the time. Cost too much disk space.
+        """
+        if not (self.path / "saved_data").exists():
+            (self.path / "saved_data").mkdir(parents=True)
+        np.save(self.path / "saved_data" / "v_vxc_e_taup.npy", self.v_vxc_e_taup)
+        np.save(self.path / "saved_data" / "exc_over_dm.npy", self.exc_over_dm)
+        np.save(self.path / "saved_data" / "exc.npy", self.exc)
+        np.save(self.path / "saved_data" / "dm1.npy", self.dm1)
+        np.save(self.path / "saved_data" / "dm1_mo.npy", self.dm1_mo)
+        np.save(self.path / "saved_data" / "mo.npy", self.mo)
+        np.save(self.path / "saved_data" / "emax.npy", self.emax)
+        np.save(self.path / "saved_data" / "e.npy", self.e)
+
+    def load_prepare_inverse(self):
+        """
+        Do NOT use this function all the time.
+        """
+        self.v_vxc_e_taup = np.load(self.path / "saved_data" / "v_vxc_e_taup.npy")
+        self.exc_over_dm = np.load(self.path / "saved_data" / "exc_over_dm.npy")
+        self.exc = np.load(self.path / "saved_data" / "exc.npy")
+        self.dm1 = np.load(self.path / "saved_data" / "dm1.npy")
+        self.dm1_mo = np.load(self.path / "saved_data" / "dm1_mo.npy")
+        self.mo = np.load(self.path / "saved_data" / "mo.npy")
+        self.emax = np.load(self.path / "saved_data" / "emax.npy")
+        self.e = np.load(self.path / "saved_data" / "e.npy")
+
+    def gen_taup_rho_wf(self):
+        """
+        This function is used to generate the tau_rho_wf.
+        """
+        dm1_r = self.aux_function.oe_rho_r(self.dm1.copy() / 2, backend="torch")
         eigs_e_dm1, eigs_v_dm1 = np.linalg.eigh(self.dm1_mo)
         eigs_v_dm1 = self.mo @ eigs_v_dm1
         eigs_e_dm1 = eigs_e_dm1 / 2
         eigs_v_dm1_cuda = torch.from_numpy(eigs_v_dm1).to(self.device)
+
+        print(self.mo)
 
         self.taup_rho_wf = gen_tau_rho(
             self.aux_function,
@@ -378,39 +413,11 @@ class Mrksinv:
         )
         self.logger.info("\nTaup_rho done.\n")
 
-        self.emax = np.max(e_bar_r_wf)
-        self.v_vxc_e_taup = -e_bar_r_wf
-
         self.logger.info(
             f"\nSummary of prepare_inverse, \n {torch.cuda.memory_summary()}.\n\n"
         )
-        del self.dm1_mo, self.h1_mo
+        del self.dm1_mo
         torch.cuda.empty_cache()
-
-    def save_prepare_inverse(self):
-        """
-        Do NOT use this function all the time. Cost too much disk space.
-        """
-        np.save(self.path / "taup_rho_wf.npy", self.taup_rho_wf)
-        np.save(self.path / "v_vxc_e_taup.npy", self.v_vxc_e_taup)
-        np.save(self.path / "exc_over_dm.npy", self.exc_over_dm)
-        np.save(self.path / "exc.npy", self.exc)
-        np.save(self.path / "dm1.npy", self.dm1)
-        np.save(self.path / "emax", self.emax)
-        np.save(self.path / "e", self.e)
-
-    def load_prepare_inverse(self):
-        """
-        Do NOT use this function all the time.
-        """
-        self.taup_rho_wf = np.load(self.path / "taup_rho_wf.npy")
-        self.v_vxc_e_taup = np.load(self.path / "v_vxc_e_taup.npy")
-        self.exc_over_dm = np.load(self.path / "exc_over_dm.npy")
-        self.exc = np.load(self.path / "exc.npy")
-        self.dm1 = np.load(self.path / "dm1.npy")
-        self.emax = np.load(self.path / "emax.npy")
-        self.e = np.load(self.path / "e.npy")
-        self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
 
     def inverse(self):
         """
@@ -420,7 +427,8 @@ class Mrksinv:
         eigvecs = self.myhf.mo_energy.copy()
         self.dm1_inv = self.dm1.copy() / 2
         self.v_vxc_e_taup += self.exc_over_dm * 2
-        dm1_r = self.aux_function.oe_rho_r(self.dm1.copy() / 2, backend="torch")
+        self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
+        dm1_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
 
         for i in range(self.args.inv_step):
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
@@ -458,6 +466,9 @@ class Mrksinv:
                     self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
                 )
                 vxc_old = self.vxc.copy()
+                # self.vj = (1 - self.args.frac_old) * self.myhf.get_jk(
+                #     self.mol, self.dm1_inv, 1
+                # )[0] + self.args.frac_old * self.vj
             else:
                 error_vxc = np.linalg.norm(self.vxc * self.grids.weights)
                 vxc_old = self.vxc.copy()
