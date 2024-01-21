@@ -116,6 +116,20 @@ def parser_inv(parser):
     )
 
     parser.add_argument(
+        "--load",
+        type=bool,
+        default=False,
+        help="Weather to load the saved data. Default is False.",
+    )
+
+    parser.add_argument(
+        "--save",
+        type=bool,
+        default=False,
+        help="Weather to save the data. Default is False.",
+    )
+
+    parser.add_argument(
         "--method",
         "-me",
         type=str,

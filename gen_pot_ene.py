@@ -80,8 +80,13 @@ for distance in distance_l:
         frac_old=FRAC_OLD,
     )
 
-    mrks_inv.kernel(method=args.method)
-    mrks_inv.inv_prepare()
+    if args.load:
+        mrks_inv.load_prepare_inverse()
+    else:
+        mrks_inv.kernel(method=args.method)
+        mrks_inv.inv_prepare()
+        if args.save:
+            mrks_inv.save_prepare_inverse()
     mrks_inv.inv()
     del mrks_inv
     gc.collect()

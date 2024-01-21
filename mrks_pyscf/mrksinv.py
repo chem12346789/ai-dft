@@ -156,6 +156,7 @@ class Mrksinv:
         self.myhf.kernel()
         self.norb = self.myhf.mo_energy.shape[0]
         self.mo = self.myhf.mo_coeff
+        self.logger.info(f"Number of orbital: {self.norb} \n")
 
         self.grids = Grid(self.mol, self.args.level)
         ni = dft.numint.NumInt()
@@ -386,6 +387,31 @@ class Mrksinv:
         del self.dm1_mo, self.h1_mo
         torch.cuda.empty_cache()
 
+    def save_prepare_inverse(self):
+        """
+        Do NOT use this function all the time. Cost too much disk space.
+        """
+        np.save(self.path / "taup_rho_wf.npy", self.taup_rho_wf)
+        np.save(self.path / "v_vxc_e_taup.npy", self.v_vxc_e_taup)
+        np.save(self.path / "exc_over_dm.npy", self.exc_over_dm)
+        np.save(self.path / "exc.npy", self.exc)
+        np.save(self.path / "dm1.npy", self.dm1)
+        np.save(self.path / "emax", self.emax)
+        np.save(self.path / "e", self.e)
+
+    def load_prepare_inverse(self):
+        """
+        Do NOT use this function all the time.
+        """
+        self.taup_rho_wf = np.load(self.path / "taup_rho_wf.npy")
+        self.v_vxc_e_taup = np.load(self.path / "v_vxc_e_taup.npy")
+        self.exc_over_dm = np.load(self.path / "exc_over_dm.npy")
+        self.exc = np.load(self.path / "exc.npy")
+        self.dm1 = np.load(self.path / "dm1.npy")
+        self.emax = np.load(self.path / "emax.npy")
+        self.e = np.load(self.path / "e.npy")
+        self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
+
     def inverse(self):
         """
         This function is used to do the inverse calculation.
@@ -394,6 +420,7 @@ class Mrksinv:
         eigvecs = self.myhf.mo_energy.copy()
         self.dm1_inv = self.dm1.copy() / 2
         self.v_vxc_e_taup += self.exc_over_dm * 2
+        dm1_r = self.aux_function.oe_rho_r(self.dm1.copy() / 2, backend="torch")
 
         for i in range(self.args.inv_step):
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
@@ -420,10 +447,13 @@ class Mrksinv:
             self.vxc = (
                 self.v_vxc_e_taup
                 + ebar_ks
-                + (self.taup_rho_wf - self.taup_rho_ks) / dm1_inv_r
+                + self.taup_rho_wf / dm1_r
+                - self.taup_rho_ks / dm1_inv_r
             )
             if i > 0:
-                error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
+                error_vxc = max(
+                    np.linalg.norm((self.vxc - vxc_old) * self.grids.weights), error_vxc
+                )
                 self.vxc = (
                     self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
                 )
@@ -464,6 +494,8 @@ class Mrksinv:
 
             if (i > 0) and (error_vxc < self.args.error_inv):
                 break
+            else:
+                error_vxc = 0
 
         self.logger.info("\nTau_rho_ks done.\n")
         self.logger.info("\ninverse done.\n\n")
@@ -526,21 +558,23 @@ class Mrksinv:
         )
         save_data["energy_exa"] = self.au2kjmol * (self.gen_energy(self.dm1) - self.e)
 
-        save_data["energy_exa_w"] = self.gen_energy_w(dm1, dm1_r, kin_correct) - self.e
+        save_data["energy_exa_w"] = self.au2kjmol * (
+            self.gen_energy_w(dm1, dm1_r, kin_correct) - self.e
+        )
         save_data["energy_inv_w"] = self.au2kjmol * (
-            self.gen_energy_w(dm1_inv, dm1_inv_r, kin_correct) - self.e
+            self.gen_energy_w(dm1_inv, dm1_inv_r, kin_correct, True) - self.e
         )
         save_data["energy_scf_w"] = self.au2kjmol * (
-            self.gen_energy_w(dm1_scf, dm1_scf_r, kin_correct) - self.e
+            self.gen_energy_w(dm1_scf, dm1_scf_r, kin_correct, True) - self.e
         )
-        save_data["energy_exa_w1"] = (
+        save_data["energy_exa_w1"] = self.au2kjmol * (
             self.gen_energy_w(dm1, dm1_r, kin_correct1) - self.e
         )
         save_data["energy_inv_w1"] = self.au2kjmol * (
-            self.gen_energy_w(dm1_inv, dm1_inv_r, kin_correct1) - self.e
+            self.gen_energy_w(dm1_inv, dm1_inv_r, kin_correct1, True) - self.e
         )
         save_data["energy_scf_w1"] = self.au2kjmol * (
-            self.gen_energy_w(dm1_scf, dm1_scf_r, kin_correct1) - self.e
+            self.gen_energy_w(dm1_scf, dm1_scf_r, kin_correct1, True) - self.e
         )
 
         with open(self.path / "save_data.json", "w") as f:
@@ -628,7 +662,7 @@ class Mrksinv:
         This function is used to check the energy.
         """
         e_h1 = oe.contract("ij,ji->", self.h1e, dm1)
-        e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
+        e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1, dm1)
 
         ene_t_vc = (
             e_h1
@@ -642,7 +676,7 @@ class Mrksinv:
 
         return ene_t_vc
 
-    def gen_energy_w(self, dm1, dm1_r, kin_correct):
+    def gen_energy_w(self, dm1, dm1_r, kin_correct, kin_corr=False):
         """
         This function is used to check the energy, via the W function.
         """
@@ -654,13 +688,22 @@ class Mrksinv:
             self.vxc,
             self.grids.coords,
         )
-        e_nuc = oe.contract("ij,ji->", self.h1e, self.dm1)
-        e_vj = oe.contract("pqrs,pq,rs->", self.eri, self.dm1, self.dm1)
-        ene_t_vc = (
-            e_nuc
-            + self.mol.energy_nuc()
-            + e_vj * 0.5
-            + (w_vec * self.grids.weights).sum()
-            - 2 * kin_correct
-        )
+        e_nuc = oe.contract("ij,ji->", self.h1e, dm1)
+        e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1, dm1)
+        if kin_corr:
+            ene_t_vc = (
+                e_nuc
+                + self.mol.energy_nuc()
+                + e_vj * 0.5
+                + (w_vec * self.grids.weights).sum()
+                - kin_correct
+            )
+        else:
+            ene_t_vc = (
+                e_nuc
+                + self.mol.energy_nuc()
+                + e_vj * 0.5
+                + (w_vec * self.grids.weights).sum()
+                - 2 * kin_correct
+            )
         return ene_t_vc
