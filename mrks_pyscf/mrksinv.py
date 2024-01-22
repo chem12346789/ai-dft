@@ -401,8 +401,6 @@ class Mrksinv:
         eigs_e_dm1 = eigs_e_dm1 / 2
         eigs_v_dm1_cuda = torch.from_numpy(eigs_v_dm1).to(self.device)
 
-        print(self.mo)
-
         self.taup_rho_wf = gen_tau_rho(
             self.aux_function,
             dm1_r,
