@@ -464,9 +464,9 @@ class Mrksinv:
                     self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
                 )
                 vxc_old = self.vxc.copy()
-                # self.vj = (1 - self.args.frac_old) * self.myhf.get_jk(
-                #     self.mol, self.dm1_inv, 1
-                # )[0] + self.args.frac_old * self.vj
+                self.vj = (1 - self.args.frac_old) * self.myhf.get_jk(
+                    self.mol, self.dm1_inv * 2, 1
+                )[0] + self.args.frac_old * self.vj
             else:
                 error_vxc = np.linalg.norm(self.vxc * self.grids.weights)
                 vxc_old = self.vxc.copy()
