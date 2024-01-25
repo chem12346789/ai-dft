@@ -432,7 +432,7 @@ class Mrksinv:
         dm1_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
         self.vxc = np.zeros_like(self.v_vxc_e_taup)
         rho = self.eval_rho(self.dm1_inv, xctype="GGA")
-        _, self.vxc = dft.libxc.eval_xc("B88,P86", rho)[:2]
+        self.vxc = dft.libxc.eval_xc("B88,P86", rho)[1][0]
         print(np.shape(self.vxc))
         error_vxc = 0
 
@@ -471,20 +471,31 @@ class Mrksinv:
             self.vxc = (
                 self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
             )
-            self.vj = (1 - self.args.frac_old) * self.myhf.get_jk(
-                self.mol, self.dm1_inv * 2, 1
-            )[0] + self.args.frac_old * self.vj
-
             xc_v = self.aux_function.oe_fock(
                 self.vxc, self.grids.weights, backend="torch"
             )
-            fock_a = self.mat_hs @ (self.h1e + self.vj + xc_v) @ self.mat_hs
-            eigvecs, mo = np.linalg.eigh(fock_a)
-            mo = self.mat_hs @ mo
-            dm1_inv_old = self.dm1_inv.copy()
-            self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
 
-            error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
+            flag = True
+            step = 0
+            while flag:
+                self.vj = self.myhf.get_jk(self.mol, self.dm1_inv * 2, 1)[0]
+                fock_a = self.mat_hs @ (self.h1e + self.vj + xc_v) @ self.mat_hs
+                eigvecs, mo = np.linalg.eigh(fock_a)
+                mo = self.mat_hs @ mo
+                dm1_inv_old = self.dm1_inv.copy()
+                self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
+                self.dm1_inv = (
+                    self.dm1_inv * (1 - self.args.frac_old)
+                    + dm1_inv_old * self.args.frac_old
+                )
+                error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
+
+                if self.args.noisy_print:
+                    self.logger.info(f"step: {step:<8} error of dm1, {error_dm1:.2e}\n")
+                step += 1
+                if (error_dm1 < self.args.error_scf) or (step > self.args.scf_step):
+                    flag = False
+
             if self.args.noisy_print:
                 self.logger.info(
                     "\n%s %s %s %s ",
