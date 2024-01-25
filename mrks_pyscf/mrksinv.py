@@ -433,6 +433,7 @@ class Mrksinv:
         self.vxc = np.zeros_like(self.v_vxc_e_taup)
         rho = self.eval_rho(self.dm1_inv, xctype="GGA")
         _, self.vxc = dft.libxc.eval_xc("B88,P86", rho)[:2]
+        print(np.shape(self.vxc))
         error_vxc = 0
 
         for i in range(self.args.inv_step):
