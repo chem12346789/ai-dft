@@ -17,6 +17,7 @@ import pyscf
 from pyscf import dft
 import json
 import gc
+from functools import partial
 
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
@@ -161,10 +162,12 @@ class Mrksinv:
 
         self.grids = Grid(self.mol, self.args.level)
         ni = dft.numint.NumInt()
+        ao_value = ni.eval_ao(self.mol, self.grids.coords, deriv=1)
         self.ao_0 = ni.eval_ao(self.mol, self.grids.coords, deriv=0)
         self.ao_1 = ni.eval_ao(self.mol, self.grids.coords, deriv=1)[1:]
         ao_2 = ni.eval_ao(self.mol, self.grids.coords, deriv=2)
         self.ao_2_diag = ao_2[4, :, :] + ao_2[7, :, :] + ao_2[9, :, :]
+        self.eval_rho = partial(ni.eval_rho, self.mol, ao_value)
 
         self.nuc = self.mol.intor("int1e_nuc")
         self.kin = self.mol.intor("int1e_kin")
@@ -427,6 +430,10 @@ class Mrksinv:
         self.v_vxc_e_taup += self.exc_over_dm * 2
         self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
         dm1_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
+        self.vxc = np.zeros_like(self.v_vxc_e_taup)
+        rho = self.eval_rho(self.dm1_inv, xctype="GGA")
+        _, self.vxc = dft.libxc.eval_xc("B88,P86", rho)[:2]
+        error_vxc = 0
 
         for i in range(self.args.inv_step):
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
@@ -450,26 +457,22 @@ class Mrksinv:
                 backend="torch",
             )
 
+            vxc_old = self.vxc.copy()
             self.vxc = (
                 self.v_vxc_e_taup
                 + ebar_ks
                 + self.taup_rho_wf / dm1_r
                 - self.taup_rho_ks / dm1_inv_r
             )
-            if i > 0:
-                error_vxc = max(
-                    np.linalg.norm((self.vxc - vxc_old) * self.grids.weights), error_vxc
-                )
-                self.vxc = (
-                    self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
-                )
-                vxc_old = self.vxc.copy()
-                self.vj = (1 - self.args.frac_old) * self.myhf.get_jk(
-                    self.mol, self.dm1_inv * 2, 1
-                )[0] + self.args.frac_old * self.vj
-            else:
-                error_vxc = np.linalg.norm(self.vxc * self.grids.weights)
-                vxc_old = self.vxc.copy()
+            error_vxc = max(
+                np.linalg.norm((self.vxc - vxc_old) * self.grids.weights), error_vxc
+            )
+            self.vxc = (
+                self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
+            )
+            self.vj = (1 - self.args.frac_old) * self.myhf.get_jk(
+                self.mol, self.dm1_inv * 2, 1
+            )[0] + self.args.frac_old * self.vj
 
             xc_v = self.aux_function.oe_fock(
                 self.vxc, self.grids.weights, backend="torch"

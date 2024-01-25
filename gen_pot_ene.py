@@ -14,10 +14,7 @@ import pyscf
 from mrks_pyscf.mrksinv import Mrksinv
 from mrks_pyscf.utils.parser import parser_inv
 from mrks_pyscf.utils.mol import Mol
-from mrks_pyscf.utils.mol import old_function1
-from mrks_pyscf.utils.mol import old_function2
-from mrks_pyscf.utils.mol import old_function3
-from mrks_pyscf.utils.mol import old_function4
+from mrks_pyscf.utils.mol import old_function
 
 
 path = Path(__file__).resolve().parents[1] / "data"
@@ -60,17 +57,7 @@ molecular = Mol[args.molecular]
 for distance in distance_l:
     molecular[0][1] = distance
     logger.info("%s", f"The distance is {distance}.")
-
-    if args.old_factor_scheme == 1:
-        FRAC_OLD = old_function1(distance)
-    elif args.old_factor_scheme == 2:
-        FRAC_OLD = old_function2(distance)
-    elif args.old_factor_scheme == 3:
-        FRAC_OLD = old_function3(distance)
-    elif args.old_factor_scheme == 4:
-        FRAC_OLD = old_function4(distance)
-    else:
-        FRAC_OLD = args.old_factor
+    FRAC_OLD = old_function(distance, args.old_factor_scheme, args.old_factor)
 
     mrks_inv = Mrksinv(
         molecular,

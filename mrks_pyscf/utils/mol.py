@@ -9,6 +9,12 @@ HCN = [
     ["C", 0, 0, 0],
     ["N", -1.1560, 0, 0],
 ]
+HNHH = [
+    ["H", 0.4380, -0.3120, 0.8250],
+    ["N", 0, 0.067, 0],
+    ["H", 0.4950, -0.3120, -0.7920],
+    ["H", -0.9340, -0.3120, -0.0330],
+]
 HOH = [
     ["H", 1.0, 0.0, 0.0],
     ["O", 0.0, 0.0, 0.0],
@@ -27,6 +33,12 @@ Mol = {
 }
 
 BASIS = {
+    # aug-cc-pwcv
+    "aug-cc-pwcv6z": "aug-cc-pv6z",
+    "aug-cc-pwcv5z": "aug-cc-pv5z",
+    "aug-cc-pwcvqz": "aug-cc-pvqz",
+    "aug-cc-pwcvtz": "aug-cc-pvtz",
+    "aug-cc-pwcvdz": "aug-cc-pvdz",
     # aug-cc-pwcv
     "augccpwcv6z": "aug-cc-pv6z",
     "augccpwcv5z": "aug-cc-pv5z",
@@ -107,3 +119,31 @@ def old_function4(distance):
         return 0.99
     if distance < 3.5:
         return 0.995
+
+
+def old_function5(distance):
+    """
+    This function is used to determine the factor of mixing old and new density matrix in SCF process
+    """
+    if distance < 1.5:
+        return 0.99
+    if distance < 2.5:
+        return 0.995
+    if distance < 3.5:
+        return 0.999
+
+
+def old_function(distance, old_factor_scheme, old_factor):
+    if old_factor_scheme == 1:
+        FRAC_OLD = old_function1(distance)
+    elif old_factor_scheme == 2:
+        FRAC_OLD = old_function2(distance)
+    elif old_factor_scheme == 3:
+        FRAC_OLD = old_function3(distance)
+    elif old_factor_scheme == 4:
+        FRAC_OLD = old_function4(distance)
+    elif old_factor_scheme == 5:
+        FRAC_OLD = old_function5(distance)
+    else:
+        FRAC_OLD = old_factor
+    return FRAC_OLD
