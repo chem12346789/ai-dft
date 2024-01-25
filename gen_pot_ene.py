@@ -48,7 +48,7 @@ else:
     path_dir = path / f"data-{args.molecular}-{args.basis}-{args.method}-{args.level}"
     if not path_dir.exists():
         path_dir.mkdir(parents=True)
-    Path(path_dir / f"inv.log").unlink(missing_ok=True)
+    Path(path_dir / "inv.log").unlink(missing_ok=True)
     logger.addHandler(logging.FileHandler(path_dir / f"inv.log"))
 logger.setLevel(logging.DEBUG)
 
