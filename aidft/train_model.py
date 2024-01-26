@@ -99,13 +99,12 @@ def train_model(
         foreach=True,
     )
 
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, "min", patience=5
-    )  # goal: minimize the error
+    # goal: minimize the error
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min", patience=50)
 
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
     criterion = nn.MSELoss(reduction="sum")
-    division_epoch = 50
+    division_epoch = 1000
     val_score = None
 
     # 5. Begin training

@@ -45,7 +45,7 @@ parser.add_argument(
     nargs="+",
     type=str,
     default="data",
-    help='Name of data. Could be a list. Default is "data".',
+    help='Name of data directory. Could be a list. Default is "data".',
 )
 
 parser.add_argument(
@@ -60,15 +60,14 @@ args = parser.parse_args()
 
 main_dir = Path(__file__).resolve().parents[1]
 imgs_path = main_dir / args.name / "data" / "imgs"
-masks_path = main_dir / args.name / "data" / "masks"
-
+mask_path = main_dir / args.name / "data" / "masks"
 imgs_path.mkdir(parents=True, exist_ok=True)
-masks_path.mkdir(parents=True, exist_ok=True)
+mask_path.mkdir(parents=True, exist_ok=True)
 clean_dir(imgs_path)
-clean_dir(masks_path)
+clean_dir(mask_path)
 print(f"data: {args.data}")
 
-error_message = ""
+MESSAGE = ""
 method_str = args.method
 
 for data_i in args.data:
@@ -79,10 +78,16 @@ for data_i in args.data:
         print(f"Processing {child.parts[-1]}")
         data_file = list(child.glob(f"rho_t_{method_str}.npy"))
         masks_v_file = list(child.glob(f"{method_str}.npy"))
+        weit_v_file = list(child.glob("weight.npy"))
 
-        if (len(data_file) == 1) and (len(masks_v_file) == 1):
-            data = np.load(data_file[0])
-            masks_v = np.load(masks_v_file[0])
+        if (
+            (len(data_file) == 1)
+            and (len(masks_v_file) == 1)
+            and (len(weit_v_file) == 1)
+        ):
+            weit_ve = np.load(weit_v_file[0])
+            data = weit_ve * np.load(data_file[0])
+            masks_v = weit_ve * np.load(masks_v_file[0])
             for i in range(data.shape[0]):
                 data_name = f"{data_path.parts[-1]}-{child.parts[-1]}-{i}.npy"
                 data_shape = (1, data.shape[1], data.shape[2])
@@ -104,7 +109,7 @@ for data_i in args.data:
                             masks_ve[1, :, :] = masks_e[i, :, :].reshape(data_shape)
 
                 np.save(imgs_path / data_name, data[i, :, :].reshape(data_shape))
-                np.save(masks_path / data_name, masks_ve)
+                np.save(mask_path / data_name, masks_ve)
 
                 if args.energy:
                     print(
@@ -115,7 +120,8 @@ for data_i in args.data:
                     f"""{child.parts[-1]} max of masks_v {np.max(masks_v):.3e} """
                     f"""min of masks {np.min(masks_v):.3e}"""
                 )
+                print(f"""{np.sum(data[i, :, :])} """)
         else:
-            error_message += f"""{child.parts[-1]} not found\n"""
+            MESSAGE += f"""{child.parts[-1]} not found\n"""
 print("\n")
-print(error_message)
+print(MESSAGE)

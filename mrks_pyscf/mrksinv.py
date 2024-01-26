@@ -196,6 +196,12 @@ class Mrksinv:
         self.eigs_e_dm1 = None
         self.eigs_v_dm1 = None
 
+    def hybrid(self, new, old):
+        """
+        This function is used to generate the hybrid density matrix.
+        """
+        return new * (1 - self.args.frac_old) + old * self.args.frac_old
+
     def kernel(self, method="fci", gen_dm2=True):
         """
         This function is used to do the quantum chemistry calculation using pyscf.
@@ -436,76 +442,51 @@ class Mrksinv:
         print(np.shape(self.vxc))
         error_vxc = 0
 
-        for i in range(self.args.inv_step):
-            dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
-            potential_shift = self.emax - np.max(eigvecs[: self.nocc])
-            eigvecs_cuda = torch.from_numpy(eigvecs).to(self.device)
-            mo = torch.from_numpy(mo).to(self.device)
+        flag = True
+        while flag:
+            for i in range(self.args.inv_step):
+                dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
+                potential_shift = self.emax - np.max(eigvecs[: self.nocc])
+                eigvecs_cuda = torch.from_numpy(eigvecs).to(self.device)
+                mo = torch.from_numpy(mo).to(self.device)
 
-            ebar_ks = self.aux_function.oe_ebar_r_ks(
-                eigvecs_cuda[: self.nocc] + potential_shift,
-                mo[:, : self.nocc],
-                mo[:, : self.nocc],
-                backend="torch",
-            )
-            ebar_ks = ebar_ks.cpu().numpy() / dm1_inv_r
+                ebar_ks = self.aux_function.oe_ebar_r_ks(
+                    eigvecs_cuda[: self.nocc] + potential_shift,
+                    mo[:, : self.nocc],
+                    mo[:, : self.nocc],
+                    backend="torch",
+                )
+                ebar_ks = ebar_ks.cpu().numpy() / dm1_inv_r
 
-            self.taup_rho_ks = gen_tau_rho(
-                self.aux_function,
-                dm1_inv_r,
-                mo[:, : self.nocc],
-                np.ones(self.nocc),
-                backend="torch",
-            )
+                self.taup_rho_ks = gen_tau_rho(
+                    self.aux_function,
+                    dm1_inv_r,
+                    mo[:, : self.nocc],
+                    np.ones(self.nocc),
+                    backend="torch",
+                )
 
-            vxc_old = self.vxc.copy()
-            self.vxc = (
-                self.v_vxc_e_taup
-                + ebar_ks
-                + self.taup_rho_wf / dm1_r
-                - self.taup_rho_ks / dm1_inv_r
-            )
-            error_vxc = max(
-                np.linalg.norm((self.vxc - vxc_old) * self.grids.weights), error_vxc
-            )
-            self.vxc = (
-                self.vxc * (1 - self.args.frac_old) + vxc_old * self.args.frac_old
-            )
-            xc_v = self.aux_function.oe_fock(
-                self.vxc, self.grids.weights, backend="torch"
-            )
+                vxc_old = self.vxc.copy()
+                self.vxc = (
+                    self.v_vxc_e_taup
+                    + ebar_ks
+                    + self.taup_rho_wf / dm1_r
+                    - self.taup_rho_ks / dm1_inv_r
+                )
+                error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
 
-            flag = True
-            step = 0
-            while flag:
-                self.vj = self.myhf.get_jk(self.mol, self.dm1_inv * 2, 1)[0]
+                self.vxc = self.hybrid(self.vxc, vxc_old)
+                xc_v = self.aux_function.oe_fock(
+                    self.vxc, self.grids.weights, backend="torch"
+                )
                 fock_a = self.mat_hs @ (self.h1e + self.vj + xc_v) @ self.mat_hs
                 eigvecs, mo = np.linalg.eigh(fock_a)
                 mo = self.mat_hs @ mo
                 dm1_inv_old = self.dm1_inv.copy()
                 self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
-                self.dm1_inv = (
-                    self.dm1_inv * (1 - self.args.frac_old)
-                    + dm1_inv_old * self.args.frac_old
-                )
                 error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
 
                 if self.args.noisy_print:
-                    self.logger.info(f"step: {step:<8} error of dm1, {error_dm1:.2e}\n")
-                step += 1
-                if (error_dm1 < self.args.error_scf) or (step > self.args.scf_step):
-                    flag = False
-
-            if self.args.noisy_print:
-                self.logger.info(
-                    "\n%s %s %s %s ",
-                    f"step:{i:<8}",
-                    f"error of vxc: {error_vxc::<10.5e}",
-                    f"dm: {error_dm1::<10.5e}",
-                    f"shift: {potential_shift::<10.5e}",
-                )
-            else:
-                if i % 100 == 0:
                     self.logger.info(
                         "\n%s %s %s %s ",
                         f"step:{i:<8}",
@@ -513,13 +494,56 @@ class Mrksinv:
                         f"dm: {error_dm1::<10.5e}",
                         f"shift: {potential_shift::<10.5e}",
                     )
-                elif i % 10 == 0:
-                    self.logger.info(".")
+                else:
+                    if i % 100 == 0:
+                        self.logger.info(
+                            "\n%s %s %s %s ",
+                            f"step:{i:<8}",
+                            f"error of vxc: {error_vxc::<10.5e}",
+                            f"dm: {error_dm1::<10.5e}",
+                            f"shift: {potential_shift::<10.5e}",
+                        )
+                    elif i % 10 == 0:
+                        self.logger.info(".")
 
-            if (i > 0) and (error_vxc < self.args.error_inv):
-                break
-            else:
-                error_vxc = 0
+                if (i > 0) and (error_vxc < self.args.error_inv):
+                    break
+
+            dm1_inv_back = self.dm1_inv.copy()
+            for step in range(self.args.scf_step):
+                self.vj = self.myhf.get_jk(self.mol, self.dm1_inv * 2, 1)[0]
+                fock_a = self.mat_hs @ (self.h1e + self.vj + xc_v) @ self.mat_hs
+                eigvecs, mo = np.linalg.eigh(fock_a)
+                mo = self.mat_hs @ mo
+                dm1_inv_old = self.dm1_inv.copy()
+                self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
+                error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
+                self.dm1_inv = self.hybrid(self.dm1_inv, dm1_inv_old)
+
+                if self.args.noisy_print:
+                    self.logger.info(f"step: {step:<8} error of dm1, {error_dm1:.2e}\n")
+                else:
+                    if step % 100 == 0:
+                        self.logger.info(
+                            f"step: {step:<8} error of dm1, {error_dm1:.2e}\n"
+                        )
+                    elif step % 10 == 0:
+                        self.logger.info(".")
+                if error_dm1 < self.args.error_scf:
+                    break
+
+            dm1_inv_r = self.aux_function.oe_rho_r(dm1_inv_back, backend="torch")
+            dm1_scf_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
+            self.logger.info(
+                "\n error of dm1_inv, %s \n",
+                f"{np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)}",
+            )
+            self.logger.info(
+                "\n error of dm1_scf, %s \n",
+                f"{np.sum(np.abs(dm1_scf_r - dm1_r) * self.grids.weights)}",
+            )
+            if np.linalg.norm(dm1_inv_back - self.dm1_inv) < 1e-6:
+                flag = False
 
         self.logger.info("\nTau_rho_ks done.\n")
         self.logger.info("\ninverse done.\n\n")
@@ -617,6 +641,7 @@ class Mrksinv:
         exc_mrks_grid = self.grids.vector_to_matrix(self.exc)
         exc_dm_grid = self.grids.vector_to_matrix(self.exc_over_dm)
         tr_grid = self.grids.vector_to_matrix(2 * (self.taup_rho_wf - self.taup_rho_ks))
+        weight_grid = self.grids.vector_to_matrix(self.grids.weights)
 
         rho_0_check = self.grids.matrix_to_vector(rho_0_grid)
         rho_t_check = self.grids.matrix_to_vector(rho_t_grid)
@@ -624,6 +649,7 @@ class Mrksinv:
         exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
         exc_dm_check = self.grids.matrix_to_vector(exc_dm_grid)
         tr_check = self.grids.matrix_to_vector(tr_grid)
+        weight_check = self.grids.matrix_to_vector(weight_grid)
 
         self.logger.info(
             f"\nCheck! {np.linalg.norm(rho_0 - rho_0_check):16.10f}\n"
@@ -632,6 +658,7 @@ class Mrksinv:
             f"{np.linalg.norm(self.exc - exc_mrks_check):16.10f}\n"
             f"{np.linalg.norm(self.exc_over_dm - exc_dm_check):16.10f}\n"
             f"{np.linalg.norm(2 * (self.taup_rho_wf - self.taup_rho_ks) - tr_check):16.10f}\n"
+            f"{np.linalg.norm(weight_check - self.grids.weights):16.10f}\n"
         )
 
         np.save(self.path / "mrks.npy", vxc_mrks_grid)
@@ -640,6 +667,7 @@ class Mrksinv:
         np.save(self.path / "rho_inv_mrks.npy", rho_0_grid)
         np.save(self.path / "rho_t_mrks.npy", rho_t_grid)
         np.save(self.path / "tr.npy", tr_grid)
+        np.save(self.path / "weight.npy", weight_grid)
 
         f, axes = plt.subplots(self.mol.natm, 5)
         for i in range(self.mol.natm):
@@ -668,13 +696,13 @@ class Mrksinv:
             dm1_old = dm1.copy()
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
+            dm1 = self.hybrid(dm1, dm1_old)
             if (error < self.args.error_scf) or (step > self.args.scf_step):
                 self.logger.info(f"error of dm1 in the last step, {error:.2e}\n")
                 flag = False
             else:
                 if step % 100 == 0:
                     self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}\n")
-            dm1 = dm1 * (1 - self.args.frac_old) + dm1_old * self.args.frac_old
         return dm1
 
     def gen_energy(
