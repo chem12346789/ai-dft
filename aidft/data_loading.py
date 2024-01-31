@@ -26,11 +26,13 @@ class BasicDataset(Dataset):
         self,
         images_dir: Path,
         mask_dir: Path,
+        weight_dir: Path,
         mask_suffix: str = "",
     ):
         self.images_dir = images_dir
         self.mask_dir = mask_dir
         self.mask_suffix = mask_suffix
+        self.weight_dir = weight_dir
 
         self.ids = [
             splitext(file)[0]
@@ -48,8 +50,9 @@ class BasicDataset(Dataset):
     def __getitem__(self, idx):
         name = self.ids[idx]
 
-        mask_file = list(self.mask_dir.glob(name + self.mask_suffix + ".*"))
         img_file = list(self.images_dir.glob(name + ".*"))
+        mask_file = list(self.mask_dir.glob(name + self.mask_suffix + ".*"))
+        weight_file = list(self.weight_dir.glob(name + self.mask_suffix + ".*"))
 
         assert (
             len(img_file) == 1
@@ -59,8 +62,10 @@ class BasicDataset(Dataset):
         ), f"Either no mask or multiple masks found for the ID {name}: {mask_file}"
         img = load_numpy(img_file[0])
         mask = load_numpy(mask_file[0])
+        weight = load_numpy(weight_file[0])
 
         return {
             "image": torch.as_tensor(img.copy()).float().contiguous(),
             "mask": torch.as_tensor(mask.copy()).float().contiguous(),
+            "weight": torch.as_tensor(weight.copy()).float().contiguous(),
         }

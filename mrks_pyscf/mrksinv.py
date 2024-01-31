@@ -58,6 +58,7 @@ class Mrksinv:
         logger=None,
         frac_old=0.8,
         level=3,
+        basis="sto-3g",
         inv_step=25000,
         scf_step=2500,
         device=None,
@@ -65,7 +66,6 @@ class Mrksinv:
         if_basis_str=False,
         error_inv=1e-6,
         error_scf=1e-8,
-        basis="sto-3g",
     ):
         if args is None:
             self.args = Args(
@@ -176,6 +176,10 @@ class Mrksinv:
         self.eri = self.mol.intor("int2e")
         self.eri_mo = pyscf.ao2mo.kernel(self.eri, self.mo, compact=False)
         self.aux_function = Auxfunction(self)
+
+        self.error_vxc = 0
+        self.error_dm1 = 0
+        self.potential_shift = 0
 
         self.dm1 = None
         self.dm2 = None
@@ -433,117 +437,78 @@ class Mrksinv:
         mo = self.mo.copy()
         eigvecs = self.myhf.mo_energy.copy()
         self.dm1_inv = self.dm1.copy() / 2
-        self.v_vxc_e_taup += self.exc_over_dm * 2
-        self.vj = self.myhf.get_jk(self.mol, self.dm1, 1)[0]
-        dm1_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
+        self.vj = self.myhf.get_jk(self.mol, self.dm1_inv * 2, 1)[0]
         self.vxc = np.zeros_like(self.v_vxc_e_taup)
-        rho = self.eval_rho(self.dm1_inv, xctype="GGA")
-        self.vxc = dft.libxc.eval_xc("B88,P86", rho)[1][0]
+        dm1_r = self.aux_function.oe_rho_r(self.dm1.copy() / 2, backend="torch")
+        self.v_vxc_e_taup += self.exc_over_dm * 2 + self.taup_rho_wf / dm1_r
+        self.vxc = dft.libxc.eval_xc(
+            "B88,P86", self.eval_rho(self.dm1_inv * 2, xctype="GGA")
+        )[1][0]
         print(np.shape(self.vxc))
-        error_vxc = 0
 
-        flag = True
-        while flag:
-            for i in range(self.args.inv_step):
-                dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
-                potential_shift = self.emax - np.max(eigvecs[: self.nocc])
-                eigvecs_cuda = torch.from_numpy(eigvecs).to(self.device)
-                mo = torch.from_numpy(mo).to(self.device)
+        for i in range(self.args.inv_step):
+            self.vj = self.hybrid(
+                self.myhf.get_jk(self.mol, 2 * self.dm1_inv, 1)[0], self.vj
+            )
+            dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
+            self.potential_shift = self.emax - np.max(eigvecs[: self.nocc])
+            eigvecs_cuda = torch.from_numpy(eigvecs).to(self.device)
+            mo = torch.from_numpy(mo).to(self.device)
 
-                ebar_ks = self.aux_function.oe_ebar_r_ks(
-                    eigvecs_cuda[: self.nocc] + potential_shift,
-                    mo[:, : self.nocc],
-                    mo[:, : self.nocc],
-                    backend="torch",
+            ebar_ks = self.aux_function.oe_ebar_r_ks(
+                eigvecs_cuda[: self.nocc] + self.potential_shift,
+                mo[:, : self.nocc],
+                mo[:, : self.nocc],
+                backend="torch",
+            )
+            ebar_ks = ebar_ks.cpu().numpy() / dm1_inv_r
+
+            self.taup_rho_ks = gen_tau_rho(
+                self.aux_function,
+                dm1_inv_r,
+                mo[:, : self.nocc],
+                np.ones(self.nocc),
+                backend="torch",
+            )
+
+            vxc_old = self.vxc.copy()
+            self.vxc = self.v_vxc_e_taup + ebar_ks - self.taup_rho_ks / dm1_inv_r
+            self.error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
+            self.vxc = self.hybrid(self.vxc, vxc_old)
+
+            xc_v = self.aux_function.oe_fock(
+                self.vxc, self.grids.weights, backend="torch"
+            )
+            eigvecs, mo = np.linalg.eigh(
+                self.mat_hs @ (self.h1e + self.vj + xc_v) @ self.mat_hs
+            )
+            mo = self.mat_hs @ mo
+            dm1_inv_old = self.dm1_inv.copy()
+            self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
+            self.error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
+
+            if self.args.noisy_print:
+                self.logger.info(
+                    "\n%s %s %s %s ",
+                    f"step:{i:<8}",
+                    f"error of vxc: {self.error_vxc::<10.5e}",
+                    f"dm: {self.error_dm1::<10.5e}",
+                    f"shift: {self.potential_shift::<10.5e}",
                 )
-                ebar_ks = ebar_ks.cpu().numpy() / dm1_inv_r
-
-                self.taup_rho_ks = gen_tau_rho(
-                    self.aux_function,
-                    dm1_inv_r,
-                    mo[:, : self.nocc],
-                    np.ones(self.nocc),
-                    backend="torch",
-                )
-
-                vxc_old = self.vxc.copy()
-                self.vxc = (
-                    self.v_vxc_e_taup
-                    + ebar_ks
-                    + self.taup_rho_wf / dm1_r
-                    - self.taup_rho_ks / dm1_inv_r
-                )
-                error_vxc = np.linalg.norm((self.vxc - vxc_old) * self.grids.weights)
-
-                self.vxc = self.hybrid(self.vxc, vxc_old)
-                xc_v = self.aux_function.oe_fock(
-                    self.vxc, self.grids.weights, backend="torch"
-                )
-                fock_a = self.mat_hs @ (self.h1e + self.vj + xc_v) @ self.mat_hs
-                eigvecs, mo = np.linalg.eigh(fock_a)
-                mo = self.mat_hs @ mo
-                dm1_inv_old = self.dm1_inv.copy()
-                self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
-                error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
-
-                if self.args.noisy_print:
+            else:
+                if i % 100 == 0:
                     self.logger.info(
                         "\n%s %s %s %s ",
                         f"step:{i:<8}",
-                        f"error of vxc: {error_vxc::<10.5e}",
-                        f"dm: {error_dm1::<10.5e}",
-                        f"shift: {potential_shift::<10.5e}",
+                        f"error of vxc: {self.error_vxc::<10.5e}",
+                        f"dm: {self.error_dm1::<10.5e}",
+                        f"shift: {self.potential_shift::<10.5e}",
                     )
-                else:
-                    if i % 100 == 0:
-                        self.logger.info(
-                            "\n%s %s %s %s ",
-                            f"step:{i:<8}",
-                            f"error of vxc: {error_vxc::<10.5e}",
-                            f"dm: {error_dm1::<10.5e}",
-                            f"shift: {potential_shift::<10.5e}",
-                        )
-                    elif i % 10 == 0:
-                        self.logger.info(".")
+                elif i % 10 == 0:
+                    self.logger.info(".")
 
-                if (i > 0) and (error_vxc < self.args.error_inv):
-                    break
-
-            dm1_inv_back = self.dm1_inv.copy()
-            for step in range(self.args.scf_step):
-                self.vj = self.myhf.get_jk(self.mol, self.dm1_inv * 2, 1)[0]
-                fock_a = self.mat_hs @ (self.h1e + self.vj + xc_v) @ self.mat_hs
-                eigvecs, mo = np.linalg.eigh(fock_a)
-                mo = self.mat_hs @ mo
-                dm1_inv_old = self.dm1_inv.copy()
-                self.dm1_inv = mo[:, : self.nocc] @ mo[:, : self.nocc].T
-                error_dm1 = np.linalg.norm(self.dm1_inv - dm1_inv_old)
-                self.dm1_inv = self.hybrid(self.dm1_inv, dm1_inv_old)
-
-                if self.args.noisy_print:
-                    self.logger.info(f"step: {step:<8} error of dm1, {error_dm1:.2e}\n")
-                else:
-                    if step % 100 == 0:
-                        self.logger.info(
-                            f"step: {step:<8} error of dm1, {error_dm1:.2e}\n"
-                        )
-                    elif step % 10 == 0:
-                        self.logger.info(".")
-                if error_dm1 < self.args.error_scf:
-                    break
-
-            dm1_inv_r = self.aux_function.oe_rho_r(dm1_inv_back, backend="torch")
-            dm1_scf_r = self.aux_function.oe_rho_r(self.dm1_inv, backend="torch")
-            self.logger.info(
-                "\n error of dm1_inv, %s \n",
-                f"{np.sum(np.abs(dm1_inv_r - dm1_r) * self.grids.weights)}",
-            )
-            self.logger.info(
-                "\n error of dm1_scf, %s \n",
-                f"{np.sum(np.abs(dm1_scf_r - dm1_r) * self.grids.weights)}",
-            )
-            if np.linalg.norm(dm1_inv_back - self.dm1_inv) < 1e-6:
-                flag = False
+            if (i > 0) and (self.error_vxc < self.args.error_inv):
+                break
 
         self.logger.info("\nTau_rho_ks done.\n")
         self.logger.info("\ninverse done.\n\n")
@@ -625,7 +590,7 @@ class Mrksinv:
             self.gen_energy_w(dm1_scf, dm1_scf_r, kin_correct1, True) - self.e
         )
 
-        with open(self.path / "save_data.json", "w") as f:
+        with open(self.path / "save_data.json", "w", encoding="utf-8") as f:
             json.dump(save_data, f, indent=4)
 
     def save_data(self):
@@ -685,10 +650,7 @@ class Mrksinv:
         vxc = self.vxc
         xc_v = self.aux_function.oe_fock(vxc, self.grids.weights, backend="torch")
 
-        flag = True
-        step = 0
-        while flag:
-            step += 1
+        for step in range(self.args.scf_step):
             vj = self.myhf.get_jk(self.mol, dm1, 1)[0]
             fock_a = self.mat_hs @ (self.h1e + vj + xc_v) @ self.mat_hs
             _, mo = np.linalg.eigh(fock_a)
@@ -697,9 +659,9 @@ class Mrksinv:
             dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
             error = np.linalg.norm(dm1 - dm1_old)
             dm1 = self.hybrid(dm1, dm1_old)
-            if (error < self.args.error_scf) or (step > self.args.scf_step):
+            if error < self.args.error_scf:
                 self.logger.info(f"error of dm1 in the last step, {error:.2e}\n")
-                flag = False
+                break
             else:
                 if step % 100 == 0:
                     self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}\n")

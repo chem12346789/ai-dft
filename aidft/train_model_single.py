@@ -1,4 +1,7 @@
-"""Module providing a training method."""
+"""
+Module providing a single loop training method.
+Used for fast training of a small dataset (batch == size of dataset).
+"""
 import logging
 import os
 from pathlib import Path
@@ -105,10 +108,38 @@ def train_model(
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min", patience=50)
 
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
-    criterion = nn.MSELoss(reduction="sum")
+    criterion = nn.MSELoss()
     division_epoch = 50
     save_epoch = 2500
     val_score = None
+
+    for batch in train_loader:
+        images, true_masks, weight = (
+            batch["image"],
+            batch["mask"],
+            batch["weight"],
+        )
+
+        assert images.shape[1] == model.n_channels, (
+            f"Network has been defined with {model.n_channels} input channels, "
+            f"but loaded images have {images.shape[1]} channels. Please check that the images are loaded correctly."
+        )
+
+        images = images.to(
+            device=device,
+            dtype=torch.float64,
+            memory_format=torch.channels_last,
+        )
+        true_masks = true_masks.to(
+            device=device,
+            dtype=torch.float64,
+            memory_format=torch.channels_last,
+        )
+        weight = weight.to(
+            device=device,
+            dtype=torch.float64,
+            memory_format=torch.channels_last,
+        )
 
     # 5. Begin training
     with tqdm(total=epochs, unit="epoch") as pbar:
@@ -118,68 +149,38 @@ def train_model(
             end_time = time.time()
             pbar.update()
 
-            for batch in train_loader:
-                images, true_masks, weight = (
-                    batch["image"],
-                    batch["mask"],
-                    batch["weight"],
+            with torch.autocast(device.type, enabled=amp):
+                masks_pred = model(images)
+                loss = criterion(weight * masks_pred, weight * true_masks)
+
+            optimizer.zero_grad(set_to_none=True)
+            grad_scaler.scale(loss).backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
+            grad_scaler.step(optimizer)
+            grad_scaler.update()
+
+            experiment.log(
+                {
+                    "train loss": loss.item(),
+                    "epoch": epoch,
+                    " time": end_time - start_time,
+                }
+            )
+            if epoch > division_epoch:
+                pbar.set_postfix(
+                    **{"loss (batch)": loss.item(), "error": val_score.item()}
                 )
+            else:
+                pbar.set_postfix(**{"loss (batch)": loss.item(), "error": "N/A"})
 
-                assert images.shape[1] == model.n_channels, (
-                    f"Network has been defined with {model.n_channels} input channels, "
-                    f"but loaded images have {images.shape[1]} channels. Please check that the images are loaded correctly."
-                )
-
-                images = images.to(
-                    device=device,
-                    dtype=torch.float64,
-                    memory_format=torch.channels_last,
-                )
-
-                true_masks = true_masks.to(
-                    device=device,
-                    dtype=torch.float64,
-                    memory_format=torch.channels_last,
-                )
-
-                weight = weight.to(
-                    device=device,
-                    dtype=torch.float64,
-                    memory_format=torch.channels_last,
-                )
-
-                with torch.autocast(device.type, enabled=amp):
-                    masks_pred = model(images)
-                    print("Is cuda ")
-                    loss = criterion(masks_pred, true_masks)
-
-                optimizer.zero_grad(set_to_none=True)
-                grad_scaler.scale(loss).backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
-                grad_scaler.step(optimizer)
-                grad_scaler.update()
-
-                experiment.log(
-                    {
-                        "train loss": loss.item(),
-                        "epoch": epoch,
-                        " time": end_time - start_time,
-                    }
-                )
-                if epoch > division_epoch:
-                    pbar.set_postfix(
-                        **{"loss (batch)": loss.item(), "error": val_score.item()}
-                    )
-                else:
-                    pbar.set_postfix(**{"loss (batch)": loss.item(), "error": "N/A"})
-
+            # Evaluation round
             if epoch % division_epoch == 0:
                 val_score = evaluate(
                     model, val_loader, device, amp, criterion, experiment
                 )
                 scheduler.step(val_score)
                 pbar.set_postfix(
-                    **{"loss (batch)": loss.item(), "error": val_score.item()}
+                    **{"loss (batch)": loss.item(), "error": val_score.float().cpu()}
                 )
                 experiment.log(
                     {
@@ -188,6 +189,7 @@ def train_model(
                     }
                 )
 
+            # Save round
             if epoch % save_epoch == 0:
                 if save_checkpoint:
                     Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)

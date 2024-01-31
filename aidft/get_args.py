@@ -4,87 +4,48 @@ Documentation for this module.
 More details.
 """
 import argparse
-import pyscf
 
 
-HH = pyscf.M(
-    atom=[["H", 1, 0, 0], ["H", -1, 0, 0]],
-    unit="B",
-)
-
-HF = pyscf.M(
-    atom=[["H", 1, 0, 0], ["F", -1, 0, 0]],
-    unit="B",
-)
-
-Be = pyscf.M(
-    atom=[["Be", 0, 0, 0]],
-    unit="B",
-)
-
-Mol = {"H_2": HH, "HH": HH, "HF": HF, "Be": Be}
-
-
-def get_args_quantum(parser: argparse.ArgumentParser):
-    """Documentation for a function.
+def parser_model(parser: argparse.ArgumentParser):
+    """
+    Documentation for a function.
 
     More details.
     """
     parser.add_argument(
-        "--level", "-l", metavar="LEVEL", type=int, help="level of atom grid", default=3
+        "--molecular",
+        "-m",
+        type=str,
+        default="HH",
+        help="Name of molecular.",
     )
 
     parser.add_argument(
-        "--distance",
-        "-d",
+        "--basis",
+        type=str,
+        default="cc-pv5z",
+        help="Name of basis. We use cc-pv5z as default."
+        "Note we will remove core correlation of H atom; "
+        "See https://github.com/pyscf/pyscf/issues/1795.",
+    )
+
+    parser.add_argument(
+        "--distance_list",
+        "-dl",
+        nargs="+",
         type=float,
         help="Distance between atom H to the origin. Default is 1.0.",
         default=1.0,
     )
 
     parser.add_argument(
-        "--rotate",
-        "-r",
-        type=str,
-        help="Rotate the molecular. Can be x, y, z. Default is None",
-        default=None,
+        "--level",
+        "-l",
+        type=int,
+        help="Level of DFT grid. Default is 4.",
+        default=4,
     )
 
-    parser.add_argument(
-        "--qm_method",
-        type=str,
-        default="fci",
-        help="Witch method we used to do the quantum chemical calculation.",
-    )
-
-    parser.add_argument(
-        "--basis_set",
-        type=str,
-        default="aug-cc-pvdz",
-        help="Witch basis set we used to do the quantum chemical calculation.",
-    )
-
-    parser.add_argument(
-        "--molecular",
-        type=str,
-        default="H_2",
-        help=f"Name of molecular. {list(Mol.keys())}",
-    )
-
-    parser.add_argument(
-        "--qm_method_compare",
-        type=str,
-        default="b3lyp",
-        help="Witch method we used to obtain the benchmark quantum chemical calculation."
-        "This should be a dft level method.",
-    )
-
-
-def get_args_train(parser: argparse.ArgumentParser):
-    """Documentation for a function.
-
-    More details.
-    """
     parser.add_argument(
         "--epochs",
         "-e",
@@ -96,7 +57,6 @@ def get_args_train(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--batch-size",
-        "-b",
         dest="batch_size",
         metavar="B",
         type=int,
@@ -106,7 +66,6 @@ def get_args_train(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--learning-rate",
-        "-l",
         metavar="LR",
         type=float,
         default=1e-4,
@@ -139,8 +98,7 @@ def get_args_train(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--training ",
-        "-n",
+        "--training",
         type=int,
         default=200,
         dest="train",
@@ -162,23 +120,80 @@ def get_args_train(parser: argparse.ArgumentParser):
         help="Witch model we used to do the machine learning.",
     )
 
+    parser.add_argument(
+        "--qm_method_compare",
+        type=str,
+        default="b3lyp",
+        help="Witch method we used to obtain the benchmark quantum chemical calculation."
+        "This should be a dft level method.",
+    )
 
-def get_args_model(parser: argparse.ArgumentParser):
-    """Documentation for a function.
+    parser.add_argument(
+        "--old_factor_scheme",
+        "-fs",
+        type=int,
+        help="Scheme for old factor. Default is 1. -1 means use given old factor.",
+        default=-1,
+        choices=[-1, 1, 2, 3, 4, 5],
+    )
 
-    More details.
-    """
+    parser.add_argument(
+        "--scf_step",
+        "-ss",
+        type=int,
+        help="Number of steps for scf calculation. Default is 2500.",
+        default=2500,
+    )
+
+    parser.add_argument(
+        "--error_scf",
+        "-es",
+        type=float,
+        help="Error for scf. Default is 1e-6.",
+        default=1e-8,
+    )
+
+    parser.add_argument(
+        "--old_factor",
+        "-f",
+        type=float,
+        help="Old factor. Default is 0.9.",
+        default=0.9,
+    )
+
     parser.add_argument(
         "--load",
-        "-f",
         default=None,
         help="Load model from a .pth file",
     )
+
     parser.add_argument(
-        "--bilinear", action="store_true", default=False, help="Use bilinear upsampling"
+        "--bilinear",
+        action="store_true",
+        default=False,
+        help="Use bilinear upsampling",
     )
 
     parser.add_argument(
-        "--classes", "-c", type=int, default=1, help="Number of classes"
+        "--classes",
+        "-c",
+        type=int,
+        default=1,
+        help="Number of classes",
+    )
+
+    parser.add_argument(
+        "--single",
+        type=bool,
+        default=False,
+        help="Use single loop training method",
+    )
+
+    parser.add_argument(
+        "--noisy_print",
+        "-n",
+        type=bool,
+        default=False,
+        help="Whether to noisy print. Default is False.",
     )
     return parser.parse_args()

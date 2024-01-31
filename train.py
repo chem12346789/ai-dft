@@ -1,24 +1,28 @@
 import argparse
 import logging
 import torch
+from pathlib import Path
 
-from src.aidft.get_args import get_args_train, get_args_model
-from src.aidft.train_model import train_model
+from aidft import parser_model
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train the UNet on images and target masks"
     )
-    get_args_train(parser)
-    get_args_model(parser)
+    parser_model(parser)
     args = parser.parse_args()
 
     if args.model == "unet_small":
-        from src.aidft.unet.unet_model_small import UNet
+        from aidft import UNet_small as UNet
     elif args.model == "unet":
-        from src.aidft.unet.unet_model import UNet
+        from aidft import UNet
     else:
         raise ValueError("Unknown model")
+
+    if args.single:
+        from aidft import train_model_single as train_model
+    else:
+        from aidft import train_model
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,9 +45,11 @@ if __name__ == "__main__":
     )
 
     if args.load:
-        state_dict = torch.load(args.load, map_location=device)
+        dir_checkpoint = Path(args.name) / "checkpoints/"
+        load_path = dir_checkpoint / f"checkpoint_epoch-{args.load}.pth"
+        state_dict = torch.load(load_path, map_location=device)
         model.load_state_dict(state_dict)
-        logging.info("Model loaded from %s", args.load)
+        logging.info("Model loaded from %s", load_path)
 
     model.to(device=device)
     try:
@@ -58,8 +64,8 @@ if __name__ == "__main__":
             train=args.train,
             save_checkpoint=True,
             amp=args.amp,
-            weight_decay=1e-7,
-            momentum=0.999,
+            weight_decay=1e-5,
+            momentum=0.99,
             gradient_clipping=1.0,
         )
 

@@ -3,7 +3,7 @@
 import torch
 from torch import nn
 
-from src.aidft.unet.unet_parts import DoubleConv, Down, Up, OutConv
+from .unet_parts import DoubleConv, Down, Up, OutConv
 
 
 class UNet(nn.Module):

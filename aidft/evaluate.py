@@ -21,17 +21,32 @@ def evaluate(net, dataloader, device, amp, criterion, experiment):
     with torch.autocast(device.type if device.type != "mps" else "cpu", enabled=amp):
         print("evaluate")
         for batch in dataloader:
-            image, mask_true = batch["image"], batch["mask"]
+            image, mask_true, weight = (
+                batch["image"],
+                batch["mask"],
+                batch["weight"],
+            )
 
             # move images and labels to correct device and type
             image = image.to(
-                device=device, dtype=torch.float64, memory_format=torch.channels_last
+                device=device,
+                dtype=torch.float64,
+                memory_format=torch.channels_last,
             )
-            mask_true = mask_true.to(device=device, dtype=torch.float64)
+            mask_true = mask_true.to(
+                device=device,
+                dtype=torch.float64,
+                memory_format=torch.channels_last,
+            )
+            weight = weight.to(
+                device=device,
+                dtype=torch.float64,
+                memory_format=torch.channels_last,
+            )
 
             # predict the mask
             mask_pred = net(image)
-            sum_error += criterion(mask_pred.float(), mask_true.float())
+            sum_error += criterion(weight * mask_pred, weight * mask_true)
 
     experiment.log(
         {

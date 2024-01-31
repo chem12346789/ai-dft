@@ -61,10 +61,14 @@ args = parser.parse_args()
 main_dir = Path(__file__).resolve().parents[1]
 imgs_path = main_dir / args.name / "data" / "imgs"
 mask_path = main_dir / args.name / "data" / "masks"
+weit_path = main_dir / args.name / "data" / "weights"
+
 imgs_path.mkdir(parents=True, exist_ok=True)
 mask_path.mkdir(parents=True, exist_ok=True)
+weit_path.mkdir(parents=True, exist_ok=True)
 clean_dir(imgs_path)
 clean_dir(mask_path)
+clean_dir(weit_path)
 print(f"data: {args.data}")
 
 MESSAGE = ""
@@ -85,9 +89,9 @@ for data_i in args.data:
             and (len(masks_v_file) == 1)
             and (len(weit_v_file) == 1)
         ):
+            data = np.load(data_file[0])
+            masks_v = np.load(masks_v_file[0])
             weit_ve = np.load(weit_v_file[0])
-            data = weit_ve * np.load(data_file[0])
-            masks_v = weit_ve * np.load(masks_v_file[0])
             for i in range(data.shape[0]):
                 data_name = f"{data_path.parts[-1]}-{child.parts[-1]}-{i}.npy"
                 data_shape = (1, data.shape[1], data.shape[2])
@@ -110,6 +114,7 @@ for data_i in args.data:
 
                 np.save(imgs_path / data_name, data[i, :, :].reshape(data_shape))
                 np.save(mask_path / data_name, masks_ve)
+                np.save(weit_path / data_name, weit_ve[i, :, :].reshape(data_shape))
 
                 if args.energy:
                     print(
@@ -120,7 +125,6 @@ for data_i in args.data:
                     f"""{child.parts[-1]} max of masks_v {np.max(masks_v):.3e} """
                     f"""min of masks {np.min(masks_v):.3e}"""
                 )
-                print(f"""{np.sum(data[i, :, :])} """)
         else:
             MESSAGE += f"""{child.parts[-1]} not found\n"""
 print("\n")

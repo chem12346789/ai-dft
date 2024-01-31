@@ -5,20 +5,25 @@ Documentation for this module.
 More details.
 """
 import argparse
+from .mol import Mol
 
 
-def parser_inv(parser):
+def parser_inv(parser: argparse.ArgumentParser):
+    """
+    Documentation for a function.
+
+    More details.
+    """
     parser.add_argument(
         "--molecular",
         "-m",
         type=str,
         default="HH",
-        help="Name of molecular.",
+        help=f"Name of molecular. {list(Mol.keys())}",
     )
 
     parser.add_argument(
         "--basis",
-        "-b",
         type=str,
         default="cc-pv5z",
         help="Name of basis. We use cc-pv5z as default. Note we will remove core correlation of H atom; See https://github.com/pyscf/pyscf/issues/1795",
@@ -47,7 +52,7 @@ def parser_inv(parser):
         type=int,
         help="Scheme for old factor. Default is 1. -1 means use given old factor.",
         default=-1,
-        choices=[-1, 1, 2, 3, 4],
+        choices=[-1, 1, 2, 3, 4, 5],
     )
 
     parser.add_argument(
@@ -67,14 +72,6 @@ def parser_inv(parser):
     )
 
     parser.add_argument(
-        "--error_scf",
-        "-es",
-        type=float,
-        help="Error for scf. Default is 1e-6.",
-        default=1e-8,
-    )
-
-    parser.add_argument(
         "--inv_step",
         "-is",
         type=int,
@@ -88,6 +85,14 @@ def parser_inv(parser):
         type=int,
         help="Number of steps for scf calculation. Default is 2500.",
         default=2500,
+    )
+
+    parser.add_argument(
+        "--error_scf",
+        "-es",
+        type=float,
+        help="Error for scf. Default is 1e-6.",
+        default=1e-8,
     )
 
     parser.add_argument(

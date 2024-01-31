@@ -1,23 +1,23 @@
 """"""
 import argparse
-import logging
+from pathlib import Path
+import json
 import torch
 import numpy as np
 import opt_einsum as oe
-from scipy import linalg as LA
-from pathlib import Path
 
 import pyscf
-from pyscf import dft
 
-from src.mrks_pyscf.utils.grids import Grid
-from src.aidft.unet.unet_model import UNet
-from src.aidft.get_args import get_args_quantum, get_args_model
-from src.mrks_pyscf.utils.grids import rotate
+from mrks_pyscf.mrksinv import Mrksinv
+from mrks_pyscf.utils.mol import old_function
+from mrks_pyscf.utils.logger import gen_logger
+from mrks_pyscf.utils.mol import Mol
+from aidft import parser_model
 
 
 def predict_potential(net, input_data, device):
-    """Documentation for a function.
+    """
+    Documentation for a function.
 
     More details.
     """
@@ -32,246 +32,223 @@ def predict_potential(net, input_data, device):
     return output.numpy()
 
 
-def old_function(distance):
-    if distance < 1.5:
-        return 0.8
-    if distance < 2.5:
-        return 0.95
-    if distance < 3.5:
-        return 0.975
+path = Path(__file__).resolve().parents[1] / "data"
+parser = argparse.ArgumentParser(
+    description="Generate the inversed potential and energy."
+)
+parser_model(parser)
+args = parser.parse_args()
 
+distance_l, logger, path_dir = gen_logger(
+    args.distance_list,
+    f"{args.molecular}-{args.basis}-{args.level}-predict",
+    path,
+)
+molecular = Mol[args.molecular]
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Predict masks from input images")
-    parser.add_argument(
-        "--distance_list",
-        "-dl",
-        nargs="+",
-        type=float,
-        help="Distance between atom H to the origin. Default is 1.0.",
-        default=1.0,
-    )
-    get_args_quantum(parser)
-    get_args_model(parser)
-    args = parser.parse_args()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    if len(args.distance_list) == 3:
-        distance_l = np.linspace(
-            args.distance_list[0], args.distance_list[1], int(args.distance_list[2])
-        )
-    else:
-        distance_l = args.distance
+if args.model == "unet_small":
+    from aidft import UNet_small as UNet
+elif args.model == "unet":
+    from aidft import UNet
+else:
+    raise ValueError("Unknown model")
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+net = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
+net.double()
+net = net.to(memory_format=torch.channels_last)
 
-    net = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
-    net.double()
-
-    device = torch.device("cuda")
-    model_path = Path(args.load) / "checkpoints" / "checkpoint_epoch.pth"
-    logging.info("Loading model %s", f"{model_path}")
-    logging.info("Using device %s", f"{device}")
-
-    state_dict = torch.load(model_path, map_location=device)
+if args.load:
+    dir_checkpoint = Path(args.name) / "checkpoints/"
+    load_path = dir_checkpoint / f"checkpoint_epoch-{args.load}.pth"
+    state_dict = torch.load(load_path, map_location=device)
     net.load_state_dict(state_dict)
-    logging.info("Model loaded!")
-    net.to(device=device)
+    logger.info("Model loaded from %s\n", load_path)
 
-    with open(
-        f"./output-{args.qm_method}-{args.basis_set}.txt",
-        "w",
-        encoding="utf-8",
-    ) as f:
-        for distance in distance_l:
-            FRAC_OLD = old_function(distance)
+net.to(device=device)
 
-            mol = pyscf.M(
-                atom=[["H", distance, 0, 0], ["H", 0, 0, 0]],
-                basis=args.basis_set,
-            )
+save_data = {}
 
-            mol = rotate(mol, angle_list=args.rotate)
-            print(mol.atom)
+for distance in distance_l:
+    molecular[0][1] = distance
+    save_data[distance] = {}
+    logger.info("%s", f"The distance is {distance}.")
+    FRAC_OLD = old_function(distance, args.old_factor_scheme, args.old_factor)
 
-            myhf = pyscf.scf.HF(mol)
-            myhf.kernel()
-            h1e = myhf.get_hcore()
-            mo = myhf.mo_coeff
+    mrks_inv = Mrksinv(
+        molecular,
+        path=path_dir / f"{distance:.4f}",
+        args=None,
+        logger=logger,
+        frac_old=FRAC_OLD,
+        level=args.level,
+        basis=args.basis,
+    )
 
-            mdft = mol.KS()
-            mdft.xc = "b3lyp"
-            mdft.kernel()
-            dm1_compare = mdft.make_rdm1()
-            e_compare = mdft.e_tot
+    myhf = pyscf.scf.HF(mrks_inv.mol)
+    myhf.kernel()
+    h1e = myhf.get_hcore()
+    mo = myhf.mo_coeff
 
-            mycisd = pyscf.ci.CISD(myhf).run()
-            dm1_cisd = mycisd.make_rdm1()
-            dm1_cisd = oe.contract("ij,pi,qj->pq", dm1_cisd, mo, mo)
-            e_cisd = mycisd.e_tot
+    mdft = mrks_inv.mol.KS()
+    mdft.xc = "b3lyp"
+    mdft.kernel()
+    dm1_compare = mdft.make_rdm1()
+    e_compare = mdft.e_tot
 
-            s_0_ao = mol.intor("int1e_ovlp")
-            inv_half_ovlp = LA.fractional_matrix_power(s_0_ao, -0.5).real
-            nocc = mol.nelec[0]
+    mycisd = pyscf.ci.CISD(myhf).run()
+    dm1_cisd = mycisd.make_rdm1()
+    dm1_cisd = oe.contract("ij,pi,qj->pq", dm1_cisd, mo, mo)
+    e_cisd = mycisd.e_tot
 
-            grids = Grid(mol, args.level)
-            dm1 = dm1_compare.copy()
-            ni = dft.numint.NumInt()
-            ao_0 = ni.eval_ao(mol, grids.coords, deriv=0)
+    dm1 = dm1_cisd.copy()
+    vj = mrks_inv.myhf.get_jk(mrks_inv.mol, dm1, 1)[0]
 
-            FLAG = True
-            STEP = 0
-            while FLAG:
-                STEP += 1
+    for step in range(args.scf_step):
+        dm1_r = mrks_inv.aux_function.oe_rho_r(dm1)
+        dm1_r_grid = mrks_inv.grids.vector_to_matrix(dm1_r)
+        mrks_inv.logger.info(
+            f"dm1_r_grid, {np.array2string(dm1_r_grid, precision=4, separator=',', suppress_small=True)}\n"
+        )
 
-                rho_0_grid = grids.vector_to_matrix(
-                    oe.contract(
-                        "uv,gu,gv->g",
-                        dm1,
-                        ao_0,
-                        ao_0,
-                        optimize="optimal",
-                    )
-                )
+        # # trick here, use data from the training set.
+        # dm1_r_grid[0, :, :] = np.load(
+        #     Path(args.name)
+        #     / "data"
+        #     / "imgs"
+        #     / f"data-HH-cc-pcvqz-cisd-4-{distance:.4f}-0.npy"
+        # )
+        # dm1_r_grid[1, :, :] = np.load(
+        #     Path(args.name)
+        #     / "data"
+        #     / "imgs"
+        #     / f"data-HH-cc-pcvqz-cisd-4-{distance:.4f}-1.npy"
+        # )
+        # mrks_inv.logger.info(
+        #     "dm1_r_grid, %s\n",
+        #     f"{np.array2string(dm1_r_grid, precision=4, separator=',', suppress_small=True)}",
+        # )
 
-                vxc_wy_grid = np.zeros_like(rho_0_grid)
-        
-                # # trick here, use data from the training set.
-                # vxc_wy_grid[0, :, :] = np.load(
-                #     Path(args.load)
-                #     / "data"
-                #     / "masks"
-                #     / "data-HH-cc-pcvqz-3-0.5000-0.npy"
-                # )
-                # vxc_wy_grid[1, :, :] = np.load(
-                #     Path(args.load)
-                #     / "data"
-                #     / "masks"
-                #     / "data-HH-cc-pcvqz-3-0.5000-1.npy"
-                # )
+        vxc_grid = np.zeros_like(dm1_r_grid)
+        vxc_grid[0, :, :] = np.load(
+            Path(args.name)
+            / "data"
+            / "masks"
+            / f"data-HH-cc-pcvqz-cisd-4-{distance:.4f}-0.npy"
+        )
+        vxc_grid[1, :, :] = np.load(
+            Path(args.name)
+            / "data"
+            / "masks"
+            / f"data-HH-cc-pcvqz-cisd-4-{distance:.4f}-1.npy"
+        )
 
-                for i_atom, rho_0_grid_atom in enumerate(rho_0_grid):
-                    vxc_wy_grid[i_atom] = predict_potential(
-                        net,
-                        rho_0_grid_atom.reshape(
-                            1, rho_0_grid.shape[1], rho_0_grid.shape[2]
-                        ),
-                        device,
-                    )[0, 0, :, :]
+        mrks_inv.logger.info(
+            f"vxc_grid, {np.array2string(vxc_grid, precision=4, separator=',', suppress_small=True)}\n"
+        )
 
-                vxc = grids.matrix_to_vector(vxc_wy_grid)
-                xc_v = oe.contract(
-                    "p,p,pa,pb->ab",
-                    vxc,
-                    grids.weights,
-                    ao_0,
-                    ao_0,
-                    optimize="optimal",
-                )
-                vj = pyscf.scf.hf.get_jk(mol, dm1)[0]
-                fock_a = inv_half_ovlp @ (h1e + vj + xc_v) @ inv_half_ovlp
-                eigvecs, mo = np.linalg.eigh(fock_a)
-                mo = inv_half_ovlp @ mo
-                dm1_old = dm1.copy()
-                dm1 = 2 * mo[:, :nocc] @ mo[:, :nocc].T
-                error = np.linalg.norm(dm1 - dm1_old)
-                print(f"error of dm1, {error:.2e}")
-                if (error < 1e-8) or (STEP > 2500):
-                    FLAG = False
-                dm1 = dm1 * (1 - FRAC_OLD) + dm1_old * FRAC_OLD
+        for i_atom, rho_0_grid_atom in enumerate(dm1_r_grid):
+            vxc_grid[i_atom] = predict_potential(
+                net,
+                rho_0_grid_atom.reshape(1, dm1_r_grid.shape[1], dm1_r_grid.shape[2]),
+                device,
+            )[0, 0, :, :]
 
-            dm1_compare_r = oe.contract(
-                "uv,gu,gv->g",
-                dm1_compare,
-                ao_0,
-                ao_0,
-                optimize="optimal",
-            )
+        mrks_inv.logger.info(
+            f"vxc_grid, {np.array2string(vxc_grid, precision=4, separator=',', suppress_small=True)}"
+        )
 
-            dm1_cisd_r = oe.contract(
-                "uv,gu,gv->g",
-                dm1_cisd,
-                ao_0,
-                ao_0,
-                optimize="optimal",
-            )
+        vxc = mrks_inv.grids.matrix_to_vector(vxc_grid)
+        xc_v = mrks_inv.aux_function.oe_fock(vxc, mrks_inv.grids.weights)
+        vj = mrks_inv.hybrid(mrks_inv.myhf.get_jk(mrks_inv.mol, dm1, 1)[0], vj)
+        fock_a = mrks_inv.mat_hs @ (h1e + vj + xc_v) @ mrks_inv.mat_hs
+        eigvecs, mo = np.linalg.eigh(fock_a)
+        mo = mrks_inv.mat_hs @ mo
+        dm1_old = dm1.copy()
+        dm1 = 2 * mo[:, : mrks_inv.nocc] @ mo[:, : mrks_inv.nocc].T
+        error = np.linalg.norm(dm1 - dm1_old)
+        if args.noisy_print:
+            mrks_inv.logger.info(f"\nerror of dm1, {error:.4e}\n")
+        else:
+            if step % 100 == 0:
+                mrks_inv.logger.info(f"\nerror of dm1, {error:.4e}\n")
+            elif step % 10 == 0:
+                mrks_inv.logger.info(".")
 
-            dm1_r = oe.contract(
-                "uv,gu,gv->g",
-                dm1,
-                ao_0,
-                ao_0,
-                optimize="optimal",
-            )
+        if error < args.error_scf:
+            break
 
-            error_compare = np.sum(abs(dm1_compare_r - dm1_cisd_r) * grids.weights)
-            error_scf = np.sum(abs(dm1_r - dm1_cisd_r) * grids.weights)
+    dm1_compare_r = mrks_inv.aux_function.oe_rho_r(dm1_compare)
+    dm1_cisd_r = mrks_inv.aux_function.oe_rho_r(dm1_cisd)
 
-            str_ = (
-                f"error of error_compare, {error_compare:<10.2e}"
-                f"error of error_scf, {error_scf:<10.2e}"
-            )
+    error_compare = np.sum(abs(dm1_compare_r - dm1_cisd_r) * mrks_inv.grids.weights)
+    error_scf = np.sum(abs(dm1_r - dm1_cisd_r) * mrks_inv.grids.weights)
 
-            # rho_0_grid = grids.vector_to_matrix(
-            #     oe.contract(
-            #         "uv,gu,gv->g",
-            #         dm1,
-            #         ao_0,
-            #         ao_0,
-            #         optimize="optimal",
-            #     )
-            # )
+    save_data[distance]["energy_inv"] = error_compare
+    save_data[distance]["energy_inv"] = error_scf
 
-            # rho_0_grid[0, :, :] = np.load(
-            #     Path(args.load) / "data" / "imgs" / "0.50-0.npy"
-            # )[0, :, :]
-            # rho_0_grid[1, :, :] = np.load(
-            #     Path(args.load) / "data" / "imgs" / "0.50-1.npy"
-            # )[0, :, :]
-            # # rho_0_grid[0, :, :] += 1e-3
+    mrks_inv.logger.info(f"\nCheck! {error_compare:16.10f}\n" f"{error_scf:21.10f}\n")
 
-            # e_grid = np.zeros_like(rho_0_grid)
-            # for i_atom, rho_0_grid_atom in enumerate(rho_0_grid):
-            #     e_grid[i_atom] = predict_potential(
-            #         net,
-            #         rho_0_grid_atom.reshape(
-            #             1, rho_0_grid.shape[1], rho_0_grid.shape[2]
-            #         ),
-            #         device,
-            #     )[0, 0, :, :]
-            # e_nuc = oe.contract("ij,ji->", h1e, dm1).real
-            # e_vj = oe.contract("ij,ji->", myhf.get_jk(mol, dm1, 1)[0], dm1).real
+    # rho_0_grid = grids.vector_to_matrix(
+    #     oe.contract(
+    #         "uv,gu,gv->g",
+    #         dm1,
+    #         ao_0,
+    #         ao_0,
+    #         optimize="optimal",
+    #     )
+    # )
 
-            # exc_kin_correct = grids.matrix_to_vector(e_grid)
+    # rho_0_grid[0, :, :] = np.load(
+    #     Path(args.load) / "data" / "imgs" / "0.50-0.npy"
+    # )[0, :, :]
+    # rho_0_grid[1, :, :] = np.load(
+    #     Path(args.load) / "data" / "imgs" / "0.50-1.npy"
+    # )[0, :, :]
+    # # rho_0_grid[0, :, :] += 1e-3
 
-            # e_grid_check = np.zeros_like(e_grid)
-            # e_grid_check[0, :, :] = np.load(
-            #     Path(args.load) / "data" / "masks" / "0.50-0.npy"
-            # )[0, :, :]
-            # e_grid_check[1, :, :] = np.load(
-            #     Path(args.load) / "data" / "masks" / "0.50-1.npy"
-            # )[0, :, :]
-            # exc_kin_correct_check = grids.matrix_to_vector(e_grid_check)
+    # e_grid = np.zeros_like(rho_0_grid)
+    # for i_atom, rho_0_grid_atom in enumerate(rho_0_grid):
+    #     e_grid[i_atom] = predict_potential(
+    #         net,
+    #         rho_0_grid_atom.reshape(
+    #             1, rho_0_grid.shape[1], rho_0_grid.shape[2]
+    #         ),
+    #         device,
+    #     )[0, 0, :, :]
+    # e_nuc = oe.contract("ij,ji->", h1e, dm1).real
+    # e_vj = oe.contract("ij,ji->", myhf.get_jk(mol, dm1, 1)[0], dm1).real
 
-            # print(e_grid[0, -1, :])
-            # print(e_grid_check[0, -1, :])
-            # print(np.shape(e_grid_check))
+    # exc_kin_correct = grids.matrix_to_vector(e_grid)
 
-            # print((exc_kin_correct * dm1_r).sum())
-            # print((exc_kin_correct_check * dm1_r).sum())
+    # e_grid_check = np.zeros_like(e_grid)
+    # e_grid_check[0, :, :] = np.load(
+    #     Path(args.load) / "data" / "masks" / "0.50-0.npy"
+    # )[0, :, :]
+    # e_grid_check[1, :, :] = np.load(
+    #     Path(args.load) / "data" / "masks" / "0.50-1.npy"
+    # )[0, :, :]
+    # exc_kin_correct_check = grids.matrix_to_vector(e_grid_check)
 
-            # ene_t_vc = mol.energy_nuc() + e_nuc + e_vj * 0.5 + (exc_kin_correct).sum()
+    # print(e_grid[0, -1, :])
+    # print(e_grid_check[0, -1, :])
+    # print(np.shape(e_grid_check))
 
-            # AU_TO_KJMOL = 1
-            # str_ = (
-            #     f"e_nuc: {e_nuc}\n"
-            #     f"e_vj: {e_vj}\n"
-            #     f"nuc_rep: {mol.energy_nuc()}\n"
-            #     f"exc: {exc_kin_correct.sum()}\n"
-            #     f"error of energy: {((ene_t_vc - e_cisd) * AU_TO_KJMOL):<10.2e}\n"
-            #     f"error of b3lyp energy:, {((e_compare - e_cisd) * AU_TO_KJMOL):<10.2e}\n"
-            # )
+    # print((exc_kin_correct * dm1_r).sum())
+    # print((exc_kin_correct_check * dm1_r).sum())
 
-            print(str_)
-            # print(str__)
-            f.writelines(f"{distance:.3f}\t" f"{str_}\n")
-            f.flush()
+    # ene_t_vc = mol.energy_nuc() + e_nuc + e_vj * 0.5 + (exc_kin_correct).sum()
+
+    # AU_TO_KJMOL = 1
+    # str_ = (
+    #     f"e_nuc: {e_nuc}\n"
+    #     f"e_vj: {e_vj}\n"
+    #     f"nuc_rep: {mol.energy_nuc()}\n"
+    #     f"exc: {exc_kin_correct.sum()}\n"
+    #     f"error of energy: {((ene_t_vc - e_cisd) * AU_TO_KJMOL):<10.2e}\n"
+    #     f"error of b3lyp energy:, {((e_compare - e_cisd) * AU_TO_KJMOL):<10.2e}\n"
+    # )
+
+with open(mrks_inv.path / "save_data.json", "w", encoding="utf-8") as f:
+    json.dump(save_data, f, indent=4)
