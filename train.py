@@ -64,7 +64,7 @@ if __name__ == "__main__":
             train=args.train,
             save_checkpoint=True,
             amp=args.amp,
-            weight_decay=1e-5,
+            weight_decay=1e-3,
             momentum=0.99,
             gradient_clipping=1.0,
         )

@@ -63,6 +63,16 @@ def train_model(
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
     val_loader = DataLoader(val_set, shuffle=False, **loader_args)
 
+    # print the data
+    for batch in train_loader:
+        print(batch["image"])
+        print(batch["mask"])
+        print(batch["weight"])
+    for batch in val_loader:
+        print(batch["image"])
+        print(batch["mask"])
+        print(batch["weight"])
+
     # (Initialize logging)
     experiment = wandb.init(project="UNet", resume="allow", name=name)
     experiment.config.update(
