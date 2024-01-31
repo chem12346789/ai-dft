@@ -2,7 +2,7 @@ import argparse
 import logging
 import torch
 from pathlib import Path
-
+from aidft import train_model
 from aidft import parser_model
 
 if __name__ == "__main__":
@@ -18,11 +18,6 @@ if __name__ == "__main__":
         from aidft import UNet
     else:
         raise ValueError("Unknown model")
-
-    if args.single:
-        from aidft import train_model_single as train_model
-    else:
-        from aidft import train_model
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
