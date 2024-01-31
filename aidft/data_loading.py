@@ -60,6 +60,9 @@ class BasicDataset(Dataset):
         assert (
             len(mask_file) == 1
         ), f"Either no mask or multiple masks found for the ID {name}: {mask_file}"
+        assert (
+            len(weight_file) == 1
+        ), f"Either no weight or multiple weights found for the ID {name}: {weight_file}"
         img = load_numpy(img_file[0])
         mask = load_numpy(mask_file[0])
         weight = load_numpy(weight_file[0])
