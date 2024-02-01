@@ -65,15 +65,6 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--learning-rate",
-        metavar="LR",
-        type=float,
-        default=1e-4,
-        help="Learning rate",
-        dest="lr",
-    )
-
-    parser.add_argument(
         "--name",
         type=str,
         default="First_Run",
@@ -195,5 +186,49 @@ def parser_model(parser: argparse.ArgumentParser):
         type=bool,
         default=False,
         help="Whether to noisy print. Default is False.",
+    )
+
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        default=1e-4,
+        help="Learning rate",
+    )
+
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        help="Weight decay. Default is 1e-5.",
+        default=1e-5,
+    )
+
+    parser.add_argument(
+        "--momentum",
+        type=float,
+        help="Momentum. Default is 0.99.",
+        default=0.99,
+    )
+
+    parser.add_argument(
+        "--gradient_clipping",
+        type=float,
+        help="Gradient clipping. Default is 1.0.",
+        default=1.0,
+    )
+
+    parser.add_argument(
+        "--optimizer",
+        type=str,
+        default="adam",
+        choices=["adam", "sgd", "adadelta", "rmsprop", "adamax", "radam", "nadam"],
+        help="Witch model we used to do the machine learning.",
+    )
+
+    parser.add_argument(
+        "--scheduler",
+        type=str,
+        default="plateau",
+        choices=["plateau", "cosine", "exponential", "step", "none"],
+        help="Witch model we used to do the machine learning.",
     )
     return parser.parse_args()

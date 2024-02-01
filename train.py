@@ -4,6 +4,7 @@ import torch
 from pathlib import Path
 from aidft import train_model
 from aidft import parser_model
+from aidft import UNet
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -11,13 +12,6 @@ if __name__ == "__main__":
     )
     parser_model(parser)
     args = parser.parse_args()
-
-    if args.model == "unet_small":
-        from aidft import UNet_small as UNet
-    elif args.model == "unet":
-        from aidft import UNet
-    else:
-        raise ValueError("Unknown model")
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -51,17 +45,8 @@ if __name__ == "__main__":
         train_model(
             model=model,
             device=device,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            learning_rate=args.lr,
-            name=args.name,
-            val=args.val,
-            train=args.train,
+            args=args,
             save_checkpoint=True,
-            amp=args.amp,
-            weight_decay=1e-3,
-            momentum=0.99,
-            gradient_clipping=1.0,
         )
 
     except torch.cuda.OutOfMemoryError:

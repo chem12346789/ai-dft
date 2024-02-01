@@ -61,7 +61,10 @@ net = net.to(memory_format=torch.channels_last)
 
 if args.load:
     dir_checkpoint = Path(args.name) / "checkpoints/"
-    load_path = dir_checkpoint / f"checkpoint_epoch-{args.load}.pth"
+    load_path = (
+        dir_checkpoint
+        / f"checkpoint_epoch-{args.optimizer}-{args.scheduler}-{args.load}.pth"
+    )
     state_dict = torch.load(load_path, map_location=device)
     net.load_state_dict(state_dict)
     logger.info("Model loaded from %s\n", load_path)

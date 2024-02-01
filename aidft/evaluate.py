@@ -6,10 +6,33 @@ More details.
 
 import torch
 import wandb
+import numpy as np
+
+
+def numpy2str(data: np.ndarray) -> str:
+    """
+    Documentation for a function.
+
+    More details.
+    """
+    return np.array2string(
+        data.detach().cpu().numpy(),
+        precision=4,
+        separator=",",
+        suppress_small=True,
+    )
 
 
 @torch.inference_mode()
-def evaluate(net, dataloader, device, amp, criterion, experiment):
+def evaluate(
+    net,
+    dataloader,
+    device,
+    amp,
+    logging,
+    criterion,
+    experiment,
+):
     """Documentation for a function.
 
     More details.
@@ -19,7 +42,6 @@ def evaluate(net, dataloader, device, amp, criterion, experiment):
 
     # iterate over the validation set
     with torch.autocast(device.type if device.type != "mps" else "cpu", enabled=amp):
-        print("evaluate")
         for batch in dataloader:
             image, mask_true, weight = (
                 batch["image"],
@@ -47,6 +69,10 @@ def evaluate(net, dataloader, device, amp, criterion, experiment):
             # predict the mask
             mask_pred = net(image)
             sum_error += criterion(weight * mask_pred, weight * mask_true)
+
+            logging.info("image %s", numpy2str(image))
+            logging.info("mask_true %s", numpy2str(mask_true))
+            logging.info("mask_pred %s", numpy2str(mask_pred))
 
     experiment.log(
         {
