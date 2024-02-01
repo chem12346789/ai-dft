@@ -68,7 +68,7 @@ def evaluate(
 
             # predict the mask
             mask_pred = net(image)
-            sum_error += criterion(weight * mask_pred, weight * mask_true)
+            sum_error += criterion(mask_pred, mask_true)
 
             logging.info("image %s", numpy2str(image))
             logging.info("mask_true %s", numpy2str(mask_true))
