@@ -23,13 +23,6 @@ def parser_inv(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--basis",
-        type=str,
-        default="cc-pv5z",
-        help="Name of basis. We use cc-pv5z as default. Note we will remove core correlation of H atom; See https://github.com/pyscf/pyscf/issues/1795",
-    )
-
-    parser.add_argument(
         "--level",
         "-l",
         type=int,
@@ -110,6 +103,14 @@ def parser_inv(parser: argparse.ArgumentParser):
         type=bool,
         default=False,
         help="Whether to noisy print. Default is False.",
+    )
+
+    parser.add_argument(
+        "--basis",
+        "-b",
+        type=str,
+        default="cc-pv5z",
+        help="Name of basis. We use cc-pv5z as default. Note we will remove core correlation of H atom; See https://github.com/pyscf/pyscf/issues/1795",
     )
 
     parser.add_argument(

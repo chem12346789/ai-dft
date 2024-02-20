@@ -198,8 +198,8 @@ def parser_model(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--weight_decay",
         type=float,
-        help="Weight decay. Default is 1e-5.",
-        default=1e-5,
+        help="Weight decay. Default is 0.",
+        default=0,
     )
 
     parser.add_argument(
@@ -228,7 +228,7 @@ def parser_model(parser: argparse.ArgumentParser):
         "--scheduler",
         type=str,
         default="plateau",
-        choices=["plateau", "cosine", "exponential", "step", "none"],
+        choices=["plateau", "cosine", "step", "none"],
         help="Witch model we used to do the machine learning.",
     )
     return parser.parse_args()

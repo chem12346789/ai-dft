@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     if args.load:
         dir_checkpoint = Path(args.name) / "checkpoints/"
-        load_path = dir_checkpoint / f"checkpoint_epoch-{args.load}.pth"
+        load_path = dir_checkpoint / f"checkpoint_epoch-adam-plateau-{args.load}.pth"
         state_dict = torch.load(load_path, map_location=device)
         model.load_state_dict(state_dict)
         logging.info("Model loaded from %s", load_path)
@@ -50,10 +50,4 @@ if __name__ == "__main__":
         )
 
     except torch.cuda.OutOfMemoryError:
-        logging.error(
-            "Detected OutOfMemoryError! %s",
-            """
-            Enabling checkpointing to reduce memory usage, but this slows down training. 
-            Consider enabling AMP (--amp) for fast and memory efficient training"
-            """,
-        )
+        logging.error("Detected OutOfMemoryError!")

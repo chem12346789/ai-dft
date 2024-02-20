@@ -177,7 +177,7 @@ def train_model(
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min", patience=5)
     elif args.scheduler == "cosine":
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=500, eta_min=0
+            optimizer, T_max=2500, eta_min=1e-8
         )
     elif args.scheduler == "step":
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
@@ -192,87 +192,82 @@ def train_model(
     save_epoch = 2500
     val_score = None
 
+    for batch in train_loader:
+        images, true_masks, weight = (
+            batch["image"],
+            batch["mask"],
+            batch["weight"],
+        )
+
+        assert images.shape[1] == model.n_channels, (
+            f"Network has been defined with {model.n_channels} input channels, "
+            f"but loaded images have {images.shape[1]} channels. Please check that the images are loaded correctly."
+        )
+
+        images = images.to(
+            device=device,
+            dtype=torch.float64,
+            memory_format=torch.channels_last,
+        )
+
+        true_masks = true_masks.to(
+            device=device,
+            dtype=torch.float64,
+            memory_format=torch.channels_last,
+        )
+
+        weight = weight.to(
+            device=device,
+            dtype=torch.float64,
+            memory_format=torch.channels_last,
+        )
+        logging.info("single model")
+
     # 5. Begin training
     with tqdm(total=args.epochs, unit="epoch") as pbar:
         for epoch in range(1, args.epochs + 1):
             model.train()
             pbar.update()
 
-            for batch in train_loader:
-                images, true_masks, weight = (
-                    batch["image"],
-                    batch["mask"],
-                    batch["weight"],
+            with torch.autocast(device.type, enabled=args.amp):
+                masks_pred = model(images)
+                loss = criterion(masks_pred, true_masks)
+
+            optimizer.zero_grad(set_to_none=True)
+            grad_scaler.scale(loss).backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.gradient_clipping)
+            grad_scaler.step(optimizer)
+            grad_scaler.update()
+
+            experiment.log(
+                {
+                    "train loss": loss.item(),
+                    "epoch": epoch,
+                }
+            )
+
+            if epoch > division_epoch:
+                pbar.set_postfix(
+                    **{"loss (batch)": loss.item(), "error": val_score.item()}
                 )
-
-                assert images.shape[1] == model.n_channels, (
-                    f"Network has been defined with {model.n_channels} input channels, "
-                    f"but loaded images have {images.shape[1]} channels. Please check that the images are loaded correctly."
-                )
-
-                images = images.to(
-                    device=device,
-                    dtype=torch.float64,
-                    memory_format=torch.channels_last,
-                )
-
-                true_masks = true_masks.to(
-                    device=device,
-                    dtype=torch.float64,
-                    memory_format=torch.channels_last,
-                )
-
-                weight = weight.to(
-                    device=device,
-                    dtype=torch.float64,
-                    memory_format=torch.channels_last,
-                )
-
-                with torch.autocast(device.type, enabled=args.amp):
-                    masks_pred = model(images)
-                    loss = criterion(masks_pred, true_masks)
-
-                optimizer.zero_grad(set_to_none=True)
-                grad_scaler.scale(loss).backward()
-                torch.nn.utils.clip_grad_norm_(
-                    model.parameters(), args.gradient_clipping
-                )
-                grad_scaler.step(optimizer)
-                grad_scaler.update()
-
-                if args.scheduler != "plateau":
-                    scheduler.step()
-
-                experiment.log(
-                    {
-                        "learning rate": optimizer.param_groups[0]["lr"],
-                        "train loss": loss.item(),
-                        "epoch": epoch,
-                    }
-                )
-
-                if epoch > division_epoch:
-                    pbar.set_postfix(
-                        **{"loss (batch)": loss.item(), "error": val_score.item()}
-                    )
-                else:
-                    pbar.set_postfix(**{"loss (batch)": loss.item(), "error": "N/A"})
+            else:
+                pbar.set_postfix(**{"loss (batch)": loss.item(), "error": "N/A"})
 
             if epoch % division_epoch == 0:
                 val_score = evaluate(
                     model, val_loader, device, args.amp, logging, criterion, experiment
                 )
-                if args.scheduler == "plateau":
-                    scheduler.step(val_score)
+                scheduler.step(val_score)
+
+                pbar.set_postfix(
+                    **{"loss (batch)": loss.item(), "error": val_score.item()}
+                )
 
                 experiment.log(
                     {
                         "val loss": val_score.item(),
+                        "learning rate": optimizer.param_groups[0]["lr"],
                     }
-                )
-
-                pbar.set_postfix(
-                    **{"loss (batch)": loss.item(), "error": val_score.item()}
                 )
 
             if epoch % save_epoch == 0:

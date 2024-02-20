@@ -1,4 +1,5 @@
 """Molecular dict"""
+
 H_2 = [["H", 100, 0, 0], ["H", 0, 0, 0]]
 Be = [["Be", 0, 0, 0]]
 Ne = [["Ne", 0, 0, 0]]
@@ -83,6 +84,8 @@ def old_function1(distance):
         return 0.9
     if distance < 3.5:
         return 0.95
+    else:
+        return 0.99
 
 
 def old_function2(distance):
@@ -95,6 +98,8 @@ def old_function2(distance):
         return 0.95
     if distance < 3.5:
         return 0.975
+    else:
+        return 0.99
 
 
 def old_function3(distance):
@@ -107,6 +112,8 @@ def old_function3(distance):
         return 0.975
     if distance < 3.5:
         return 0.99
+    else:
+        return 0.995
 
 
 def old_function4(distance):
@@ -119,6 +126,8 @@ def old_function4(distance):
         return 0.99
     if distance < 3.5:
         return 0.995
+    else:
+        return 0.999
 
 
 def old_function5(distance):
@@ -131,6 +140,8 @@ def old_function5(distance):
         return 0.995
     if distance < 3.5:
         return 0.999
+    else:
+        return 0.9999
 
 
 def old_function(distance, old_factor_scheme, old_factor):

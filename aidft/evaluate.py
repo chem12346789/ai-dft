@@ -70,9 +70,10 @@ def evaluate(
             mask_pred = net(image)
             sum_error += criterion(mask_pred, mask_true)
 
-            logging.info("image %s", numpy2str(image))
-            logging.info("mask_true %s", numpy2str(mask_true))
-            logging.info("mask_pred %s", numpy2str(mask_pred))
+            for i in range(image.shape[0]):
+                logging.info("image %s", numpy2str(image[i]))
+                logging.info("mask_true %s", numpy2str(mask_true[i]))
+                logging.info("mask_pred %s", numpy2str(mask_pred[i]))
 
     experiment.log(
         {
