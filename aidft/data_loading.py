@@ -3,6 +3,7 @@ Documentation for this module.
  
 More details.
 """
+
 from os import listdir
 from os.path import splitext, isfile, join
 from pathlib import Path
@@ -67,8 +68,30 @@ class BasicDataset(Dataset):
         mask = load_numpy(mask_file[0])
         weight = load_numpy(weight_file[0])
 
+        # check the size of the img, mask and weight
+        assert (
+            img.shape == mask.shape
+        ), f"Image and mask {name} should be the same size but are {img.shape} and {mask.shape}"
+        assert (
+            img.shape == weight.shape
+        ), f"Image and weight {name} should be the same size but are {img.shape} and {weight.shape}"
+
+        # filling the data to 32 base
+        right_size = [
+            img.shape[0],
+            (img.shape[1] // 32 + 1) * 32,
+            (img.shape[2] // 32 + 1) * 32,
+        ]
+        img_fill = np.zeros(right_size)
+        mask_fill = np.zeros(right_size)
+        weight_fill = np.zeros(right_size)
+
+        img_fill[:, : img.shape[1], : img.shape[2]] = img
+        mask_fill[:, : mask.shape[1], : mask.shape[2]] = mask
+        weight_fill[:, : weight.shape[1], : weight.shape[2]] = weight
+
         return {
-            "image": torch.as_tensor(img.copy()).float().contiguous(),
-            "mask": torch.as_tensor(mask.copy()).float().contiguous(),
-            "weight": torch.as_tensor(weight.copy()).float().contiguous(),
+            "image": torch.as_tensor(img_fill.copy()).float().contiguous(),
+            "mask": torch.as_tensor(mask_fill.copy()).float().contiguous(),
+            "weight": torch.as_tensor(weight_fill.copy()).float().contiguous(),
         }

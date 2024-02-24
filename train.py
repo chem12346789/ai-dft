@@ -19,16 +19,15 @@ if __name__ == "__main__":
     # Change here to adapt to your data
     # n_channels=1 for rho only
     # n_classes is the output channels of the network
-    model = torchseg.Unet(encoder_name="resnet34", in_channels=1, classes=args.classes)
+    model = torchseg.Unet(
+        encoder_name="mobilenet_v2", in_channels=1, classes=args.classes
+    )
     model.double()
     model = model.to(memory_format=torch.channels_last)
 
     logging.info(
         "Network: %s",
         f"""
-        {model.n_channels} input channels,
-        {model.n_classes} output channels,
-        {"Bilinear" if model.bilinear else "Transposed conv"} upscaling,
         Using device {device}.
         """,
     )

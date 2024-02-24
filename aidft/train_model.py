@@ -167,7 +167,6 @@ def train_model(
             "learning_rate": args.learning_rate,
             "Training size": args.train,
             "Validation size": args.val,
-            "Checkpoints": save_checkpoint,
             "Device": device.type,
             "Mixed Precision": args.amp,
             "amp": args.amp,
@@ -179,31 +178,14 @@ def train_model(
         }
     )
 
-    logging.info(
-        "Starting training: %s",
-        f"""
-        Epochs:           {args.epochs}
-        Batch size:       {args.batch_size}
-        Learning rate:    {args.learning_rate}
-        Training size:    {args.train}
-        Validation size:  {args.val}
-        Checkpoints:      {save_checkpoint}
-        Device:           {device.type}
-        Mixed Precision:  {args.amp}
-        Data_img:         {dir_img}
-        Data_mask:        {dir_mask}
-        Checkpoints:      {dir_checkpoint}
-        optimizer:        {args.optimizer}
-        scheduler:        {args.scheduler}
-    """,
-    )
+    logging.info("Starting training")
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the
     # loss scaling for AMP
     optimizer, scheduler = select_optimizer_scheduler(model, args)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
     criterion = nn.MSELoss()
-    val_score = 1
+    val_score = None
 
     # 5. Begin training
     with tqdm(total=args.epochs, unit="epoch") as pbar:
@@ -218,10 +200,10 @@ def train_model(
                     batch["weight"],
                 )
 
-                assert images.shape[1] == model.n_channels, (
-                    f"Network has been defined with {model.n_channels} input channels, "
-                    f"but loaded images have {images.shape[1]} channels. Please check that the images are loaded correctly."
-                )
+                # assert images.shape[1] == model.n_channels, (
+                #     f"Network has been defined with {model.n_channels} input channels, "
+                #     f"but loaded images have {images.shape[1]} channels. Please check that the images are loaded correctly."
+                # )
 
                 images = images.to(
                     device=device,
@@ -261,7 +243,7 @@ def train_model(
                         "learning rate": optimizer.param_groups[0]["lr"],
                         "train loss": loss.item(),
                         "epoch": epoch,
-                        "val loss": val_score.item(),
+                        "val loss": 0 if (val_score is None) else val_score.item(),
                     }
                 )
 
