@@ -113,6 +113,22 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--division_epoch",
+        type=int,
+        default=50,
+        dest="division_epoch",
+        help="Division epoch. Default is 1000. Validate every division_epoch.",
+    )
+
+    parser.add_argument(
+        "--save_epoch",
+        type=int,
+        default=1000,
+        dest="save_epoch",
+        help="Save epoch. Default is 1000. Save every save_epoch.",
+    )
+
+    parser.add_argument(
         "--qm_method_compare",
         type=str,
         default="b3lyp",

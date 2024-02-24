@@ -29,89 +29,7 @@ def numpy2str(data: np.ndarray) -> str:
     )
 
 
-def train_model(
-    model,
-    device,
-    args,
-    save_checkpoint: bool = True,
-):
-    """Documentation for a function.
-
-    More details.
-    """
-
-    # 1. Create dataset
-    dir_img = Path(args.name) / "data" / "imgs/"
-    dir_mask = Path(args.name) / "data" / "masks/"
-    dir_weight = Path(args.name) / "data" / "weights/"
-    dir_checkpoint = Path(args.name) / "checkpoints/"
-    dataset = BasicDataset(dir_img, dir_mask, dir_weight)
-
-    # 2. Split into train / validation partitions note we cut off the last
-    # batch if it's not full
-    n_remaining = len(dataset) - args.train - args.val
-    train_set, val_set, _ = random_split(
-        dataset,
-        [args.train, args.val, n_remaining],
-        generator=torch.Generator().manual_seed(0),
-    )
-
-    logging.info("""Split into train / validation partitions.""")
-
-    # 3. Create data loaders
-    loader_args = dict(
-        batch_size=args.batch_size,
-        num_workers=os.cpu_count(),
-        pin_memory=True,
-    )
-    train_loader = DataLoader(train_set, shuffle=True, **loader_args)
-    val_loader = DataLoader(val_set, shuffle=False, **loader_args)
-
-    # print the data
-    for batch in train_loader:
-        logging.info("image %s", numpy2str(batch["image"]))
-        logging.info("mask %s", numpy2str(batch["mask"]))
-        logging.info("weight %s", numpy2str(batch["weight"]))
-    for batch in val_loader:
-        logging.info("image %s", numpy2str(batch["image"]))
-        logging.info("mask %s", numpy2str(batch["mask"]))
-        logging.info("weight %s", numpy2str(batch["weight"]))
-
-    # (Initialize logging)
-    experiment = wandb.init(
-        project="UNet",
-        resume="allow",
-        name=f"HH-Unet-{args.optimizer}-{args.scheduler}-{args.name}",
-    )
-    experiment.config.update(
-        {
-            "epochs": args.epochs,
-            "batch_size": args.batch_size,
-            "learning_rate": args.learning_rate,
-            "save_checkpoint": save_checkpoint,
-            "amp": args.amp,
-        }
-    )
-
-    logging.info(
-        "Starting training: %s",
-        f"""
-        Epochs:          {args.epochs}
-        Batch size:      {args.batch_size}
-        Learning rate:   {args.learning_rate}
-        Training size:   {args.train}
-        Validation size: {args.val}
-        Checkpoints:     {save_checkpoint}
-        Device:          {device.type}
-        Mixed Precision: {args.amp}
-        Data_img:        {dir_img}
-        Data_mask:       {dir_mask}
-        Checkpoints:     {dir_checkpoint}
-    """,
-    )
-
-    # 4. Set up the optimizer, the loss, the learning rate scheduler and the
-    # loss scaling for AMP
+def select_optimizer_scheduler(model, args):
     if args.optimizer == "adam":
         optimizer = optim.Adam(
             model.parameters(),
@@ -172,7 +90,6 @@ def train_model(
     else:
         raise ValueError("Unknown optimizer")
 
-    # goal: minimize the error
     if args.scheduler == "plateau":
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min", patience=5)
     elif args.scheduler == "cosine":
@@ -185,12 +102,108 @@ def train_model(
         scheduler = None
     else:
         raise ValueError("Unknown scheduler")
+    return optimizer, scheduler
 
+
+def train_model(
+    model,
+    device,
+    args,
+    save_checkpoint: bool = True,
+):
+    """Documentation for a function.
+
+    More details.
+    """
+
+    # 1. Create dataset
+    dir_img = Path(args.name) / "data" / "imgs/"
+    dir_mask = Path(args.name) / "data" / "masks/"
+    dir_weight = Path(args.name) / "data" / "weights/"
+    dir_checkpoint = Path(args.name) / "checkpoints/"
+    dataset = BasicDataset(dir_img, dir_mask, dir_weight)
+
+    # 2. Split into train / validation partitions note we cut off the last
+    # batch if it's not full
+    n_remaining = len(dataset) - args.train - args.val
+    train_set, val_set, _ = random_split(
+        dataset,
+        [args.train, args.val, n_remaining],
+        generator=torch.Generator().manual_seed(0),
+    )
+
+    logging.info("""Split into train / validation partitions.""")
+
+    # 3. Create data loaders
+    loader_args = dict(
+        batch_size=args.batch_size,
+        num_workers=os.cpu_count(),
+        pin_memory=True,
+    )
+    train_loader = DataLoader(train_set, shuffle=True, **loader_args)
+    val_loader = DataLoader(val_set, shuffle=False, **loader_args)
+
+    # print the data
+    for batch in train_loader:
+        logging.info("image %s", numpy2str(batch["image"]))
+        logging.info("mask %s", numpy2str(batch["mask"]))
+        logging.info("weight %s", numpy2str(batch["weight"]))
+    for batch in val_loader:
+        logging.info("image %s", numpy2str(batch["image"]))
+        logging.info("mask %s", numpy2str(batch["mask"]))
+        logging.info("weight %s", numpy2str(batch["weight"]))
+
+    # (Initialize logging)
+    experiment = wandb.init(
+        project="UNet",
+        resume="allow",
+        name=f"{args.optimizer}-{args.scheduler}-{args.name}",
+    )
+
+    experiment.config.update(
+        {
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "learning_rate": args.learning_rate,
+            "Training size": args.train,
+            "Validation size": args.val,
+            "Checkpoints": save_checkpoint,
+            "Device": device.type,
+            "Mixed Precision": args.amp,
+            "amp": args.amp,
+            "Data_img": dir_img,
+            "Data_mask": dir_mask,
+            "Checkpoints": dir_checkpoint,
+            "optimizer": args.optimizer,
+            "scheduler": args.scheduler,
+        }
+    )
+
+    logging.info(
+        "Starting training: %s",
+        f"""
+        Epochs:           {args.epochs}
+        Batch size:       {args.batch_size}
+        Learning rate:    {args.learning_rate}
+        Training size:    {args.train}
+        Validation size:  {args.val}
+        Checkpoints:      {save_checkpoint}
+        Device:           {device.type}
+        Mixed Precision:  {args.amp}
+        Data_img:         {dir_img}
+        Data_mask:        {dir_mask}
+        Checkpoints:      {dir_checkpoint}
+        optimizer:        {args.optimizer}
+        scheduler:        {args.scheduler}
+    """,
+    )
+
+    # 4. Set up the optimizer, the loss, the learning rate scheduler and the
+    # loss scaling for AMP
+    optimizer, scheduler = select_optimizer_scheduler(model, args)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
     criterion = nn.MSELoss()
-    division_epoch = 50
-    save_epoch = 250
-    val_score = None
+    val_score = 1
 
     # 5. Begin training
     with tqdm(total=args.epochs, unit="epoch") as pbar:
@@ -234,7 +247,6 @@ def train_model(
 
                 optimizer.zero_grad(set_to_none=True)
                 grad_scaler.scale(loss).backward()
-                grad_scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(
                     model.parameters(), args.gradient_clipping
                 )
@@ -249,34 +261,25 @@ def train_model(
                         "learning rate": optimizer.param_groups[0]["lr"],
                         "train loss": loss.item(),
                         "epoch": epoch,
+                        "val loss": val_score.item(),
                     }
                 )
 
-                if epoch > division_epoch:
+                if epoch > args.division_epoch:
                     pbar.set_postfix(
                         **{"loss (batch)": loss.item(), "error": val_score.item()}
                     )
                 else:
                     pbar.set_postfix(**{"loss (batch)": loss.item(), "error": "N/A"})
 
-            if epoch % division_epoch == 0:
+            if epoch % args.division_epoch == 0:
                 val_score = evaluate(
                     model, val_loader, device, args.amp, logging, criterion, experiment
                 )
                 if args.scheduler == "plateau":
                     scheduler.step(val_score)
 
-                experiment.log(
-                    {
-                        "val loss": val_score.item(),
-                    }
-                )
-
-                pbar.set_postfix(
-                    **{"loss (batch)": loss.item(), "error": val_score.item()}
-                )
-
-            if epoch % save_epoch == 0:
+            if epoch % args.save_epoch == 0:
                 if save_checkpoint:
                     Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
                     state_dict_ = model.state_dict()
