@@ -81,7 +81,7 @@ def train_model(
     experiment = wandb.init(
         project="UNet",
         resume="allow",
-        name=f"HH-Unet-{args.optimizer}-{args.scheduler}",
+        name=f"HH-Unet-{args.optimizer}-{args.scheduler}-{args.name}",
     )
     experiment.config.update(
         {
@@ -189,7 +189,7 @@ def train_model(
     grad_scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
     criterion = nn.MSELoss()
     division_epoch = 50
-    save_epoch = 2500
+    save_epoch = 250
     val_score = None
 
     # 5. Begin training
@@ -199,7 +199,7 @@ def train_model(
             pbar.update()
 
             for batch in train_loader:
-                images, true_masks, weight = (
+                images, mask_true, weight = (
                     batch["image"],
                     batch["mask"],
                     batch["weight"],
@@ -216,7 +216,7 @@ def train_model(
                     memory_format=torch.channels_last,
                 )
 
-                true_masks = true_masks.to(
+                mask_true = mask_true.to(
                     device=device,
                     dtype=torch.float64,
                     memory_format=torch.channels_last,
@@ -230,10 +230,11 @@ def train_model(
 
                 with torch.autocast(device.type, enabled=args.amp):
                     masks_pred = model(images)
-                    loss = criterion(masks_pred, true_masks)
+                    loss = criterion(masks_pred, mask_true)
 
                 optimizer.zero_grad(set_to_none=True)
                 grad_scaler.scale(loss).backward()
+                grad_scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(
                     model.parameters(), args.gradient_clipping
                 )

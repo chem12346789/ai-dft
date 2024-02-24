@@ -1,10 +1,12 @@
 """"""
+
 import argparse
 from pathlib import Path
 import json
 import torch
 import numpy as np
 import opt_einsum as oe
+import logging
 
 import pyscf
 
@@ -13,6 +15,7 @@ from mrks_pyscf.utils.mol import old_function
 from mrks_pyscf.utils.logger import gen_logger
 from mrks_pyscf.utils.mol import Mol
 from aidft import parser_model
+from aidft import UNet
 
 
 def predict_potential(net, input_data, device):
@@ -45,15 +48,9 @@ distance_l, logger, path_dir = gen_logger(
     path,
 )
 molecular = Mol[args.molecular]
+# logger.setLevel(logging.DEBUG)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-if args.model == "unet_small":
-    from aidft import UNet_small as UNet
-elif args.model == "unet":
-    from aidft import UNet
-else:
-    raise ValueError("Unknown model")
 
 net = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
 net.double()
@@ -61,10 +58,13 @@ net = net.to(memory_format=torch.channels_last)
 
 if args.load:
     dir_checkpoint = Path(args.name) / "checkpoints/"
-    load_path = (
-        dir_checkpoint
-        / f"checkpoint_epoch-{args.optimizer}-{args.scheduler}-{args.load}.pth"
-    )
+    if (args.optimizer is None) and args.scheduler is None:
+        load_path = dir_checkpoint / f"checkpoint_epoch-{args.load}.pth"
+    else:
+        load_path = (
+            dir_checkpoint
+            / f"checkpoint_epoch-{args.optimizer}-{args.scheduler}-{args.load}.pth"
+        )
     state_dict = torch.load(load_path, map_location=device)
     net.load_state_dict(state_dict)
     logger.info("Model loaded from %s\n", load_path)
@@ -105,49 +105,33 @@ for distance in distance_l:
     dm1_cisd = oe.contract("ij,pi,qj->pq", dm1_cisd, mo, mo)
     e_cisd = mycisd.e_tot
 
-    dm1 = dm1_cisd.copy()
+    dm1 = dm1_compare.copy()
     vj = mrks_inv.myhf.get_jk(mrks_inv.mol, dm1, 1)[0]
 
     for step in range(args.scf_step):
         dm1_r = mrks_inv.aux_function.oe_rho_r(dm1)
         dm1_r_grid = mrks_inv.grids.vector_to_matrix(dm1_r)
-        mrks_inv.logger.info(
+
+        vxc_grid = np.zeros_like(dm1_r_grid)
+        mrks_inv.logger.debug(
             f"dm1_r_grid, {np.array2string(dm1_r_grid, precision=4, separator=',', suppress_small=True)}\n"
         )
 
         # # trick here, use data from the training set.
-        # dm1_r_grid[0, :, :] = np.load(
-        #     Path(args.name)
-        #     / "data"
-        #     / "imgs"
-        #     / f"data-HH-cc-pcvqz-cisd-4-{distance:.4f}-0.npy"
-        # )
-        # dm1_r_grid[1, :, :] = np.load(
-        #     Path(args.name)
-        #     / "data"
-        #     / "imgs"
-        #     / f"data-HH-cc-pcvqz-cisd-4-{distance:.4f}-1.npy"
-        # )
-        # mrks_inv.logger.info(
-        #     "dm1_r_grid, %s\n",
-        #     f"{np.array2string(dm1_r_grid, precision=4, separator=',', suppress_small=True)}",
-        # )
-
-        vxc_grid = np.zeros_like(dm1_r_grid)
         vxc_grid[0, :, :] = np.load(
             Path(args.name)
             / "data"
             / "masks"
             / f"data-HH-cc-pcvqz-cisd-4-{distance:.4f}-0.npy"
-        )
+        )[0, :, :]
         vxc_grid[1, :, :] = np.load(
             Path(args.name)
             / "data"
             / "masks"
             / f"data-HH-cc-pcvqz-cisd-4-{distance:.4f}-1.npy"
-        )
+        )[0, :, :]
 
-        mrks_inv.logger.info(
+        mrks_inv.logger.debug(
             f"vxc_grid, {np.array2string(vxc_grid, precision=4, separator=',', suppress_small=True)}\n"
         )
 
@@ -158,7 +142,7 @@ for distance in distance_l:
                 device,
             )[0, 0, :, :]
 
-        mrks_inv.logger.info(
+        mrks_inv.logger.debug(
             f"vxc_grid, {np.array2string(vxc_grid, precision=4, separator=',', suppress_small=True)}"
         )
 
@@ -172,10 +156,10 @@ for distance in distance_l:
         dm1 = 2 * mo[:, : mrks_inv.nocc] @ mo[:, : mrks_inv.nocc].T
         error = np.linalg.norm(dm1 - dm1_old)
         if args.noisy_print:
-            mrks_inv.logger.info(f"\nerror of dm1, {error:.4e}\n")
+            mrks_inv.logger.info(f"\nerror of dm1, {error:.4e}")
         else:
             if step % 100 == 0:
-                mrks_inv.logger.info(f"\nerror of dm1, {error:.4e}\n")
+                mrks_inv.logger.info(f"\nerror of dm1, {error:.4e}")
             elif step % 10 == 0:
                 mrks_inv.logger.info(".")
 
@@ -191,7 +175,7 @@ for distance in distance_l:
     save_data[distance]["energy_inv"] = error_compare
     save_data[distance]["energy_inv"] = error_scf
 
-    mrks_inv.logger.info(f"\nCheck! {error_compare:16.10f}\n" f"{error_scf:21.10f}\n")
+    mrks_inv.logger.info(f"\nCheck! {error_compare:16.10f}\n" f"{error_scf:23.10f}\n")
 
     # rho_0_grid = grids.vector_to_matrix(
     #     oe.contract(

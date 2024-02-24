@@ -38,5 +38,5 @@ def gen_logger(distance_list, magic_str, path):
             path_dir.mkdir(parents=True)
         Path(path_dir / "inv.log").unlink(missing_ok=True)
         logger.addHandler(logging.FileHandler(path_dir / f"inv.log"))
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     return distance_l, logger, path_dir

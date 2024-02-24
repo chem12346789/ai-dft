@@ -3,6 +3,7 @@ Documentation for this module.
  
 More details.
 """
+
 import argparse
 
 
@@ -219,16 +220,31 @@ def parser_model(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--optimizer",
         type=str,
-        default="adam",
-        choices=["adam", "sgd", "adadelta", "rmsprop", "adamax", "radam", "nadam"],
+        default=None,
+        choices=[
+            None,
+            "adam",
+            "sgd",
+            "adadelta",
+            "rmsprop",
+            "adamax",
+            "radam",
+            "nadam",
+        ],
         help="Witch model we used to do the machine learning.",
     )
 
     parser.add_argument(
         "--scheduler",
         type=str,
-        default="plateau",
-        choices=["plateau", "cosine", "step", "none"],
+        default=None,
+        choices=[
+            None,
+            "plateau",
+            "cosine",
+            "step",
+            "none",
+        ],
         help="Witch model we used to do the machine learning.",
     )
     return parser.parse_args()

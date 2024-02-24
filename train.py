@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     if args.load:
         dir_checkpoint = Path(args.name) / "checkpoints/"
-        load_path = dir_checkpoint / f"checkpoint_epoch-adam-plateau-{args.load}.pth"
+        load_path = dir_checkpoint / f"checkpoint_epoch-{args.load}.pth"
         state_dict = torch.load(load_path, map_location=device)
         model.load_state_dict(state_dict)
         logging.info("Model loaded from %s", load_path)
