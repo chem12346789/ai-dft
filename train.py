@@ -4,7 +4,7 @@ import torch
 from pathlib import Path
 from aidft import train_model
 from aidft import parser_model
-import torchseg
+from aidft import UNet
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -19,9 +19,10 @@ if __name__ == "__main__":
     # Change here to adapt to your data
     # n_channels=1 for rho only
     # n_classes is the output channels of the network
-    model = torchseg.Unet(
-        encoder_name="mobilenet_v2", in_channels=1, classes=args.classes
-    )
+    # model = torchseg.UnetPlusPlus(
+    #     encoder_name="resnet34", in_channels=1, classes=args.classes
+    # )
+    model = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
     model.double()
     model = model.to(memory_format=torch.channels_last)
 

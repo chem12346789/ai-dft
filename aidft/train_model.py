@@ -94,7 +94,7 @@ def select_optimizer_scheduler(model, args):
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min", patience=5)
     elif args.scheduler == "cosine":
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=500, eta_min=0
+            optimizer, T_max=2500, eta_min=0
         )
     elif args.scheduler == "step":
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
@@ -145,13 +145,13 @@ def train_model(
 
     # print the data
     for batch in train_loader:
-        logging.info("image %s", numpy2str(batch["image"]))
-        logging.info("mask %s", numpy2str(batch["mask"]))
-        logging.info("weight %s", numpy2str(batch["weight"]))
+        logging.debug("image %s", numpy2str(batch["image"]))
+        logging.debug("mask %s", numpy2str(batch["mask"]))
+        logging.debug("weight %s", numpy2str(batch["weight"]))
     for batch in val_loader:
-        logging.info("image %s", numpy2str(batch["image"]))
-        logging.info("mask %s", numpy2str(batch["mask"]))
-        logging.info("weight %s", numpy2str(batch["weight"]))
+        logging.debug("image %s", numpy2str(batch["image"]))
+        logging.debug("mask %s", numpy2str(batch["mask"]))
+        logging.debug("weight %s", numpy2str(batch["weight"]))
 
     # (Initialize logging)
     experiment = wandb.init(
@@ -200,10 +200,10 @@ def train_model(
                     batch["weight"],
                 )
 
-                # assert images.shape[1] == model.n_channels, (
-                #     f"Network has been defined with {model.n_channels} input channels, "
-                #     f"but loaded images have {images.shape[1]} channels. Please check that the images are loaded correctly."
-                # )
+                assert images.shape[1] == model.n_channels, (
+                    f"Network has been defined with {model.n_channels} input channels, "
+                    f"but loaded images have {images.shape[1]} channels. Please check that the images are loaded correctly."
+                )
 
                 images = images.to(
                     device=device,
