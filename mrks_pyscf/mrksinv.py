@@ -4,6 +4,9 @@ Documentation for this module.
 More details.
 """
 
+import json
+import gc
+from functools import partial
 from pathlib import Path
 from dataclasses import dataclass
 import torch
@@ -15,14 +18,12 @@ from scipy import linalg as LA
 
 import pyscf
 from pyscf import dft
-import json
-import gc
-from functools import partial
+from pyscf.dft import numint as ni
 
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
-from .utils.gen_tau_rho import gen_taup_rho as gen_tau_rho
+from .utils.gen_tau_rho import gen_taup_rho, gen_tau_rho
 from .utils.gen_w import gen_w_vec
 from .utils.mol import BASIS, BASISTRAN
 
@@ -94,9 +95,6 @@ class Mrksinv:
                 frac_old,
             )
 
-        if self.args.if_basis_str:
-            import basis_set_exchange
-
         if self.args.device is None:
             self.device = (
                 torch.device("cuda")
@@ -115,13 +113,19 @@ class Mrksinv:
         basis = {}
         for i_atom in molecular:
             if self.args.if_basis_str:
+                import basis_set_exchange
+
                 basis[i_atom[0]] = pyscf.gto.load(
-                    basis_set_exchange.api.get_basis(
-                        BASIS[self.args.basis.lower()], elements=i_atom[0], fmt="nwchem"
-                    )
-                    if ((i_atom[0] == "H") and (self.args.basis.lower() in BASIS))
-                    else basis_set_exchange.api.get_basis(
-                        self.args.basis.lower(), elements=i_atom[0], fmt="nwchem"
+                    (
+                        basis_set_exchange.api.get_basis(
+                            BASIS[self.args.basis.lower()],
+                            elements=i_atom[0],
+                            fmt="nwchem",
+                        )
+                        if ((i_atom[0] == "H") and (self.args.basis.lower() in BASIS))
+                        else basis_set_exchange.api.get_basis(
+                            self.args.basis.lower(), elements=i_atom[0], fmt="nwchem"
+                        )
                     ),
                     i_atom[0],
                 )
@@ -161,7 +165,6 @@ class Mrksinv:
         self.logger.info(f"Number of orbital: {self.norb} \n")
 
         self.grids = Grid(self.mol, self.args.level)
-        ni = dft.numint.NumInt()
         ao_value = ni.eval_ao(self.mol, self.grids.coords, deriv=1)
         self.ao_0 = ni.eval_ao(self.mol, self.grids.coords, deriv=0)
         self.ao_1 = ni.eval_ao(self.mol, self.grids.coords, deriv=1)[1:]
@@ -181,6 +184,10 @@ class Mrksinv:
         self.error_dm1 = 0
         self.potential_shift = 0
 
+        self.mdft = self.mol.KS()
+        self.mdft.xc = "b3lyp"
+        self.mdft.kernel()
+        self.logger.info(f"\nxc type: {self.mdft.xc}\n")
         self.dm1 = None
         self.dm2 = None
         self.dm1_mo = None
@@ -194,15 +201,101 @@ class Mrksinv:
         self.v_vxc_e_taup = None
         self.taup_rho_wf = None
         self.taup_rho_ks = None
+        self.tau_rho_wf = None
+        self.tau_rho_ks = None
         self.emax = None
 
         self.dm1_inv = None
         self.eigs_e_dm1 = None
         self.eigs_v_dm1 = None
 
+    def save_mol_info(self):
+        """
+        This function is used to save the molecular information.
+        """
+        np.save(self.path / "saved_data" / "coordinate.npy", self.grids.coords)
+        save_json = {}
+        save_json["atom"] = self.mol.atom
+        save_json["basis"] = self.mol.basis
+        with open(self.path / "mol_info.json", "w", encoding="utf-8") as f:
+            json.dump(save_json, f, indent=4)
+
+    def save_b3lyp(self):
+        """
+        Save the b3lyp exchange correlation energy and potential.
+        Only LDA level can be used.
+        """
+        if self.dm1_inv is None:
+            dm1_inv_grid = np.load(self.path / "rho_inv_mrks.npy")
+            dm1_inv_r = self.grids.matrix_to_vector(dm1_inv_grid)
+        else:
+            dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv * 2, backend="torch")
+        exc, vxc = dft.libxc.eval_xc("lda,", dm1_inv_r)[:2]
+        vxc = vxc[0]
+
+        vxc_mrks_grid = self.grids.vector_to_matrix(vxc)
+        exc_mrks_grid = self.grids.vector_to_matrix(exc)
+        vxc_mrks_check = self.grids.matrix_to_vector(vxc_mrks_grid)
+        exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
+        self.logger.info(
+            f"{np.linalg.norm(vxc - vxc_mrks_check):16.10f}\n"
+            f"{np.linalg.norm(exc - exc_mrks_check):16.10f}\n"
+        )
+        np.save(self.path / "lda.npy", vxc_mrks_grid)
+        np.save(self.path / "lda_e.npy", exc_mrks_grid)
+
+        # dm1 = self.mdft.make_rdm1()
+        # ao_value = ni.eval_ao(self.mol, self.grids.coords, deriv=1)
+        # rho = ni.eval_rho(self.mol, ao_value, dm1, xctype="MGGA")
+        # exc, vxc = dft.libxc.eval_xc(self.mdft.xc, rho)[:2]
+        # vxc = vxc[0]
+        # xc_v = self.aux_function.oe_fock(vxc, self.grids.weights)
+        # # exc +=
+        # self.logger.info(f"\nExc = {np.sum(exc * rho[0] * self.grids.weights)}\n")
+
+        # e_nuc = oe.contract("ij,ji->", self.h1e, dm1)
+        # e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1, dm1)
+        # ene_t_vc = (
+        #     e_nuc
+        #     + self.mol.energy_nuc()
+        #     + e_vj * 0.5
+        #     + (exc * rho[0] * self.grids.weights).sum()
+        # )
+        # self.logger.info(f"Ene_t_vc = {ene_t_vc}\n")
+        # self.logger.info(f"Total energy = {self.mdft.e_tot}\n")
+        # self.logger.info(f"Shape of vxc: {np.shape(vxc)}\n")
+        # self.logger.info(f"Shape of weights: {np.shape(self.grids.weights)}\n")
+        # self.logger.info(
+        #     f"After scf: {np.array2string(dm1, precision=4, separator=',', suppress_small=True)}\n"
+        # )
+
+        # for step in range(200):
+        #     rho = ni.eval_rho(self.mol, ao_value, dm1, xctype="MGGA")
+        #     exc, vxc = dft.libxc.eval_xc(self.mdft.xc, rho)[:2]
+        #     vxc = vxc[0]
+        #     xc_v = self.aux_function.oe_fock(vxc, self.grids.weights)
+        #     vjk = self.myhf.get_jk(self.mol, dm1, 1)
+        #     vj = vjk[0]
+
+        #     if self.mdft.xc == "b3lyp":
+        #         xc_v += -0.1 * vjk[1]
+
+        #     fock_a = self.mat_hs @ (self.h1e + vj + xc_v) @ self.mat_hs
+        #     _, mo = np.linalg.eigh(fock_a)
+        #     mo = self.mat_hs @ mo
+        #     dm1_old = dm1.copy()
+        #     dm1 = 2 * mo[:, : self.nocc] @ mo[:, : self.nocc].T
+        #     error = np.linalg.norm(dm1 - dm1_old)
+        #     dm1 = self.hybrid(dm1, dm1_old)
+
+        # self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}\n")
+        # self.logger.info(
+        #     f"After scf: {np.array2string(dm1, precision=4, separator=',', suppress_small=True)}\n"
+        # )
+
     def hybrid(self, new, old):
         """
-        This function is used to generate the hybrid density matrix.
+        Generate the hybrid density matrix.
         """
         return new * (1 - self.args.frac_old) + old * self.args.frac_old
 
@@ -257,22 +350,13 @@ class Mrksinv:
 
     def save_kernel_dm12(self):
         """
-        Do NOT use this function. Cost too much disk space.
+        Do NOT use this function. Cost too much disk space (40Gb * 40 = 1.6T).
         """
 
     def load_kernel_dm12(self):
         """
-        Do NOT use this function.
+        Do NOT use this function. Cost too much disk space.
         """
-
-    def inv(self):
-        """
-        This function is used to do the total inverse calculation.
-        """
-        self.gen_taup_rho_wf()
-        self.inverse()
-        self.check()
-        self.save_data()
 
     def gen_e_vxc(self):
         """
@@ -404,6 +488,15 @@ class Mrksinv:
         self.emax = np.load(self.path / "saved_data" / "emax.npy")
         self.e = np.load(self.path / "saved_data" / "e.npy")
 
+    def inv(self):
+        """
+        This function is used to do the total inverse calculation.
+        """
+        self.gen_taup_rho_wf()
+        self.inverse()
+        self.check()
+        self.save_data()
+
     def gen_taup_rho_wf(self):
         """
         This function is used to generate the tau_rho_wf.
@@ -414,7 +507,15 @@ class Mrksinv:
         eigs_e_dm1 = eigs_e_dm1 / 2
         eigs_v_dm1_cuda = torch.from_numpy(eigs_v_dm1).to(self.device)
 
-        self.taup_rho_wf = gen_tau_rho(
+        self.taup_rho_wf = gen_taup_rho(
+            self.aux_function,
+            dm1_r,
+            eigs_v_dm1_cuda,
+            eigs_e_dm1,
+            backend="torch",
+            logger=self.logger,
+        )
+        self.tau_rho_wf = gen_tau_rho(
             self.aux_function,
             dm1_r,
             eigs_v_dm1_cuda,
@@ -463,7 +564,7 @@ class Mrksinv:
             )
             ebar_ks = ebar_ks.cpu().numpy() / dm1_inv_r
 
-            self.taup_rho_ks = gen_tau_rho(
+            self.taup_rho_ks = gen_taup_rho(
                 self.aux_function,
                 dm1_inv_r,
                 mo[:, : self.nocc],
@@ -510,6 +611,14 @@ class Mrksinv:
             if (i > 0) and (self.error_vxc < self.args.error_inv):
                 break
 
+        mo = torch.from_numpy(mo).to(self.device)
+        self.tau_rho_ks = gen_tau_rho(
+            self.aux_function,
+            dm1_inv_r,
+            mo[:, : self.nocc],
+            np.ones(self.nocc),
+            backend="torch",
+        )
         self.logger.info("\nTau_rho_ks done.\n")
         self.logger.info("\ninverse done.\n\n")
 
@@ -517,29 +626,25 @@ class Mrksinv:
         """
         This function is used to check the density matrix and the energy.
         """
-        mdft = self.mol.KS()
-        mdft.xc = "b3lyp"
-        mdft.kernel()
-
         dm1_inv = self.dm1_inv * 2
         dm1_inv_r = self.aux_function.oe_rho_r(dm1_inv, backend="torch")
         dm1 = self.dm1.copy()
         dm1_r = self.aux_function.oe_rho_r(self.dm1, backend="torch")
-        dm1_dft = mdft.make_rdm1()
+        dm1_dft = self.mdft.make_rdm1()
         dm1_dft_r = self.aux_function.oe_rho_r(dm1_dft, backend="torch")
         dm1_scf = self.scf(dm1_dft)
         dm1_scf_r = self.aux_function.oe_rho_r(dm1_scf, backend="torch")
 
-        kin = oe.contract("ij,ji->", self.kin, dm1)
-        kin_inv = oe.contract("ij,ji->", self.kin, dm1_inv)
-        kin_correct = kin - kin_inv
+        kin_correct = 2 * np.sum(
+            (self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights
+        )
 
         kin_correct1 = 2 * np.sum(
             (self.taup_rho_wf - self.taup_rho_ks) * self.grids.weights
         )
 
         save_data = {}
-        save_data["energy_dft"] = self.au2kjmol * (mdft.e_tot - self.e)
+        save_data["energy_dft"] = self.au2kjmol * (self.mdft.e_tot - self.e)
         save_data["energy"] = self.au2kjmol * self.e
         save_data["correct kinetic energy"] = kin_correct * self.au2kjmol
         save_data["correct kinetic energy1"] = kin_correct1 * self.au2kjmol
@@ -605,7 +710,10 @@ class Mrksinv:
         vxc_mrks_grid = self.grids.vector_to_matrix(self.vxc)
         exc_mrks_grid = self.grids.vector_to_matrix(self.exc)
         exc_dm_grid = self.grids.vector_to_matrix(self.exc_over_dm)
-        tr_grid = self.grids.vector_to_matrix(2 * (self.taup_rho_wf - self.taup_rho_ks))
+        tr_grid = self.grids.vector_to_matrix(2 * (self.tau_rho_wf - self.tau_rho_ks))
+        trp_grid = self.grids.vector_to_matrix(
+            2 * (self.taup_rho_wf - self.taup_rho_ks)
+        )
         weight_grid = self.grids.vector_to_matrix(self.grids.weights)
 
         rho_0_check = self.grids.matrix_to_vector(rho_0_grid)
@@ -614,6 +722,7 @@ class Mrksinv:
         exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
         exc_dm_check = self.grids.matrix_to_vector(exc_dm_grid)
         tr_check = self.grids.matrix_to_vector(tr_grid)
+        trp_check = self.grids.matrix_to_vector(trp_grid)
         weight_check = self.grids.matrix_to_vector(weight_grid)
 
         self.logger.info(
@@ -622,7 +731,8 @@ class Mrksinv:
             f"{np.linalg.norm(self.vxc - vxc_mrks_check):16.10f}\n"
             f"{np.linalg.norm(self.exc - exc_mrks_check):16.10f}\n"
             f"{np.linalg.norm(self.exc_over_dm - exc_dm_check):16.10f}\n"
-            f"{np.linalg.norm(2 * (self.taup_rho_wf - self.taup_rho_ks) - tr_check):16.10f}\n"
+            f"{np.linalg.norm(2 * (self.tau_rho_wf - self.tau_rho_ks) - tr_check):16.10f}\n"
+            f"{np.linalg.norm(2 * (self.taup_rho_wf - self.taup_rho_ks) - trp_check):16.10f}\n"
             f"{np.linalg.norm(weight_check - self.grids.weights):16.10f}\n"
         )
 
@@ -632,6 +742,7 @@ class Mrksinv:
         np.save(self.path / "rho_inv_mrks.npy", rho_0_grid)
         np.save(self.path / "rho_t_mrks.npy", rho_t_grid)
         np.save(self.path / "tr.npy", tr_grid)
+        np.save(self.path / "trp.npy", trp_grid)
         np.save(self.path / "weight.npy", weight_grid)
 
         f, axes = plt.subplots(self.mol.natm, 5)
@@ -662,9 +773,8 @@ class Mrksinv:
             if error < self.args.error_scf:
                 self.logger.info(f"error of dm1 in the last step, {error:.2e}\n")
                 break
-            else:
-                if step % 100 == 0:
-                    self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}\n")
+            if step % 100 == 0:
+                self.logger.info(f"step: {step:<8} error of dm1, {error:.2e}\n")
         return dm1
 
     def gen_energy(

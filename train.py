@@ -19,9 +19,6 @@ if __name__ == "__main__":
     # Change here to adapt to your data
     # n_channels=1 for rho only
     # n_classes is the output channels of the network
-    # model = torchseg.UnetPlusPlus(
-    #     encoder_name="resnet34", in_channels=1, classes=args.classes
-    # )
     model = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
     model.double()
     model = model.to(memory_format=torch.channels_last)
@@ -34,8 +31,9 @@ if __name__ == "__main__":
     )
 
     if args.load:
-        dir_checkpoint = Path(args.name) / "checkpoints/"
-        load_path = dir_checkpoint / f"checkpoint_epoch-{args.load}.pth"
+        dir_model = Path(args.name) / "checkpoints"
+        list_of_path = dir_model.glob("*.pth")
+        load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
         state_dict = torch.load(load_path, map_location=device)
         model.load_state_dict(state_dict)
         logging.info("Model loaded from %s", load_path)
