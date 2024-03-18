@@ -230,7 +230,7 @@ class Mrksinv:
             dm1_inv_r = self.grids.matrix_to_vector(dm1_inv_grid)
         else:
             dm1_inv_r = self.aux_function.oe_rho_r(self.dm1_inv * 2, backend="torch")
-        exc, vxc = dft.libxc.eval_xc("lda,", dm1_inv_r)[:2]
+        exc, vxc = dft.libxc.eval_xc("SVWN", dm1_inv_r)[:2]
         vxc = vxc[0]
 
         vxc_mrks_grid = self.grids.vector_to_matrix(vxc)
@@ -244,6 +244,7 @@ class Mrksinv:
         np.save(self.path / "lda.npy", vxc_mrks_grid)
         np.save(self.path / "lda_e.npy", exc_mrks_grid)
 
+        # self.mdft.xc = "b3lyp"
         # dm1 = self.mdft.make_rdm1()
         # ao_value = ni.eval_ao(self.mol, self.grids.coords, deriv=1)
         # rho = ni.eval_rho(self.mol, ao_value, dm1, xctype="MGGA")
@@ -255,10 +256,12 @@ class Mrksinv:
 
         # e_nuc = oe.contract("ij,ji->", self.h1e, dm1)
         # e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1, dm1)
+        # e_vk = oe.contract("pqrs,pr,qs->", self.eri, dm1, dm1)
         # ene_t_vc = (
         #     e_nuc
         #     + self.mol.energy_nuc()
         #     + e_vj * 0.5
+        #     - e_vk * 0.05
         #     + (exc * rho[0] * self.grids.weights).sum()
         # )
         # self.logger.info(f"Ene_t_vc = {ene_t_vc}\n")
@@ -266,21 +269,27 @@ class Mrksinv:
         # self.logger.info(f"Shape of vxc: {np.shape(vxc)}\n")
         # self.logger.info(f"Shape of weights: {np.shape(self.grids.weights)}\n")
         # self.logger.info(
-        #     f"After scf: {np.array2string(dm1, precision=4, separator=',', suppress_small=True)}\n"
+        #     f"Before scf: {np.array2string(dm1, precision=4, separator=',', suppress_small=True)}\n"
         # )
 
         # for step in range(200):
         #     rho = ni.eval_rho(self.mol, ao_value, dm1, xctype="MGGA")
         #     exc, vxc = dft.libxc.eval_xc(self.mdft.xc, rho)[:2]
-        #     vxc = vxc[0]
-        #     xc_v = self.aux_function.oe_fock(vxc, self.grids.weights)
+        #     rho_1 = 2 * np.einsum("uv, rgu, gv -> rg", dm1, self.ao_1, self.ao_0)
+
+        #     xc_v = 0.5 * self.aux_function.oe_fock(vxc[0], self.grids.weights)
+        #     xc_v += 2 * oe.contract(
+        #         "g, g, rg, rgu, gv -> uv",
+        #         vxc[1],
+        #         self.grids.weights,
+        #         rho_1,
+        #         self.ao_1,
+        #         self.ao_0,
+        #     )
+        #     xc_v = xc_v + xc_v.T
         #     vjk = self.myhf.get_jk(self.mol, dm1, 1)
-        #     vj = vjk[0]
 
-        #     if self.mdft.xc == "b3lyp":
-        #         xc_v += -0.1 * vjk[1]
-
-        #     fock_a = self.mat_hs @ (self.h1e + vj + xc_v) @ self.mat_hs
+        #     fock_a = self.mat_hs @ (self.h1e + vjk[0] + xc_v) @ self.mat_hs
         #     _, mo = np.linalg.eigh(fock_a)
         #     mo = self.mat_hs @ mo
         #     dm1_old = dm1.copy()

@@ -10,6 +10,7 @@ import logging
 import torch
 import numpy as np
 import opt_einsum as oe
+import shutil
 
 import pyscf
 
@@ -66,15 +67,29 @@ if "weit" in args.name:
     weight = True
 else:
     weight = False
+if "small" in args.name:
+    small = True
+else:
+    small = False
 
 net_dict = {}
+# XC_CODE = "SVWN"
+# XC_CODE = "lda,"
+XC_CODE = None
 
 if args.load:
     for atom in AI_LIST:
+        if atom not in args.molecular:
+            continue
         net = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
         net.double()
         net = net.to(memory_format=torch.channels_last)
-        dir_checkpoint = Path(f"mrks-e-{atom}-weit") / "checkpoints/"
+        dir_checkpoint = (
+            Path(
+                f"mrks-e-{args.molecular}{'''-small''' if small else ''''''}-{atom}{'''-weit''' if weight else ''''''}"
+            )
+            / "checkpoints/"
+        )
         if (args.optimizer is None) and args.scheduler is None:
             load_path = dir_checkpoint / f"{args.load}.pth"
         else:
@@ -87,9 +102,22 @@ if args.load:
         logger.info("Model loaded from %s\n", load_path)
         #  show time of the checkpoint
         logger.info("Time: %s\n", datetime.fromtimestamp(load_path.stat().st_mtime))
+        copy_file = (
+            path_dir
+            / "saved_model"
+            / f"{args.molecular}-{atom}-{datetime.now():%b_%d_%H_%M_%S_%Y}.pth"
+        )
+        if not (path_dir / "saved_model").exists():
+            (path_dir / "saved_model").mkdir(parents=True)
+        shutil.copy(load_path, copy_file)
 
         net.to(device=device)
         net_dict[atom] = net
+
+for item in Path(path_dir).glob("*/save_data.json"):
+    if item.is_file():
+        item.unlink()
+
 
 for distance in distance_l:
     molecular[0][1] = distance
@@ -145,11 +173,27 @@ for distance in distance_l:
                     ),
                     device,
                 )[0, 0, :, :]
+            else:
+                path_mask = (
+                    Path(
+                        f"mrks-e-{args.molecular}-{mrks_inv.mol.atom[i_atom][0]}"
+                        + ("-weit" if weight else "")
+                    )
+                    / "data"
+                    / "masks"
+                )
+                file_mask = list(
+                    (path_mask).glob(
+                        f"data-{args.molecular}-*-{distance:.4f}-{i_atom}.npy"
+                    )
+                )
+                vxc_grid[i_atom] = np.load(file_mask[0])[0, :, :]
 
-        lda_exc, lda_vxc = pyscf.dft.libxc.eval_xc("lda,", dm1_r)[:2]
-        lda_vxc = lda_vxc[0]
         vxc = mrks_inv.grids.matrix_to_vector(vxc_grid)
-        vxc += lda_vxc
+        if XC_CODE is not None:
+            lda_exc, lda_vxc = pyscf.dft.libxc.eval_xc(XC_CODE, dm1_r)[:2]
+            lda_vxc = lda_vxc[0]
+            vxc += lda_vxc
         xc_v = mrks_inv.aux_function.oe_fock(vxc, mrks_inv.grids.weights)
         vj = mrks_inv.myhf.get_jk(mrks_inv.mol, dm1, 1)[0]
         fock_a = mrks_inv.mat_hs @ (h1e + vj + xc_v) @ mrks_inv.mat_hs
@@ -157,8 +201,8 @@ for distance in distance_l:
         mo = mrks_inv.mat_hs @ mo
         dm1_old = dm1.copy()
         dm1 = 2 * mo[:, : mrks_inv.nocc] @ mo[:, : mrks_inv.nocc].T
-        error = np.linalg.norm(dm1 - dm1_old)
         dm1 = mrks_inv.hybrid(dm1, dm1_old)
+        error = np.linalg.norm(dm1 - dm1_old)
         if args.noisy_print:
             mrks_inv.logger.info(f"\nerror of dm1, {error:.4e}")
         else:
@@ -236,15 +280,30 @@ for distance in distance_l:
     exc_grid = np.zeros_like(dm1_r_grid)
 
     for i_atom, rho_0_grid_atom in enumerate(dm1_r_grid):
-        exc_grid[i_atom] = predict_potential(
-            net_dict[mrks_inv.mol.atom[i_atom][0]],
-            rho_0_grid_atom.reshape(1, dm1_r_grid.shape[1], dm1_r_grid.shape[2]),
-            device,
-        )[0, 1, :, :]
+        if mrks_inv.mol.atom[i_atom][0] in AI_LIST:
+            exc_grid[i_atom] = predict_potential(
+                net_dict[mrks_inv.mol.atom[i_atom][0]],
+                rho_0_grid_atom.reshape(1, dm1_r_grid.shape[1], dm1_r_grid.shape[2]),
+                device,
+            )[0, 1, :, :]
+        else:
+            exc_grid[i_atom] = np.load(
+                list(
+                    (
+                        Path(
+                            f"mrks-e-{args.molecular}-{mrks_inv.mol.atom[i_atom][0]}"
+                            + ("-weit" if weight else "")
+                        )
+                        / "data"
+                        / "masks"
+                    ).glob(f"data-{args.molecular}-*-{distance:.4f}-{i_atom}.npy")
+                )[0]
+            )[1, :, :]
 
     exc = mrks_inv.grids.matrix_to_vector(exc_grid)
-    lda_exc, lda_vxc = pyscf.dft.libxc.eval_xc("lda,", dm1_r)[:2]
-    exc += lda_exc
+    if XC_CODE is not None:
+        lda_exc, lda_vxc = pyscf.dft.libxc.eval_xc(XC_CODE, dm1_r)[:2]
+        exc += lda_exc
 
     e_h1 = oe.contract("ij,ji->", mrks_inv.h1e, dm1)
     e_vj = oe.contract("pqrs,pq,rs->", mrks_inv.eri, dm1, dm1)

@@ -78,6 +78,12 @@ for data_i in args.data:
         if not child.is_dir():
             continue
         print(f"Processing {child.parts[-1]}")
+        if (
+            np.abs(int(float(child.parts[-1]) * 80) * 0.0125 - float(child.parts[-1]))
+            > 1e-3
+        ):
+            continue
+        # if float(child.parts[-1]) < 0.749:
         data_file = list(child.glob("rho_inv_mrks.npy"))
         masks_v_file = list(child.glob("mrks.npy"))
         lda_v_file = list(child.glob("lda.npy"))
@@ -90,12 +96,20 @@ for data_i in args.data:
             and (len(weight_file) == 1)
         ):
             data = np.load(data_file[0])
-            masks_v = np.load(masks_v_file[0]) - np.load(lda_v_file[0])
+            masks_v = np.load(masks_v_file[0])
             weight = np.load(weight_file[0])
             if "weit" in args.name:
                 data_weit = data * weight
             else:
                 data_weit = data.copy()
+
+            if args.energy:
+                masks_e_file = list(child.glob("mrks_e.npy"))
+                lda_e_file = list(child.glob("lda_e.npy"))
+                masks_tr_file = list(child.glob("tr.npy"))
+                masks_e = (np.load(masks_e_file[0]) + np.load(masks_tr_file[0])) / (
+                    data + 1e-14
+                )
 
             with open(child / "mol_info.json", "r", encoding="utf-8") as f:
                 mol_info = json.load(f)
@@ -105,26 +119,20 @@ for data_i in args.data:
                     continue
 
                 data_name = f"{data_path.parts[-1]}-{child.parts[-1]}-{i}.npy"
-                data_shape = (1, data.shape[1], data.shape[2])
                 masks_ve = np.zeros((1, data.shape[1], data.shape[2]))
-                masks_ve[0, :, :] = masks_v[i, :, :].reshape(data_shape)
+                masks_ve[0, :, :] = masks_v[i, :, :]
 
                 if args.energy:
-                    masks_e_file = list(child.glob("mrks_e.npy"))
-                    lda_e_file = list(child.glob("lda_e.npy"))
-                    masks_tr_file = list(child.glob("tr.npy"))
-                    masks_e = (np.load(masks_e_file[0]) + np.load(masks_tr_file[0])) / (
-                        data + 1e-14
-                    ) - np.load(lda_e_file[0])
                     if args.nclass == 1:
                         if len(masks_e_file) == 1:
-                            masks_ve[0, :, :] = masks_e[i, :, :].reshape(data_shape)
+                            masks_ve[0, :, :] = masks_e[i, :, :]
                     elif args.nclass == 2:
                         masks_ve = np.zeros((2, data.shape[1], data.shape[2]))
                         if len(masks_e_file) == 1:
-                            masks_ve[0, :, :] = masks_v[i, :, :].reshape(data_shape)
-                            masks_ve[1, :, :] = masks_e[i, :, :].reshape(data_shape)
+                            masks_ve[0, :, :] = masks_v[i, :, :]
+                            masks_ve[1, :, :] = masks_e[i, :, :]
 
+                data_shape = (1, data.shape[1], data.shape[2])
                 np.save(imgs_path / data_name, data_weit[i, :, :].reshape(data_shape))
                 np.save(mask_path / data_name, masks_ve)
                 np.save(weit_path / data_name, weight[i, :, :].reshape(data_shape))

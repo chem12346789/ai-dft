@@ -37,22 +37,11 @@ class Criterion:
         """
         self.factor = factor
 
-    def val(self, mask_pred, mask_true, weight):
+    def val(self, mask_pred, mask_true):
         """
         Validate loss.
         """
-
-        if mask_pred.shape[1] == 1:
-            return (
-                self.loss1(mask_pred, mask_true)
-                + self.loss2(mask_pred * weight, mask_true * weight) * self.factor
-            )
-
-        if mask_pred.shape[1] == 2:
-            return (
-                self.loss1(mask_pred, mask_true)
-                + self.loss2(mask_pred * weight, mask_true * weight) * self.factor
-            )
+        return self.loss1(mask_pred, mask_true)
 
 
 def process(data, device):
@@ -62,7 +51,7 @@ def process(data, device):
     return data.to(
         device=device,
         dtype=torch.float64,
-        memory_format=torch.channels_last,
+        # memory_format=torch.channels_last,
     )
 
 
@@ -75,10 +64,9 @@ def load_to_gpu(dataloader, device):
     for batch in dataloader:
         batch_gpu = {}
         # move images and labels to correct device and type
-        batch_gpu["image"], batch_gpu["mask"], batch_gpu["weight"] = (
+        batch_gpu["image"], batch_gpu["mask"] = (
             process(batch["image"], device),
             process(batch["mask"], device),
-            process(batch["weight"], device),
         )
         dataloader_gpu.append(batch_gpu)
     return dataloader_gpu

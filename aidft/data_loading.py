@@ -66,11 +66,9 @@ class BasicDataset(Dataset):
         ), f"Either no weight or multiple weights found for the ID {name}: {weight_file}"
         img = load_numpy(img_file[0])
         mask = load_numpy(mask_file[0])
-        weight = load_numpy(weight_file[0])
 
         return {
             "image": torch.as_tensor(img.copy()).float().contiguous(),
             "mask": torch.as_tensor(mask.copy()).float().contiguous(),
-            "weight": torch.as_tensor(weight.copy()).float().contiguous(),
             "name": name,
         }

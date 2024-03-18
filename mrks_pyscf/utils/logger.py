@@ -3,6 +3,7 @@ Documentation for this module.
  
 More details.
 """
+
 import logging
 import numpy as np
 from pathlib import Path
@@ -32,11 +33,11 @@ def gen_logger(distance_list, magic_str, path):
             )
         )
     else:
-        distance_l = args.distance
+        distance_l = distance_list
         path_dir = path / f"data-{magic_str}"
         if not path_dir.exists():
             path_dir.mkdir(parents=True)
         Path(path_dir / "inv.log").unlink(missing_ok=True)
-        logger.addHandler(logging.FileHandler(path_dir / f"inv.log"))
+        logger.addHandler(logging.FileHandler(path_dir / f"inv_{distance_l}.log"))
     logger.setLevel(logging.INFO)
     return distance_l, logger, path_dir

@@ -1,7 +1,6 @@
 """Module providing a training method."""
 
 import logging
-import os
 from pathlib import Path
 from tqdm import tqdm
 import wandb
@@ -35,7 +34,7 @@ def train_model(
 
     # 2. Split into train / validation partitions note we cut off the last
     # batch if it's not full
-    n_val = int(len(dataset) * 0.1)  # val% of the data is used for validation
+    n_val = int(len(dataset) * args.val_precent)
     n_train = len(dataset) - n_val  # 1 - val% of the data is used for training
     train_set, val_set = random_split(dataset, [n_train, n_val])
     logging.info("""Split into train / validation partitions.""")
@@ -43,7 +42,7 @@ def train_model(
     # 3. Create data loaders
     loader_args = dict(
         batch_size=args.batch_size,
-        num_workers=12,
+        num_workers=args.batch_size,
         pin_memory=True,
     )
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
@@ -54,21 +53,19 @@ def train_model(
     for batch in train_loader:
         logging.debug("image %s", numpy2str(batch["image"]))
         logging.debug("mask %s", numpy2str(batch["mask"]))
-        logging.debug("weight %s", numpy2str(batch["weight"]))
         logging.info("name %s\n", batch["name"])
     logging.info("val_loader\n")
     for batch in val_loader:
         logging.debug("image %s", numpy2str(batch["image"]))
         logging.debug("mask %s", numpy2str(batch["mask"]))
-        logging.debug("weight %s", numpy2str(batch["weight"]))
         logging.info("name %s\n", batch["name"])
 
-    # load the whole data to the device
+    # # load the whole data to the device
     train_loader_gpu = load_to_gpu(train_loader, device)
     val_loader_gpu = load_to_gpu(val_loader, device)
 
     # Set up the loss function
-    criterion = Criterion(args.factor)
+    criterion = Criterion()
 
     # (Initialize logging)
     experiment = wandb.init(
@@ -111,12 +108,12 @@ def train_model(
 
                 image = batch["image"]
                 mask_true = batch["mask"]
-                weight = batch["weight"]
 
                 with torch.autocast(device.type, enabled=args.amp):
                     mask_pred = model(image)
-                    loss = criterion.val(mask_pred, mask_true, weight)
+                    loss = criterion.val(mask_pred, mask_true)
 
+                print(f"loss: {loss}, type of loss: {type(loss)}")
                 grad_scaler.scale(loss).backward()
                 grad_scaler.step(optimizer)
                 grad_scaler.update()
@@ -136,17 +133,20 @@ def train_model(
             pbar.update()
 
             if epoch % args.division_epoch == 0:
-                val_score = evaluate(
-                    model,
-                    val_loader_gpu,
-                    device,
-                    args.amp,
-                    criterion,
-                    logging,
-                    experiment,
-                )
-                if args.scheduler == "plateau":
-                    scheduler.step(val_score)
+                if n_val != 0:
+                    val_score = evaluate(
+                        model,
+                        val_loader_gpu,
+                        device,
+                        args.amp,
+                        criterion,
+                        logging,
+                        experiment,
+                    )
+                    if args.scheduler == "plateau":
+                        scheduler.step(val_score)
+                else:
+                    val_score = torch.tensor(0)
 
             if epoch % args.save_epoch == 0:
                 if save_checkpoint:

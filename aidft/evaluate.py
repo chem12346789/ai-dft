@@ -45,15 +45,14 @@ def evaluate(
     # iterate over the validation set
     with torch.autocast(device.type if device.type != "mps" else "cpu", enabled=amp):
         for batch in dataloader:
-            image, mask_true, weight = (
+            image, mask_true = (
                 batch["image"],
                 batch["mask"],
-                batch["weight"],
             )
 
             # predict the mask
             mask_pred = net(image)
-            sum_error += criterion.val(mask_pred, mask_true, weight)
+            sum_error += criterion.val(mask_pred, mask_true)
             iter_ += 1
 
             for i in range(image.shape[0]):

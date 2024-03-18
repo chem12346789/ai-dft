@@ -40,6 +40,14 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--val_precent",
+        "-vp",
+        type=float,
+        help="Percentage of validation data. Default is 0.1.",
+        default=0.1,
+    )
+
+    parser.add_argument(
         "--level",
         "-l",
         type=int,
@@ -73,13 +81,6 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--factor",
-        type=float,
-        default=1,
-        help="Factor of the weight for the second loss.",
-    )
-
-    parser.add_argument(
         "--amp",
         action="store_true",
         default=False,
@@ -91,7 +92,7 @@ def parser_model(parser: argparse.ArgumentParser):
         type=int,
         default=50,
         dest="division_epoch",
-        help="Division epoch. Default is 1000. Validate every division_epoch.",
+        help="Division epoch. Default is 50. Validate every division_epoch.",
     )
 
     parser.add_argument(
@@ -100,6 +101,14 @@ def parser_model(parser: argparse.ArgumentParser):
         default=1000,
         dest="save_epoch",
         help="Save epoch. Default is 1000. Save every save_epoch.",
+    )
+
+    parser.add_argument(
+        "--qm_method_compare",
+        type=str,
+        default="b3lyp",
+        help="Witch method we used to obtain the benchmark quantum chemical calculation."
+        "This should be a dft level method.",
     )
 
     parser.add_argument(
@@ -228,14 +237,6 @@ def parser_model(parser: argparse.ArgumentParser):
         type=float,
         help="Gradient clipping. Default is 1.0.",
         default=1.0,
-    )
-
-    parser.add_argument(
-        "--qm_method_compare",
-        type=str,
-        default="b3lyp",
-        help="Witch method we used to obtain the benchmark quantum chemical calculation."
-        "This should be a dft level method.",
     )
 
     return parser.parse_args()
