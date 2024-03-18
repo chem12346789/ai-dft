@@ -6,6 +6,8 @@ from aidft import train_model
 from aidft import parser_model
 from aidft import UNet
 
+import segmentation_models_pytorch as smp
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Train the UNet on images and target masks"
@@ -19,10 +21,10 @@ if __name__ == "__main__":
     # Change here to adapt to your data
     # n_channels=1 for rho only
     # n_classes is the output channels of the network
-    # model = torchseg.UnetPlusPlus(
-    #     encoder_name="resnet34", in_channels=1, classes=args.classes
-    # )
-    model = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
+    model = smp.UnetPlusPlus(
+        encoder_name="resnet34", in_channels=1, classes=args.classes
+    )
+    # model = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
     model.double()
     model = model.to(memory_format=torch.channels_last)
 
