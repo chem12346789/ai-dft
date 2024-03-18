@@ -21,6 +21,17 @@ def load_numpy(filename):
     return np.load(filename)
 
 
+def process(data, device):
+    """
+    Load the whole data to the device.
+    """
+    return data.to(
+        device=device,
+        dtype=torch.float64,
+        memory_format=torch.channels_last,
+    )
+
+
 class BasicDataset(Dataset):
     """Documentation for a class."""
 
@@ -28,13 +39,15 @@ class BasicDataset(Dataset):
         self,
         images_dir: Path,
         mask_dir: Path,
-        weight_dir: Path,
+        device,
         mask_suffix: str = "",
     ):
         self.images_dir = images_dir
         self.mask_dir = mask_dir
         self.mask_suffix = mask_suffix
-        self.weight_dir = weight_dir
+
+        self.device = device
+        self.data = {}
 
         self.ids = [
             splitext(file)[0]
@@ -46,32 +59,33 @@ class BasicDataset(Dataset):
                 f"No input file found in {images_dir}, make sure you put your images there"
             )
 
+        for idx, name in enumerate(self.ids):
+            img_file = list(self.images_dir.glob(name + ".*"))
+            mask_file = list(self.mask_dir.glob(name + self.mask_suffix + ".*"))
+
+            assert (
+                len(img_file) == 1
+            ), f"Either no image or multiple images found for the ID {name}: {img_file}"
+            assert (
+                len(mask_file) == 1
+            ), f"Either no mask or multiple masks found for the ID {name}: {mask_file}"
+            img = load_numpy(img_file[0])
+            mask = load_numpy(mask_file[0])
+
+            img = torch.as_tensor(img.copy()).float().contiguous()
+            mask = torch.as_tensor(mask.copy()).float().contiguous()
+
+            img = F.pad(img, (9, 9, 10, 11), "reflect")
+            mask = F.pad(mask, (9, 9, 10, 11), "reflect")
+
+            self.data[idx] = {
+                "image": process(img, self.device),
+                "mask": process(mask, self.device),
+                "name": name,
+            }
+
     def __len__(self):
         return len(self.ids)
 
     def __getitem__(self, idx):
-        name = self.ids[idx]
-
-        img_file = list(self.images_dir.glob(name + ".*"))
-        mask_file = list(self.mask_dir.glob(name + self.mask_suffix + ".*"))
-
-        assert (
-            len(img_file) == 1
-        ), f"Either no image or multiple images found for the ID {name}: {img_file}"
-        assert (
-            len(mask_file) == 1
-        ), f"Either no mask or multiple masks found for the ID {name}: {mask_file}"
-        img = load_numpy(img_file[0])
-        mask = load_numpy(mask_file[0])
-
-        img = torch.as_tensor(img.copy()).float().contiguous()
-        mask = torch.as_tensor(mask.copy()).float().contiguous()
-
-        img = F.pad(img, (9, 9, 10, 11), "reflect")
-        mask = F.pad(mask, (9, 9, 10, 11), "reflect")
-
-        return {
-            "image": img,
-            "mask": mask,
-            "name": name,
-        }
+        return self.data[idx]

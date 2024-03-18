@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, random_split
 from .evaluate import evaluate
 from .data_loading import BasicDataset
 from .select_optimizer_scheduler import select_optimizer_scheduler
-from .aux import numpy2str, Criterion, load_to_gpu
+from .aux import numpy2str, Criterion
 
 
 def train_model(
@@ -28,9 +28,8 @@ def train_model(
     # 1. Create dataset
     dir_img = Path(args.name) / "data" / "imgs/"
     dir_mask = Path(args.name) / "data" / "masks/"
-    dir_weight = Path(args.name) / "data" / "weights/"
     dir_checkpoint = Path(args.name) / "checkpoints/"
-    dataset = BasicDataset(dir_img, dir_mask, dir_weight)
+    dataset = BasicDataset(dir_img, dir_mask, device)
 
     # 2. Split into train / validation partitions note we cut off the last
     # batch if it's not full
@@ -45,7 +44,7 @@ def train_model(
         num_workers=args.batch_size,
         pin_memory=True,
     )
-    train_loader = DataLoader(train_set, shuffle=True, **loader_args)
+    train_loader = DataLoader(train_set, shuffle=False, **loader_args)
     val_loader = DataLoader(val_set, shuffle=False, **loader_args)
 
     # print the data
@@ -54,15 +53,12 @@ def train_model(
         logging.debug("image %s", numpy2str(batch["image"]))
         logging.debug("mask %s", numpy2str(batch["mask"]))
         logging.info("name %s\n", batch["name"])
+
     logging.info("val_loader\n")
     for batch in val_loader:
         logging.debug("image %s", numpy2str(batch["image"]))
         logging.debug("mask %s", numpy2str(batch["mask"]))
         logging.info("name %s\n", batch["name"])
-
-    # # load the whole data to the device
-    train_loader_gpu = load_to_gpu(train_loader, device)
-    val_loader_gpu = load_to_gpu(val_loader, device)
 
     # Set up the loss function
     criterion = Criterion()
@@ -103,7 +99,7 @@ def train_model(
         for epoch in range(1, args.epochs + 1):
             model.train()
 
-            for batch in train_loader_gpu:
+            for batch in train_loader:
                 optimizer.zero_grad(set_to_none=True)
 
                 image = batch["image"]
@@ -136,7 +132,7 @@ def train_model(
                 if n_val != 0:
                     val_score = evaluate(
                         model,
-                        val_loader_gpu,
+                        val_loader,
                         device,
                         args.amp,
                         criterion,

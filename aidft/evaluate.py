@@ -10,20 +10,6 @@ import numpy as np
 from .aux import numpy2str
 
 
-def numpy2str(data: np.ndarray) -> str:
-    """
-    Documentation for a function.
-
-    More details.
-    """
-    return np.array2string(
-        data.detach().cpu().numpy(),
-        precision=4,
-        separator=",",
-        suppress_small=True,
-    )
-
-
 @torch.inference_mode()
 def evaluate(
     net,
@@ -45,10 +31,8 @@ def evaluate(
     # iterate over the validation set
     with torch.autocast(device.type if device.type != "mps" else "cpu", enabled=amp):
         for batch in dataloader:
-            image, mask_true = (
-                batch["image"],
-                batch["mask"],
-            )
+            image = batch["image"]
+            mask_true = batch["mask"]
 
             # predict the mask
             mask_pred = net(image)

@@ -46,6 +46,7 @@ if __name__ == "__main__":
         logging.info("Model loaded from %s", load_path)
 
     model.to(device=device)
+
     try:
         train_model(
             model=model,

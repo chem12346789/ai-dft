@@ -51,7 +51,7 @@ def process(data, device):
     return data.to(
         device=device,
         dtype=torch.float64,
-        # memory_format=torch.channels_last,
+        memory_format=torch.channels_last,
     )
 
 
