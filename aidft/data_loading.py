@@ -28,14 +28,12 @@ class BasicDataset(Dataset):
         self,
         images_dir: Path,
         mask_dir: Path,
-        device,
         mask_suffix: str = "",
     ):
         self.images_dir = images_dir
         self.mask_dir = mask_dir
         self.mask_suffix = mask_suffix
 
-        self.device = device
         self.data = {}
 
         self.ids = [

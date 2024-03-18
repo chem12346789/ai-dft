@@ -113,7 +113,6 @@ def train_model(
                     mask_pred = model(image)
                     loss = criterion.val(mask_pred, mask_true)
 
-                print(f"loss: {loss}, type of loss: {type(loss)}")
                 grad_scaler.scale(loss).backward()
                 grad_scaler.step(optimizer)
                 grad_scaler.update()
