@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 import numpy as np
 from torch.utils.data import Dataset
+import torch.nn.functional as F
 
 
 def load_numpy(filename):
@@ -53,7 +54,6 @@ class BasicDataset(Dataset):
 
         img_file = list(self.images_dir.glob(name + ".*"))
         mask_file = list(self.mask_dir.glob(name + self.mask_suffix + ".*"))
-        weight_file = list(self.weight_dir.glob(name + self.mask_suffix + ".*"))
 
         assert (
             len(img_file) == 1
@@ -61,14 +61,17 @@ class BasicDataset(Dataset):
         assert (
             len(mask_file) == 1
         ), f"Either no mask or multiple masks found for the ID {name}: {mask_file}"
-        assert (
-            len(weight_file) == 1
-        ), f"Either no weight or multiple weights found for the ID {name}: {weight_file}"
         img = load_numpy(img_file[0])
         mask = load_numpy(mask_file[0])
 
+        img = torch.as_tensor(img.copy()).float().contiguous()
+        mask = torch.as_tensor(mask.copy()).float().contiguous()
+
+        img = F.pad(img, (9, 9, 10, 11), "reflect")
+        mask = F.pad(mask, (9, 9, 10, 11), "reflect")
+
         return {
-            "image": torch.as_tensor(img.copy()).float().contiguous(),
-            "mask": torch.as_tensor(mask.copy()).float().contiguous(),
+            "image": img,
+            "mask": mask,
             "name": name,
         }
