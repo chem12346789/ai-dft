@@ -1,6 +1,7 @@
 import numpy as np
 from pathlib import Path
 import argparse
+import json
 
 
 def clean_dir(pth):
@@ -23,20 +24,18 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--method",
-    "-m",
-    type=str,
-    default="mrks",
-    choices=["wy", "mrks"],
-    help="Witch method we used to obtain the potential.",
-)
-
-parser.add_argument(
     "--energy",
     "-e",
     type=bool,
     default=False,
     help="If contain energy.",
+)
+
+parser.add_argument(
+    "--atom",
+    type=str,
+    default="H",
+    help="Atom name. Default is 'H'",
 )
 
 parser.add_argument(
@@ -72,7 +71,6 @@ clean_dir(weit_path)
 print(f"data: {args.data}")
 
 MESSAGE = ""
-method_str = args.method
 
 for data_i in args.data:
     data_path = Path("./") / data_i
@@ -80,50 +78,77 @@ for data_i in args.data:
         if not child.is_dir():
             continue
         print(f"Processing {child.parts[-1]}")
-        data_file = list(child.glob(f"rho_t_{method_str}.npy"))
-        masks_v_file = list(child.glob(f"{method_str}.npy"))
-        weit_v_file = list(child.glob("weight.npy"))
+        if (
+            np.abs(int(float(child.parts[-1]) * 80) * 0.0125 - float(child.parts[-1]))
+            > 1e-3
+        ):
+            continue
+        # if float(child.parts[-1]) < 0.749:
+        data_file = list(child.glob("rho_inv_mrks.npy"))
+        masks_v_file = list(child.glob("mrks.npy"))
+        lda_v_file = list(child.glob("lda.npy"))
+        weight_file = list(child.glob("weight.npy"))
 
         if (
             (len(data_file) == 1)
             and (len(masks_v_file) == 1)
-            and (len(weit_v_file) == 1)
+            and (len(lda_v_file) == 1)
+            and (len(weight_file) == 1)
         ):
             data = np.load(data_file[0])
             masks_v = np.load(masks_v_file[0])
-            weit_ve = np.load(weit_v_file[0])
+            weight = np.load(weight_file[0])
+            if "weit" in args.name:
+                data_weit = data * weight
+            else:
+                data_weit = data.copy()
+
+            if args.energy:
+                masks_e_file = list(child.glob("mrks_e.npy"))
+                lda_e_file = list(child.glob("lda_e.npy"))
+                masks_tr_file = list(child.glob("tr.npy"))
+                masks_e = (np.load(masks_e_file[0]) + np.load(masks_tr_file[0])) / (
+                    data + 1e-14
+                )
+
+            with open(child / "mol_info.json", "r", encoding="utf-8") as f:
+                mol_info = json.load(f)
+
             for i in range(data.shape[0]):
+                if mol_info["atom"][i][0] != args.atom:
+                    continue
+
                 data_name = f"{data_path.parts[-1]}-{child.parts[-1]}-{i}.npy"
-                data_shape = (1, data.shape[1], data.shape[2])
                 masks_ve = np.zeros((1, data.shape[1], data.shape[2]))
-                masks_ve[0, :, :] = masks_v[i, :, :].reshape(data_shape)
+                masks_ve[0, :, :] = masks_v[i, :, :]
 
                 if args.energy:
                     if args.nclass == 1:
-                        masks_e_file = list(child.glob(f"{method_str}_e_dm.npy"))
                         if len(masks_e_file) == 1:
-                            masks_e = np.load(masks_e_file[0])
-                            masks_ve[0, :, :] = masks_e[i, :, :].reshape(data_shape)
+                            masks_ve[0, :, :] = masks_e[i, :, :]
                     elif args.nclass == 2:
                         masks_ve = np.zeros((2, data.shape[1], data.shape[2]))
-                        masks_e_file = list(child.glob(f"{method_str}_e_dm.npy"))
                         if len(masks_e_file) == 1:
-                            masks_e = np.load(masks_e_file[0])
-                            masks_ve[0, :, :] = masks_v[i, :, :].reshape(data_shape)
-                            masks_ve[1, :, :] = masks_e[i, :, :].reshape(data_shape)
+                            masks_ve[0, :, :] = masks_v[i, :, :]
+                            masks_ve[1, :, :] = masks_e[i, :, :]
 
-                np.save(imgs_path / data_name, data[i, :, :].reshape(data_shape))
+                data_shape = (1, data.shape[1], data.shape[2])
+                np.save(imgs_path / data_name, data_weit[i, :, :].reshape(data_shape))
                 np.save(mask_path / data_name, masks_ve)
-                np.save(weit_path / data_name, weit_ve[i, :, :].reshape(data_shape))
+                np.save(weit_path / data_name, weight[i, :, :].reshape(data_shape))
 
+                print(
+                    f"""{child.parts[-1]} max of imag {np.max(data_weit[i, :, :]):.3e} """
+                    f"""min of imag {np.min(data_weit[i, :, :]):.3e}"""
+                )
                 if args.energy:
                     print(
-                        f"""{child.parts[-1]} max of masks_e {np.max(masks_e):.3e} """
-                        f"""min of masks {np.min(masks_e):.3e}"""
+                        f"""{child.parts[-1]} max of masks_e {np.max(masks_e[i, :, :]):.3e} """
+                        f"""min of masks {np.min(masks_e[i, :, :]):.3e}"""
                     )
                 print(
-                    f"""{child.parts[-1]} max of masks_v {np.max(masks_v):.3e} """
-                    f"""min of masks {np.min(masks_v):.3e}"""
+                    f"""{child.parts[-1]} max of masks_v {np.max(masks_v[i, :, :]):.3e} """
+                    f"""min of masks {np.min(masks_v[i, :, :]):.3e}"""
                 )
         else:
             MESSAGE += f"""{child.parts[-1]} not found\n"""

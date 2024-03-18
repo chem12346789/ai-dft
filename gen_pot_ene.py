@@ -4,6 +4,7 @@ Documentation for this module.
  
 More details.
 """
+
 import argparse
 import gc
 from pathlib import Path
@@ -49,6 +50,9 @@ for distance in distance_l:
         if args.save:
             mrks_inv.save_prepare_inverse()
     mrks_inv.inv()
+    mrks_inv.save_mol_info()
+    mrks_inv.save_b3lyp()
+
     del mrks_inv
     gc.collect()
     print("All done.\n")

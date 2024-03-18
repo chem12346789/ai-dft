@@ -40,6 +40,14 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--val_precent",
+        "-vp",
+        type=float,
+        help="Percentage of validation data. Default is 0.1.",
+        default=0.1,
+    )
+
+    parser.add_argument(
         "--level",
         "-l",
         type=int,
@@ -73,31 +81,6 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--scale",
-        "-s",
-        type=float,
-        default=1,
-        help="Downscaling factor of the images",
-    )
-
-    parser.add_argument(
-        "--validation",
-        "-v",
-        type=int,
-        default=20,
-        dest="val",
-        help="Number of the data that is used as validation",
-    )
-
-    parser.add_argument(
-        "--training",
-        type=int,
-        default=200,
-        dest="train",
-        help="Number of the data that is used as validation",
-    )
-
-    parser.add_argument(
         "--amp",
         action="store_true",
         default=False,
@@ -105,19 +88,11 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--model",
-        type=str,
-        default="unet",
-        choices=["unet", "unet_small"],
-        help="Witch model we used to do the machine learning.",
-    )
-
-    parser.add_argument(
         "--division_epoch",
         type=int,
         default=50,
         dest="division_epoch",
-        help="Division epoch. Default is 1000. Validate every division_epoch.",
+        help="Division epoch. Default is 50. Validate every division_epoch.",
     )
 
     parser.add_argument(
@@ -134,6 +109,14 @@ def parser_model(parser: argparse.ArgumentParser):
         default="b3lyp",
         help="Witch method we used to obtain the benchmark quantum chemical calculation."
         "This should be a dft level method.",
+    )
+
+    parser.add_argument(
+        "--old_factor",
+        "-f",
+        type=float,
+        help="Old factor. Default is 0.9.",
+        default=0.9,
     )
 
     parser.add_argument(
@@ -162,16 +145,8 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--old_factor",
-        "-f",
-        type=float,
-        help="Old factor. Default is 0.9.",
-        default=0.9,
-    )
-
-    parser.add_argument(
         "--load",
-        default=None,
+        default=False,
         help="Load model from a .pth file",
     )
 
@@ -195,6 +170,37 @@ def parser_model(parser: argparse.ArgumentParser):
         type=bool,
         default=False,
         help="Use single loop training method",
+    )
+
+    parser.add_argument(
+        "--optimizer",
+        type=str,
+        default=None,
+        choices=[
+            None,
+            "sgd",
+            "rmsprop",
+            "adam",
+            "adadelta",
+            "adamax",
+            "radam",
+            "nadam",
+        ],
+        help="Witch model we used to do the machine learning.",
+    )
+
+    parser.add_argument(
+        "--scheduler",
+        type=str,
+        default=None,
+        choices=[
+            None,
+            "plateau",
+            "cosine",
+            "step",
+            "none",
+        ],
+        help="Witch model we used to do the machine learning.",
     )
 
     parser.add_argument(
@@ -233,34 +239,4 @@ def parser_model(parser: argparse.ArgumentParser):
         default=1.0,
     )
 
-    parser.add_argument(
-        "--optimizer",
-        type=str,
-        default=None,
-        choices=[
-            None,
-            "adam",
-            "sgd",
-            "adadelta",
-            "rmsprop",
-            "adamax",
-            "radam",
-            "nadam",
-        ],
-        help="Witch model we used to do the machine learning.",
-    )
-
-    parser.add_argument(
-        "--scheduler",
-        type=str,
-        default=None,
-        choices=[
-            None,
-            "plateau",
-            "cosine",
-            "step",
-            "none",
-        ],
-        help="Witch model we used to do the machine learning.",
-    )
     return parser.parse_args()

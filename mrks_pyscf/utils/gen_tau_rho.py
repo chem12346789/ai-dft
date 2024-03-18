@@ -103,5 +103,5 @@ def gen_tau_rho(
             eigs_v_dm1[:, i], eigs_v_dm1[:, i], backend=backend
         )
         taup += part.cpu().numpy() * eigs_e_dm1[i]
-    taup_rho = -taup
+    taup_rho = -taup / 2
     return taup_rho

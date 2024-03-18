@@ -7,6 +7,7 @@ More details.
 import torch
 import wandb
 import numpy as np
+from .aux import numpy2str
 
 
 def numpy2str(data: np.ndarray) -> str:
@@ -29,8 +30,8 @@ def evaluate(
     dataloader,
     device,
     amp,
-    logging,
     criterion,
+    logging,
     experiment,
 ):
     """Documentation for a function.
@@ -39,41 +40,25 @@ def evaluate(
     """
     net.eval()
     sum_error = 0
+    iter_ = 0
 
     # iterate over the validation set
     with torch.autocast(device.type if device.type != "mps" else "cpu", enabled=amp):
         for batch in dataloader:
-            image, mask_true, weight = (
+            image, mask_true = (
                 batch["image"],
                 batch["mask"],
-                batch["weight"],
-            )
-
-            # move images and labels to correct device and type
-            image = image.to(
-                device=device,
-                dtype=torch.float64,
-                memory_format=torch.channels_last,
-            )
-            mask_true = mask_true.to(
-                device=device,
-                dtype=torch.float64,
-                memory_format=torch.channels_last,
-            )
-            weight = weight.to(
-                device=device,
-                dtype=torch.float64,
-                memory_format=torch.channels_last,
             )
 
             # predict the mask
             mask_pred = net(image)
-            sum_error += criterion(mask_pred, mask_true)
+            sum_error += criterion.val(mask_pred, mask_true)
+            iter_ += 1
 
             for i in range(image.shape[0]):
-                logging.info("image %s", numpy2str(image[i]))
-                logging.info("mask_true %s", numpy2str(mask_true[i]))
-                logging.info("mask_pred %s", numpy2str(mask_pred[i]))
+                logging.debug("image %s", numpy2str(image[i]))
+                logging.debug("mask_true %s", numpy2str(mask_true[i]))
+                logging.debug("mask_pred %s", numpy2str(mask_pred[i]))
 
     experiment.log(
         {
@@ -85,4 +70,4 @@ def evaluate(
     )
 
     net.train()
-    return sum_error
+    return sum_error / iter_
