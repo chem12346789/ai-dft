@@ -21,17 +21,6 @@ def load_numpy(filename):
     return np.load(filename)
 
 
-def process(data, device):
-    """
-    Load the whole data to the device.
-    """
-    return data.to(
-        device=device,
-        dtype=torch.float64,
-        memory_format=torch.channels_last,
-    )
-
-
 class BasicDataset(Dataset):
     """Documentation for a class."""
 
@@ -79,8 +68,8 @@ class BasicDataset(Dataset):
             mask = F.pad(mask, (9, 9, 10, 11), "reflect")
 
             self.data[idx] = {
-                "image": process(img, self.device),
-                "mask": process(mask, self.device),
+                "image": img,
+                "mask": mask,
                 "name": name,
             }
 

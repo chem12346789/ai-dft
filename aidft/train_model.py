@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, random_split
 from .evaluate import evaluate
 from .data_loading import BasicDataset
 from .select_optimizer_scheduler import select_optimizer_scheduler
-from .aux import numpy2str, Criterion
+from .aux import numpy2str, Criterion, load_to_gpu
 
 
 def train_model(
@@ -29,7 +29,7 @@ def train_model(
     dir_img = Path(args.name) / "data" / "imgs/"
     dir_mask = Path(args.name) / "data" / "masks/"
     dir_checkpoint = Path(args.name) / "checkpoints/"
-    dataset = BasicDataset(dir_img, dir_mask, device)
+    dataset = BasicDataset(dir_img, dir_mask)
 
     # 2. Split into train / validation partitions note we cut off the last
     # batch if it's not full
@@ -59,6 +59,10 @@ def train_model(
         logging.debug("image %s", numpy2str(batch["image"]))
         logging.debug("mask %s", numpy2str(batch["mask"]))
         logging.info("name %s\n", batch["name"])
+
+    # # load the whole data to the device
+    train_loader_gpu = load_to_gpu(train_loader, device)
+    val_loader_gpu = load_to_gpu(val_loader, device)
 
     # Set up the loss function
     criterion = Criterion()
@@ -99,7 +103,7 @@ def train_model(
         for epoch in range(1, args.epochs + 1):
             model.train()
 
-            for batch in train_loader:
+            for batch in train_loader_gpu:
                 optimizer.zero_grad(set_to_none=True)
 
                 image = batch["image"]
@@ -132,7 +136,7 @@ def train_model(
                 if n_val != 0:
                     val_score = evaluate(
                         model,
-                        val_loader,
+                        val_loader_gpu,
                         device,
                         args.amp,
                         criterion,
