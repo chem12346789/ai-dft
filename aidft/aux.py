@@ -9,9 +9,12 @@ def numpy2str(data: np.ndarray) -> str:
 
     More details.
     """
-    return np.array2string(
-        data.numpy(), precision=4, separator=",", suppress_small=True
-    )
+    if isinstance(data, np.ndarray):
+        return np.array2string(data, precision=4, separator=",", suppress_small=True)
+    if isinstance(data, torch.Tensor):
+        return np.array2string(
+            data.cpu().numpy(), precision=4, separator=",", suppress_small=True
+        )
 
 
 class Criterion:
@@ -48,11 +51,17 @@ def process(data, device):
     """
     Load the whole data to the device.
     """
-    return data.to(
-        device=device,
-        dtype=torch.float64,
-        memory_format=torch.channels_last,
-    )
+    if len(data.shape) == 4:
+        return data.to(
+            device=device,
+            dtype=torch.float64,
+            memory_format=torch.channels_last,
+        )
+    else:
+        return data.to(
+            device=device,
+            dtype=torch.float64,
+        )
 
 
 def load_to_gpu(dataloader, device):

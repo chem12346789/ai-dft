@@ -236,6 +236,8 @@ def rotate(mol, angle_list=None):
             alpha, beta, gamma = 0, np.pi / 2, 0
         elif angle_list == "z":
             alpha, beta, gamma = 0, 0, np.pi / 2
+        elif angle_list == "random":
+            alpha, beta, gamma = np.random.uniform(0, 2 * np.pi, 3)
         else:
             print("Angle_list should be 'x', 'y', 'z'. We use random angles.")
             alpha, beta, gamma = np.random.uniform(0, 2 * np.pi, 3)
@@ -261,6 +263,6 @@ def rotate(mol, angle_list=None):
         ]
     )
 
-    for i in range(len(mol.atom)):
-        mol.atom[i, 1:] = np.dot(rz, np.dot(ry, np.dot(rx, mol.atom[i, 1:])))
+    for i in range(len(mol)):
+        mol[i][1:] = np.dot(rz, np.dot(ry, np.dot(rx, mol[i][1:])))
     return mol

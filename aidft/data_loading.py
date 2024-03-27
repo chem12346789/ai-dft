@@ -28,6 +28,8 @@ class BasicDataset(Dataset):
         self,
         images_dir: Path,
         mask_dir: Path,
+        if_pad=True,
+        if_flatten=True,
         mask_suffix: str = "",
     ):
         self.images_dir = images_dir
@@ -38,7 +40,7 @@ class BasicDataset(Dataset):
 
         self.ids = [
             splitext(file)[0]
-            for file in listdir(images_dir)
+            for file in sorted(listdir(images_dir))
             if isfile(join(images_dir, file)) and not file.startswith(".")
         ]
         if not self.ids:
@@ -59,11 +61,16 @@ class BasicDataset(Dataset):
             img = load_numpy(img_file[0])
             mask = load_numpy(mask_file[0])
 
-            img = torch.as_tensor(img.copy()).float().contiguous()
-            mask = torch.as_tensor(mask.copy()).float().contiguous()
+            img = torch.as_tensor(img.copy()).to(torch.float64).contiguous()
+            mask = torch.as_tensor(mask.copy()).to(torch.float64).contiguous()
 
-            img = F.pad(img, (9, 9, 10, 11), "reflect")
-            mask = F.pad(mask, (9, 9, 10, 11), "reflect")
+            if if_pad:
+                img = F.pad(img, (9, 9, 10, 11), "reflect")
+                mask = F.pad(mask, (9, 9, 10, 11), "reflect")
+
+            if if_flatten:
+                img = np.squeeze(img, axis=0)  # feature.shape = (75, 302)
+                mask = np.reshape(mask, (150, 302))  # label.shape = (150, 302)
 
             self.data[idx] = {
                 "image": img,
