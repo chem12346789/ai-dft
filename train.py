@@ -23,17 +23,15 @@ if __name__ == "__main__":
     # n_classes is the output channels of the network
     if "unet" in args.name:
         if "unetplusplus" in args.name:
-            if "default" in args.name:
+            if "efficient" in args.name:
                 model = smp.UnetPlusPlus(
-                    encoder_name="resnet34",
+                    encoder_name="timm-efficientnet-b0",
                     in_channels=1,
                     classes=2,
                 )
             else:
                 model = smp.UnetPlusPlus(
                     encoder_name="resnet34",
-                    encoder_depth=5,
-                    decoder_channels=(512, 256, 128, 64, 32),
                     in_channels=1,
                     classes=2,
                 )
@@ -44,8 +42,22 @@ if __name__ == "__main__":
         model = Transformer()
         args.if_pad = False
         args.if_flatten = True
+    elif "manet" in args.name:
+        model = smp.MAnet(
+            encoder_name="resnet34",
+            in_channels=1,
+            classes=2,
+        )
+    elif "linknet" in args.name:
+        model = smp.Linknet(
+            encoder_name="resnet34",
+            in_channels=1,
+            classes=2,
+        )
     else:
-        model = smp.MAnet(encoder_name="resnet34", in_channels=1, classes=args.classes)
+        logging.info(
+            "Network is not supported. Please choose one of the following: unet, unetplusplus, transform, manet",
+        )
 
     model.double()
     model = model.to(memory_format=torch.channels_last)

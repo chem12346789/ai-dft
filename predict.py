@@ -19,7 +19,7 @@ import pyscf
 from mrks_pyscf.mrksinv import Mrksinv
 from mrks_pyscf.utils.mol import old_function
 from mrks_pyscf.utils.logger import gen_logger
-from mrks_pyscf.utils.mol import Mol
+from mrks_pyscf.utils.mol import Mol, PREDICT_MOLECULAR
 from mrks_pyscf.utils.grids import rotate
 from aidft import numpy2str
 from aidft import parser_model, UNet, Transformer
@@ -86,7 +86,7 @@ def predict_potential(
 
 path = Path(__file__).resolve().parents[1] / "data"
 parser = argparse.ArgumentParser(
-    description="Generate the inversed potential and energy."
+    description="Predict the potential with the trained model"
 )
 parser_model(parser)
 args = parser.parse_args()
@@ -125,17 +125,15 @@ if args.load:
 
         if "unet" in args.name:
             if "unetplusplus" in args.name:
-                if "default" in args.name:
+                if "efficient" in args.name:
                     model = smp.UnetPlusPlus(
-                        encoder_name="resnet34",
+                        encoder_name="timm-efficientnet-b0",
                         in_channels=1,
                         classes=2,
                     )
                 else:
                     model = smp.UnetPlusPlus(
                         encoder_name="resnet34",
-                        encoder_depth=5,
-                        decoder_channels=(512, 256, 128, 64, 32),
                         in_channels=1,
                         classes=2,
                     )
@@ -148,6 +146,18 @@ if args.load:
             model = Transformer()
             args.if_pad = False
             args.if_flatten = True
+        elif "manet" in args.name:
+            model = smp.MAnet(
+                encoder_name="resnet34",
+                in_channels=1,
+                classes=2,
+            )
+        elif "linknet" in args.name:
+            model = smp.Linknet(
+                encoder_name="resnet34",
+                in_channels=1,
+                classes=2,
+            )
         else:
             model = smp.MAnet(
                 encoder_name="resnet34", in_channels=1, classes=args.classes
@@ -156,12 +166,21 @@ if args.load:
         # net = UNet(in_channels=1, classes=args.classes, bilinear=args.bilinear)
         model.double()
         model = model.to(memory_format=torch.channels_last)
-        dir_checkpoint = (
-            Path(f"mrks-e-{args.molecular}-{atom}-{args.name}") / "checkpoints/"
-        )
+        if args.molecular in PREDICT_MOLECULAR:
+            dir_checkpoint = (
+                Path(f"mrks-e-{PREDICT_MOLECULAR[args.molecular]}-{atom}-{args.name}")
+                / "checkpoints/"
+            )
+        else:
+            dir_checkpoint = (
+                Path(f"mrks-e-{args.molecular}-{atom}-{args.name}") / "checkpoints/"
+            )
 
-        list_of_path = dir_checkpoint.glob("*.pth")
-        load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
+        if args.load == 1:
+            list_of_path = dir_checkpoint.glob("*.pth")
+            load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
+        else:
+            load_path = dir_checkpoint / f"rmsprop-plateau-{args.load}.pth"
 
         state_dict = torch.load(load_path, map_location=device)
         model.load_state_dict(state_dict)

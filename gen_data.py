@@ -84,8 +84,11 @@ for data_i in args.data:
                 > 1e-3
             ):
                 continue
-            if float(child.parts[-1]) > 3.501:
-                continue
+        
+        # exclude the data with long distance.
+        if float(child.parts[-1]) > 4.501:
+            continue
+        
         data_file = list(child.glob("rho_inv_mrks.npy"))
         masks_v_file = list(child.glob("mrks.npy"))
         lda_v_file = list(child.glob("lda.npy"))

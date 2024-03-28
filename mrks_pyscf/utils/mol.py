@@ -1,6 +1,12 @@
 """Molecular dict"""
 
 H_2 = [["H", 100, 0, 0], ["H", 0, 0, 0]]
+HHHH = [
+    ["H", 100, 0, 0],
+    ["H", 0, 0, 0],
+    ["H", 1.0, 0, 0],
+    ["H", 1.737, 0, 0],
+]
 Be = [["Be", 0, 0, 0]]
 Ne = [["Ne", 0, 0, 0]]
 He = [["He", 0, 0, 0]]
@@ -99,6 +105,7 @@ HCHHH = [
 Mol = {
     "H_2": H_2,
     "HH": H_2,
+    "HHHH": HHHH,
     "HF": HF,
     "Be": Be,
     "He": He,
@@ -122,6 +129,10 @@ Mol = {
     "HNH2": HNHH,
     "HCHHH": HCHHH,
     "HCH3": HCHHH,
+}
+
+PREDICT_MOLECULAR = {
+    "HHHH": "HH",
 }
 
 BASIS = {
