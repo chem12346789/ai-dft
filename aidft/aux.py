@@ -5,8 +5,8 @@ from torch import nn
 import torch
 
 import segmentation_models_pytorch as smp
-from unet.unet_model import UNet
-from transformer.models import Extractor as Transformer
+from .unet.unet_model import UNet
+from .transformer.models import Extractor as Transformer
 
 
 def numpy2str(data: np.ndarray) -> str:
