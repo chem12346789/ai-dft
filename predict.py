@@ -5,28 +5,24 @@ from pathlib import Path
 import json
 import gc
 from datetime import datetime
+import shutil
 
-import logging
 import torch
 import torch.nn.functional as F
 import numpy as np
 import opt_einsum as oe
-import shutil
 
-import segmentation_models_pytorch as smp
 import pyscf
+from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
+from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
+from pyscf.cc import ccsd_t_slow as ccsd_t
 
 from mrks_pyscf.mrksinv import Mrksinv
 from mrks_pyscf.utils.mol import old_function
 from mrks_pyscf.utils.logger import gen_logger
 from mrks_pyscf.utils.mol import Mol, PREDICT_MOLECULAR
 from mrks_pyscf.utils.grids import rotate
-from aidft import numpy2str
-from aidft import parser_model, UNet, Transformer
-
-from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
-from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
-from pyscf.cc import ccsd_t_slow as ccsd_t
+from aidft import numpy2str, parser_model, gen_model
 
 
 def predict_potential(
@@ -123,47 +119,7 @@ if args.load:
         if atom not in args.molecular:
             continue
 
-        if "unet" in args.name:
-            if "unetplusplus" in args.name:
-                if "efficient" in args.name:
-                    model = smp.UnetPlusPlus(
-                        encoder_name="timm-efficientnet-b0",
-                        in_channels=1,
-                        classes=2,
-                    )
-                else:
-                    model = smp.UnetPlusPlus(
-                        encoder_name="resnet34",
-                        in_channels=1,
-                        classes=2,
-                    )
-            else:
-                model = UNet(
-                    in_channels=1, classes=args.classes, bilinear=args.bilinear
-                )
-                args.if_pad = False
-        elif "transform" in args.name:
-            model = Transformer()
-            args.if_pad = False
-            args.if_flatten = True
-        elif "manet" in args.name:
-            model = smp.MAnet(
-                encoder_name="resnet34",
-                in_channels=1,
-                classes=2,
-            )
-        elif "linknet" in args.name:
-            model = smp.Linknet(
-                encoder_name="resnet34",
-                in_channels=1,
-                classes=2,
-            )
-        else:
-            model = smp.MAnet(
-                encoder_name="resnet34", in_channels=1, classes=args.classes
-            )
-
-        # net = UNet(in_channels=1, classes=args.classes, bilinear=args.bilinear)
+        model = gen_model(args)
         model.double()
         model = model.to(memory_format=torch.channels_last)
         if args.molecular in PREDICT_MOLECULAR:

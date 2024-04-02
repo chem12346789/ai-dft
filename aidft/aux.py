@@ -1,6 +1,12 @@
+import logging
+
 import numpy as np
 from torch import nn
 import torch
+
+import segmentation_models_pytorch as smp
+from unet.unet_model import UNet
+from transformer.models import Extractor as Transformer
 
 
 def numpy2str(data: np.ndarray) -> str:
@@ -79,3 +85,80 @@ def load_to_gpu(dataloader, device):
         )
         dataloader_gpu.append(batch_gpu)
     return dataloader_gpu
+
+
+def gen_model(args):
+    """
+    Change here to adapt to your data
+    n_channels=1 for rho only
+    n_classes is the output channels of the network
+    """
+    if "unet" in args.name:
+        if "unetplusplus" in args.name:
+            if "efficient" in args.name:
+                model = smp.UnetPlusPlus(
+                    encoder_name="timm-efficientnet-b0",
+                    in_channels=1,
+                    classes=2,
+                )
+            else:
+                if "32" in args.name:
+                    model = smp.UnetPlusPlus(
+                        encoder_name="resnet34",
+                        decoder_channels=(512, 256, 128, 64, 32),
+                        in_channels=1,
+                        classes=2,
+                    )
+                if "64" in args.name:
+                    model = smp.UnetPlusPlus(
+                        encoder_name="resnet34",
+                        decoder_channels=(1024, 512, 256, 128, 64),
+                        in_channels=1,
+                        classes=2,
+                    )
+                else:
+                    model = smp.UnetPlusPlus(
+                        encoder_name="resnet34",
+                        in_channels=1,
+                        classes=2,
+                    )
+        else:
+            model = UNet(in_channels=1, classes=args.classes, bilinear=args.bilinear)
+            args.if_pad = False
+    elif "transform" in args.name:
+        model = Transformer()
+        args.if_pad = False
+        args.if_flatten = True
+    elif "manet" in args.name:
+        if "32" in args.name:
+            model = smp.MAnet(
+                encoder_name="resnet34",
+                decoder_channels=(512, 256, 128, 64, 32),
+                in_channels=1,
+                classes=2,
+            )
+        if "64" in args.name:
+            model = smp.MAnet(
+                encoder_name="resnet34",
+                decoder_channels=(1024, 512, 256, 128, 64),
+                in_channels=1,
+                classes=2,
+            )
+        else:
+            model = smp.MAnet(
+                encoder_name="resnet34",
+                in_channels=1,
+                classes=2,
+            )
+    elif "linknet" in args.name:
+        model = smp.Linknet(
+            encoder_name="resnet34",
+            in_channels=1,
+            classes=2,
+        )
+    else:
+        logging.info(
+            "Network is not supported. Please choose one of the following: unet, unetplusplus, transform, manet",
+        )
+        model = None
+    return model
