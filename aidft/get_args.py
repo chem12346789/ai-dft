@@ -164,7 +164,8 @@ def parser_model(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--load",
-        default=False,
+        type=int,
+        default=1,
         help="Load model from a .pth file",
     )
 
@@ -224,6 +225,7 @@ def parser_model(parser: argparse.ArgumentParser):
             "plateau",
             "cosine",
             "step",
+            "onecycle",
             "none",
         ],
         help="Witch model we used to do the machine learning.",

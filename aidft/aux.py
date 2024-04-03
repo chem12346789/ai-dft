@@ -32,13 +32,11 @@ class Criterion:
 
     def __init__(
         self,
-        factor: float = 1.0,
+        factor: float = 0.01,
         loss1=nn.MSELoss(),
-        loss2=nn.MSELoss(),
     ):
         self.factor = factor
         self.loss1 = loss1
-        self.loss2 = loss2
 
     def change_factor(self, factor: float):
         """

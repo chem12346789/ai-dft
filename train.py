@@ -23,13 +23,6 @@ if __name__ == "__main__":
     model.double()
     model = model.to(memory_format=torch.channels_last)
 
-    logging.info(
-        "Network: %s",
-        f"""
-        Using device {device}.
-        """,
-    )
-
     if args.load:
         dir_model = Path(args.name) / "checkpoints"
         list_of_path = dir_model.glob("*.pth")
@@ -38,6 +31,7 @@ if __name__ == "__main__":
         model.load_state_dict(state_dict)
         logging.info("Model loaded from %s", load_path)
 
+    logging.info("Network: %s", f"Using device {device}.")
     model.to(device=device)
 
     try:

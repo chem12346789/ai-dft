@@ -84,11 +84,11 @@ for data_i in args.data:
                 > 1e-3
             ):
                 continue
-        
+
         # exclude the data with long distance.
         if float(child.parts[-1]) > 3.501:
             continue
-        
+
         data_file = list(child.glob("rho_inv_mrks.npy"))
         masks_v_file = list(child.glob("mrks.npy"))
         lda_v_file = list(child.glob("lda.npy"))
@@ -138,10 +138,7 @@ for data_i in args.data:
                     data + 1e-14
                 )
 
-                if "weit" in args.name:
-                    masks_e_weit = masks_e.copy()
-                else:
-                    masks_e_weit = masks_e.copy()
+                masks_e_weit = masks_e.copy()
 
                 if "sort" in args.name:
                     masks_e_weit_sort = np.zeros_like(masks_e_weit, dtype=float)

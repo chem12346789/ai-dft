@@ -100,7 +100,7 @@ def train_model(
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the
     # loss scaling for AMP
-    optimizer, scheduler = select_optimizer_scheduler(model, args)
+    optimizer, scheduler = select_optimizer_scheduler(model, args, train_loader)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
     val_score = None
 
