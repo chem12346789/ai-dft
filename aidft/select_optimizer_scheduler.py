@@ -70,7 +70,6 @@ def select_optimizer_scheduler(model, args, data_loader):
     if args.scheduler == "plateau":
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
-            factor=0.5,
             mode="min",
         )
     elif args.scheduler == "cosine":

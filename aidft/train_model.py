@@ -123,8 +123,8 @@ def train_model(
                 grad_scaler.step(optimizer)
                 grad_scaler.update()
 
-            if args.scheduler != "plateau":
-                scheduler.step()
+                if args.scheduler != "plateau":
+                    scheduler.step()
 
             experiment.log(
                 {
