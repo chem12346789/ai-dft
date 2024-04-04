@@ -88,6 +88,24 @@ def parser_model(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--if_pad",
+        default=True,
+        help="If pad the data.",
+    )
+
+    parser.add_argument(
+        "--if_flatten",
+        default=False,
+        help="If flatten the data.",
+    )
+
+    parser.add_argument(
+        "--check",
+        default=False,
+        help="If check the data.",
+    )
+
+    parser.add_argument(
         "--division_epoch",
         type=int,
         default=50,
@@ -146,8 +164,17 @@ def parser_model(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--load",
-        default=False,
+        type=int,
+        default=0,
         help="Load model from a .pth file",
+    )
+
+    parser.add_argument(
+        "--ai_list",
+        nargs="+",
+        type=str,
+        help="List of atom which we want to use AI to predict. Default is ['H'].",
+        default=["H"],
     )
 
     parser.add_argument(
@@ -198,6 +225,7 @@ def parser_model(parser: argparse.ArgumentParser):
             "plateau",
             "cosine",
             "step",
+            "onecycle",
             "none",
         ],
         help="Witch model we used to do the machine learning.",

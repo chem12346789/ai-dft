@@ -29,13 +29,19 @@ def train_model(
     dir_img = Path(args.name) / "data" / "imgs/"
     dir_mask = Path(args.name) / "data" / "masks/"
     dir_checkpoint = Path(args.name) / "checkpoints/"
-    dataset = BasicDataset(dir_img, dir_mask)
+    dataset = BasicDataset(dir_img, dir_mask, args.if_pad, args.if_flatten)
 
     # 2. Split into train / validation partitions note we cut off the last
     # batch if it's not full
-    n_val = int(len(dataset) * args.val_precent)
+    n_val = max(
+        1, int(len(dataset) * args.val_precent)
+    )  # val% of the data is used for validation. at least 1 validation sample
     n_train = len(dataset) - n_val  # 1 - val% of the data is used for training
-    train_set, val_set = random_split(dataset, [n_train, n_val])
+    train_set, val_set = random_split(
+        dataset,
+        [n_train, n_val],
+        generator=torch.Generator().manual_seed(0),
+    )
     logging.info("""Split into train / validation partitions.""")
 
     # 3. Create data loaders
@@ -94,7 +100,7 @@ def train_model(
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the
     # loss scaling for AMP
-    optimizer, scheduler = select_optimizer_scheduler(model, args)
+    optimizer, scheduler = select_optimizer_scheduler(model, args, train_loader)
     grad_scaler = torch.cuda.amp.GradScaler(enabled=args.amp)
     val_score = None
 
@@ -117,8 +123,8 @@ def train_model(
                 grad_scaler.step(optimizer)
                 grad_scaler.update()
 
-            if args.scheduler != "plateau":
-                scheduler.step()
+                if args.scheduler != "plateau":
+                    scheduler.step()
 
             experiment.log(
                 {
@@ -150,6 +156,18 @@ def train_model(
             if epoch % args.save_epoch == 0:
                 if save_checkpoint:
                     Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
+                    state_dict_ = model.state_dict()
+                    torch.save(
+                        state_dict_,
+                        dir_checkpoint
+                        / f"{args.optimizer}-{args.scheduler}-{epoch}.pth",
+                    )
+
+            if epoch == 1:
+                if save_checkpoint:
+                    Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
+                    for file in dir_checkpoint.glob("*.pth"):
+                        file.unlink()
                     state_dict_ = model.state_dict()
                     torch.save(
                         state_dict_,

@@ -151,7 +151,7 @@ class Mrksinv:
         self.logger.info(f"Device: {self.device} \n")
         self.logger.info(f"Fraction of old: {self.args.frac_old} \n")
         self.logger.info(f"Level of grid: {self.args.level} \n")
-        self.logger.info(f"Basis set: {self.mol.basis} \n")
+        self.logger.info(f"Basis set: {self.args.basis.lower()} \n")
         self.logger.info(f"Unit of distance: {self.mol.unit} \n")
         self.logger.info(f"Info of molecule: {self.mol.atom} \n")
 

@@ -1,14 +1,13 @@
 import argparse
 import logging
-import torch
 from pathlib import Path
+
+import torch
+
 from aidft import train_model
 from aidft import parser_model
+from aidft import gen_model
 
-from aidft import UNet as Model
-
-
-import segmentation_models_pytorch as smp
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -20,22 +19,18 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Change here to adapt to your data
-    # n_channels=1 for rho only
-    # n_classes is the output channels of the network
+    import segmentation_models_pytorch as smp
+
     model = smp.UnetPlusPlus(
-        encoder_name="resnet34", in_channels=1, classes=args.classes
+        encoder_name="resnet34",
+        in_channels=1,
+        classes=2,
     )
-    # model = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
+
+    # model = gen_model(args)
+
     model.double()
     model = model.to(memory_format=torch.channels_last)
-
-    logging.info(
-        "Network: %s",
-        f"""
-        Using device {device}.
-        """,
-    )
 
     if args.load:
         dir_model = Path(args.name) / "checkpoints"
@@ -45,6 +40,7 @@ if __name__ == "__main__":
         model.load_state_dict(state_dict)
         logging.info("Model loaded from %s", load_path)
 
+    logging.info("Network: %s", f"Using device {device}.")
     model.to(device=device)
 
     try:
