@@ -1,6 +1,5 @@
 """Module providing a training method."""
 
-import logging
 from pathlib import Path
 from tqdm import tqdm
 import wandb
@@ -42,7 +41,7 @@ def train_model(
         [n_train, n_val],
         generator=torch.Generator().manual_seed(0),
     )
-    logging.info("""Split into train / validation partitions.""")
+    print("""Split into train / validation partitions.""")
 
     # 3. Create data loaders
     loader_args = dict(
@@ -54,17 +53,17 @@ def train_model(
     val_loader = DataLoader(val_set, shuffle=False, **loader_args)
 
     # print the data
-    logging.info("train_loader\n")
+    print("train_loader\n")
     for batch in train_loader:
-        logging.debug("image %s", numpy2str(batch["image"]))
-        logging.debug("mask %s", numpy2str(batch["mask"]))
-        logging.info("name %s\n", batch["name"])
+        # print("image %s", numpy2str(batch["image"]))
+        # print("mask %s", numpy2str(batch["mask"]))
+        print("name %s\n", batch["name"])
 
-    logging.info("val_loader\n")
+    print("val_loader\n")
     for batch in val_loader:
-        logging.debug("image %s", numpy2str(batch["image"]))
-        logging.debug("mask %s", numpy2str(batch["mask"]))
-        logging.info("name %s\n", batch["name"])
+        # print("image %s", numpy2str(batch["image"]))
+        # print("mask %s", numpy2str(batch["mask"]))
+        print("name %s\n", batch["name"])
 
     # # load the whole data to the device
     train_loader_gpu = load_to_gpu(train_loader, device)
@@ -145,7 +144,6 @@ def train_model(
                         device,
                         args.amp,
                         criterion,
-                        logging,
                         experiment,
                     )
                     if args.scheduler == "plateau":
@@ -167,7 +165,7 @@ def train_model(
                 if save_checkpoint:
                     Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
                     for file in dir_checkpoint.glob("*.pth"):
-                        file.unlink()
+                        file.rename(file.with_stem(file.stem + "_lastrun"))
                     state_dict_ = model.state_dict()
                     torch.save(
                         state_dict_,

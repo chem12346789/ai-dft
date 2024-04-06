@@ -17,7 +17,6 @@ def evaluate(
     device,
     amp,
     criterion,
-    logging,
     experiment,
 ):
     """Documentation for a function.
@@ -39,10 +38,10 @@ def evaluate(
             sum_error += criterion.val(mask_pred, mask_true)
             iter_ += 1
 
-            for i in range(image.shape[0]):
-                logging.debug("image %s", numpy2str(image[i]))
-                logging.debug("mask_true %s", numpy2str(mask_true[i]))
-                logging.debug("mask_pred %s", numpy2str(mask_pred[i]))
+            # for i in range(image.shape[0]):
+            #     print("image %s", numpy2str(image[i]))
+            #     print("mask_true %s", numpy2str(mask_true[i]))
+            #     print("mask_pred %s", numpy2str(mask_pred[i]))
 
     experiment.log(
         {

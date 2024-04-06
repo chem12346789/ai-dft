@@ -99,6 +99,7 @@ def gen_model(args):
                     in_channels=1,
                     classes=2,
                 )
+                print("Using unetplusplus and efficientnet")
             else:
                 if "32" in args.name:
                     model = smp.UnetPlusPlus(
@@ -107,6 +108,7 @@ def gen_model(args):
                         in_channels=1,
                         classes=2,
                     )
+                    print("Using unetplusplus with 32 decoder_channels and resnet34")
                 if "64" in args.name:
                     model = smp.UnetPlusPlus(
                         encoder_name="resnet34",
@@ -114,19 +116,31 @@ def gen_model(args):
                         in_channels=1,
                         classes=2,
                     )
+                    print("Using unetplusplus with 64 decoder_channels and resnet34")
+                if "128" in args.name:
+                    model = smp.UnetPlusPlus(
+                        encoder_name="resnet34",
+                        decoder_channels=(2048, 1024, 512, 256, 128),
+                        in_channels=1,
+                        classes=2,
+                    )
+                    print("Using unetplusplus with 128 decoder_channels and resnet34")
                 else:
                     model = smp.UnetPlusPlus(
                         encoder_name="resnet34",
                         in_channels=1,
                         classes=2,
                     )
+                    print("Using unetplusplus with resnet34")
         else:
             model = UNet(in_channels=1, classes=args.classes, bilinear=args.bilinear)
             args.if_pad = False
+            print("Using unet")
     elif "transform" in args.name:
         model = Transformer()
         args.if_pad = False
         args.if_flatten = True
+        print("Using transformer")
     elif "manet" in args.name:
         if "32" in args.name:
             model = smp.MAnet(
@@ -135,6 +149,7 @@ def gen_model(args):
                 in_channels=1,
                 classes=2,
             )
+            print("Using manet with 32 decoder_channels and resnet34")
         if "64" in args.name:
             model = smp.MAnet(
                 encoder_name="resnet34",
@@ -142,18 +157,21 @@ def gen_model(args):
                 in_channels=1,
                 classes=2,
             )
+            print("Using manet with 64 decoder_channels and resnet34")
         else:
             model = smp.MAnet(
                 encoder_name="resnet34",
                 in_channels=1,
                 classes=2,
             )
+            print("Using manet with resnet34")
     elif "linknet" in args.name:
         model = smp.Linknet(
             encoder_name="resnet34",
             in_channels=1,
             classes=2,
         )
+        print("Using linknet")
     else:
         logging.info(
             "Network is not supported. Please choose one of the following: unet, unetplusplus, transform, manet",
