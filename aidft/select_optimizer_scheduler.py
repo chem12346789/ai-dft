@@ -1,7 +1,7 @@
 from torch import optim
 
 
-def select_optimizer_scheduler(model, args):
+def select_optimizer_scheduler(model, args, data_loader):
     """Documentation for a function.
 
     More details.
@@ -41,6 +41,7 @@ def select_optimizer_scheduler(model, args):
             model.parameters(),
             lr=args.learning_rate,
             weight_decay=args.weight_decay,
+            momentum=0.9,
             foreach=True,
         )
     elif args.optimizer == "adadelta":
@@ -67,13 +68,25 @@ def select_optimizer_scheduler(model, args):
         raise ValueError("Unknown optimizer")
 
     if args.scheduler == "plateau":
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, "min")
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+        )
     elif args.scheduler == "cosine":
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=2500, eta_min=0.1 * args.learning_rate
+            optimizer,
+            T_max=2500,
+            eta_min=0.1 * args.learning_rate,
         )
     elif args.scheduler == "step":
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
+    elif args.scheduler == "onecycle":
+        scheduler = optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=0.01,
+            steps_per_epoch=len(data_loader),
+            epochs=args.epochs,
+        )
     elif args.scheduler == "none":
         scheduler = None
     else:

@@ -5,51 +5,84 @@ from pathlib import Path
 import json
 import gc
 from datetime import datetime
-
-import logging
-import torch
-import numpy as np
-import opt_einsum as oe
 import shutil
 
-import pyscf
+import torch
+import torch.nn.functional as F
+import numpy as np
+import opt_einsum as oe
 
-from mrks_pyscf.mrksinv import Mrksinv
-from mrks_pyscf.utils.mol import old_function
-from mrks_pyscf.utils.logger import gen_logger
-from mrks_pyscf.utils.mol import Mol
-from aidft import parser_model
-from aidft import UNet
+import pyscf
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import ccsd_t_slow as ccsd_t
 
-AI_LIST = [
-    "H",
-    "O",
-]
+from mrks_pyscf.mrksinv import Mrksinv
+from mrks_pyscf.utils.mol import old_function
+from mrks_pyscf.utils.logger import gen_logger
+from mrks_pyscf.utils.mol import Mol, PREDICT_MOLECULAR
+from mrks_pyscf.utils.grids import rotate
+from aidft import numpy2str, parser_model, gen_model
 
 
-def predict_potential(net, input_data, device):
+def predict_potential(
+    net,
+    input_data,
+    device,
+    if_pad=True,
+    if_flatten=True,
+    if_sort=False,
+):
     """
     Documentation for a function.
 
     More details.
     """
+    if if_sort:
+        data_sort = np.zeros_like(input_data, dtype=float)
+        data_sort_index = np.zeros_like(input_data, dtype=int)
+        data_sort_back_index = np.zeros_like(input_data, dtype=int)
+        for i in range(input_data.shape[0]):
+            for j in range(input_data.shape[1]):
+                data_sort_index[i, j, :] = np.argsort(
+                    np.sum(input_data[i, :, :], axis=0)
+                )
+                for k in range(input_data.shape[2]):
+                    data_sort_back_index[i, j, data_sort_index[i, j, k]] = k
+                data_sort[i, j, :] = input_data[i, j, data_sort_index[i, j, :]]
+        input_data = data_sort.copy()
+
     net.eval()
     input_data = torch.from_numpy(input_data)
     input_data = input_data.unsqueeze(0)
+
+    if if_pad:
+        input_data = F.pad(input_data, (9, 9, 10, 11), "reflect")
+    if if_flatten:
+        input_data = np.squeeze(input_data, axis=0)
+
     input_data = input_data.to(device=device, dtype=torch.float64)
 
     with torch.no_grad():
-        output = net(input_data).cpu()
+        output = net(input_data).cpu().numpy()
 
-    return output.numpy()
+    if if_flatten:
+        output = output.reshape(1, 2, 75, 302)
+    else:
+        output = output[:, :, 10:-11, 9:-9]
+
+    if if_sort:
+        data_orig = np.zeros_like(output)
+        for i in range(output.shape[1]):
+            for j in range(output.shape[2]):
+                data_orig[0, i, j, :] = output[0, i, j, data_sort_back_index[0, j, :]]
+        output = data_orig.copy()
+    return output
 
 
 path = Path(__file__).resolve().parents[1] / "data"
 parser = argparse.ArgumentParser(
-    description="Generate the inversed potential and energy."
+    description="Predict the potential with the trained model"
 )
 parser_model(parser)
 args = parser.parse_args()
@@ -64,41 +97,49 @@ molecular = Mol[args.molecular]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if "weit" in args.name:
-    weight = True
+    WEIGHT = True
 else:
-    weight = False
+    WEIGHT = False
 if "small" in args.name:
-    small = True
+    SMALL = True
 else:
-    small = False
+    SMALL = False
+if "1" in args.name:
+    SMP = True
+else:
+    SMP = False
 
-net_dict = {}
+model_dict = {}
 # XC_CODE = "SVWN"
 # XC_CODE = "lda,"
 XC_CODE = None
 
 if args.load:
-    for atom in AI_LIST:
+    for atom in args.ai_list:
         if atom not in args.molecular:
             continue
-        net = UNet(n_channels=1, n_classes=args.classes, bilinear=args.bilinear)
-        net.double()
-        net = net.to(memory_format=torch.channels_last)
-        dir_checkpoint = (
-            Path(
-                f"mrks-e-{args.molecular}{'''-small''' if small else ''''''}-{atom}{'''-weit''' if weight else ''''''}"
+
+        model = gen_model(args)
+        model.double()
+        model = model.to(memory_format=torch.channels_last)
+        if args.molecular in PREDICT_MOLECULAR:
+            dir_checkpoint = (
+                Path(f"mrks-e-{PREDICT_MOLECULAR[args.molecular]}-{atom}-{args.name}")
+                / "checkpoints/"
             )
-            / "checkpoints/"
-        )
-        if (args.optimizer is None) and args.scheduler is None:
-            load_path = dir_checkpoint / f"{args.load}.pth"
         else:
-            load_path = (
-                dir_checkpoint / f"{args.optimizer}-{args.scheduler}-{args.load}.pth"
+            dir_checkpoint = (
+                Path(f"mrks-e-{args.molecular}-{atom}-{args.name}") / "checkpoints/"
             )
 
+        if args.load == 1:
+            list_of_path = dir_checkpoint.glob("*.pth")
+            load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
+        else:
+            load_path = dir_checkpoint / f"rmsprop-plateau-{args.load}.pth"
+
         state_dict = torch.load(load_path, map_location=device)
-        net.load_state_dict(state_dict)
+        model.load_state_dict(state_dict)
         logger.info("Model loaded from %s\n", load_path)
         #  show time of the checkpoint
         logger.info("Time: %s\n", datetime.fromtimestamp(load_path.stat().st_mtime))
@@ -111,16 +152,17 @@ if args.load:
             (path_dir / "saved_model").mkdir(parents=True)
         shutil.copy(load_path, copy_file)
 
-        net.to(device=device)
-        net_dict[atom] = net
+        model.to(device=device)
+        model_dict[atom] = model
 
 for item in Path(path_dir).glob("*/save_data.json"):
     if item.is_file():
         item.unlink()
 
-
 for distance in distance_l:
     molecular[0][1] = distance
+    if "sort" in args.name:
+        rotate(molecular, "random")
     save_data = {}
     logger.info("%s", f"The distance is {distance}.")
     FRAC_OLD = old_function(distance, args.old_factor_scheme, args.old_factor)
@@ -150,14 +192,37 @@ for distance in distance_l:
     vj = mrks_inv.myhf.get_jk(mrks_inv.mol, dm1, 1)[0]
 
     for iatom, atom_list in enumerate(mrks_inv.mol.atom):
-        if atom_list[0] in AI_LIST:
-            mrks_inv.logger.info(f"\nUse net, pos: {iatom}, atom type: {atom_list[0]}")
+        atom = atom_list[0]
+        if atom in args.ai_list:
+            mrks_inv.logger.info(f"\nUse net, pos: {iatom}, atom type: {atom}")
+            if args.check:
+                mrks_inv.logger.info(
+                    f"\nUse data for check, pos: {iatom}, atom type: {atom}"
+                )
+                path_mask = (
+                    Path(f"mrks-e-{args.molecular}-{atom}-{args.name}")
+                    / "data"
+                    / "masks"
+                )
+                file_mask = list(
+                    (path_mask).glob(
+                        f"data-{args.molecular}-*-{distance:.4f}-{iatom}.npy"
+                    )
+                )
+                model_dict[f"{atom}-check"] = np.load(file_mask[0])
         else:
-            mrks_inv.logger.info(f"\nUse data, pos: {iatom}, atom type: {atom_list[0]}")
+            mrks_inv.logger.info(f"\nUse data, pos: {iatom}, atom type: {atom}")
+            path_mask = (
+                Path(f"mrks-e-{args.molecular}-{atom}-{args.name}") / "data" / "masks"
+            )
+            file_mask = list(
+                (path_mask).glob(f"data-{args.molecular}-*-{distance:.4f}-{iatom}.npy")
+            )
+            model_dict[atom] = np.load(file_mask[0])
 
     for step in range(args.scf_step):
         dm1_r = mrks_inv.aux_function.oe_rho_r(dm1)
-        if weight:
+        if WEIGHT:
             dm1_r_grid = mrks_inv.grids.vector_to_matrix(dm1_r * mrks_inv.grids.weights)
         else:
             dm1_r_grid = mrks_inv.grids.vector_to_matrix(dm1_r)
@@ -165,29 +230,22 @@ for distance in distance_l:
         vxc_grid = np.zeros_like(dm1_r_grid)
 
         for i_atom, rho_0_grid_atom in enumerate(dm1_r_grid):
-            if mrks_inv.mol.atom[i_atom][0] in AI_LIST:
+            atom = mrks_inv.mol.atom[i_atom][0]
+            if atom in args.ai_list:
                 vxc_grid[i_atom] = predict_potential(
-                    net_dict[mrks_inv.mol.atom[i_atom][0]],
-                    rho_0_grid_atom.reshape(
-                        1, dm1_r_grid.shape[1], dm1_r_grid.shape[2]
-                    ),
+                    model_dict[atom],
+                    rho_0_grid_atom[np.newaxis, :, :],
                     device,
+                    args.if_pad,
+                    args.if_flatten,
+                    "sort" in args.name,
                 )[0, 0, :, :]
+                if args.check:
+                    vxc_grid_check = model_dict[f"{atom}-check"][0, :, :]
+                    mrks_inv.logger.info(f"\npredict vxc {numpy2str(vxc_grid)}\n")
+                    mrks_inv.logger.info(f"\n{numpy2str(vxc_grid_check)}\n")
             else:
-                path_mask = (
-                    Path(
-                        f"mrks-e-{args.molecular}-{mrks_inv.mol.atom[i_atom][0]}"
-                        + ("-weit" if weight else "")
-                    )
-                    / "data"
-                    / "masks"
-                )
-                file_mask = list(
-                    (path_mask).glob(
-                        f"data-{args.molecular}-*-{distance:.4f}-{i_atom}.npy"
-                    )
-                )
-                vxc_grid[i_atom] = np.load(file_mask[0])[0, :, :]
+                vxc_grid[i_atom] = model_dict[atom][0, :, :]
 
         vxc = mrks_inv.grids.matrix_to_vector(vxc_grid)
         if XC_CODE is not None:
@@ -218,7 +276,11 @@ for distance in distance_l:
 
     ccsd_dm1_file = list(mrks_inv.path.glob("ccsd-dm1.npy"))
     ccsdt_dm1_file = list(mrks_inv.path.glob("ccsdt-dm1.npy"))
-    if (len(ccsd_dm1_file) == 1) and (len(ccsdt_dm1_file) == 1):
+    if (
+        (len(ccsd_dm1_file) == 1)
+        and (len(ccsdt_dm1_file) == 1)
+        and ("sort" not in args.name)
+    ):
         ccsd_dm1 = np.load(ccsd_dm1_file[0])
         ccsdt_dm1 = np.load(ccsdt_dm1_file[0])
         with open(mrks_inv.path / "energy.json", "r", encoding="utf-8") as f:
@@ -231,7 +293,8 @@ for distance in distance_l:
         ccsd_dm1_mo = mycc.make_rdm1()
         ccsd_dm1 = oe.contract("ij,pi,qj->pq", ccsd_dm1_mo, mo, mo)
 
-        np.save(mrks_inv.path / "ccsd-dm1.npy", ccsd_dm1)
+        if "sort" in args.name:
+            np.save(mrks_inv.path / "ccsd-dm1.npy", ccsd_dm1)
         mrks_inv.logger.info("\nCCSD DONE")
 
         mycc = pyscf.cc.CCSD(myhf)
@@ -245,13 +308,13 @@ for distance in distance_l:
         ccsdt_dm1_mo = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris)
         ccsdt_dm1 = oe.contract("ij,pi,qj->pq", ccsdt_dm1_mo, mo, mo)
 
-        with open(mrks_inv.path / "energy.json", "w", encoding="utf-8") as f:
-            energy = {}
-            energy["e_cisdt"] = ccsdt_e
-            energy["e_cisd"] = ccsd_e
-            json.dump(energy, f, indent=4)
-
-        np.save(mrks_inv.path / "ccsdt-dm1.npy", ccsdt_dm1)
+        if "sort" in args.name:
+            with open(mrks_inv.path / "energy.json", "w", encoding="utf-8") as f:
+                energy = {}
+                energy["e_cisdt"] = ccsdt_e
+                energy["e_cisd"] = ccsd_e
+                json.dump(energy, f, indent=4)
+            np.save(mrks_inv.path / "ccsdt-dm1.npy", ccsdt_dm1)
         mrks_inv.logger.info("\nCCSDT DONE")
 
     dm1_dft_r = mrks_inv.aux_function.oe_rho_r(dm1_dft)
@@ -264,6 +327,7 @@ for distance in distance_l:
     error_scf = np.sum(abs(dm1_r - dm1_ccsdt_r) * mrks_inv.grids.weights)
 
     save_data["error_dft"] = error_dft
+    save_data["error_ccsd"] = error_ccsd
     save_data["error_scf"] = error_scf
 
     mrks_inv.logger.info(
@@ -273,32 +337,25 @@ for distance in distance_l:
         f"{error_scf:16.10f}\n"
     )
 
-    if weight:
+    if WEIGHT:
         dm1_r_grid = mrks_inv.grids.vector_to_matrix(dm1_r * mrks_inv.grids.weights)
     else:
         dm1_r_grid = mrks_inv.grids.vector_to_matrix(dm1_r)
     exc_grid = np.zeros_like(dm1_r_grid)
 
     for i_atom, rho_0_grid_atom in enumerate(dm1_r_grid):
-        if mrks_inv.mol.atom[i_atom][0] in AI_LIST:
+        atom = mrks_inv.mol.atom[i_atom][0]
+        if atom in args.ai_list:
             exc_grid[i_atom] = predict_potential(
-                net_dict[mrks_inv.mol.atom[i_atom][0]],
-                rho_0_grid_atom.reshape(1, dm1_r_grid.shape[1], dm1_r_grid.shape[2]),
+                model_dict[atom],
+                rho_0_grid_atom[np.newaxis, :, :],
                 device,
+                args.if_pad,
+                args.if_flatten,
+                "sort" in args.name,
             )[0, 1, :, :]
         else:
-            exc_grid[i_atom] = np.load(
-                list(
-                    (
-                        Path(
-                            f"mrks-e-{args.molecular}-{mrks_inv.mol.atom[i_atom][0]}"
-                            + ("-weit" if weight else "")
-                        )
-                        / "data"
-                        / "masks"
-                    ).glob(f"data-{args.molecular}-*-{distance:.4f}-{i_atom}.npy")
-                )[0]
-            )[1, :, :]
+            exc_grid[i_atom] = model_dict[atom][1, :, :]
 
     exc = mrks_inv.grids.matrix_to_vector(exc_grid)
     if XC_CODE is not None:
