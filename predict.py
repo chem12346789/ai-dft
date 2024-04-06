@@ -190,7 +190,7 @@ for distance in distance_l:
     dm1 = dm1_dft.copy()
 
     for iatom, atom_list in enumerate(mrks_inv.mol.atom):
-        if atom_list[0] in AI_LIST:
+        if atom_list[0] in args.ai_list:
             mrks_inv.logger.info(f"\nUse net, pos: {iatom}, atom type: {atom_list[0]}")
         else:
             mrks_inv.logger.info(f"\nUse data, pos: {iatom}, atom type: {atom_list[0]}")
@@ -205,7 +205,7 @@ for distance in distance_l:
         vxc_grid = np.zeros_like(dm1_r_grid)
 
         for i_atom, rho_0_grid_atom in enumerate(dm1_r_grid):
-            if mrks_inv.mol.atom[i_atom][0] in AI_LIST:
+            if mrks_inv.mol.atom[i_atom][0] in args.ai_list:
                 vxc_grid[i_atom] = predict_potential(
                     net_dict[mrks_inv.mol.atom[i_atom][0]],
                     rho_0_grid_atom.reshape(
@@ -328,7 +328,7 @@ for distance in distance_l:
     exc_grid = np.zeros_like(dm1_r_grid)
 
     for i_atom, rho_0_grid_atom in enumerate(dm1_r_grid):
-        if mrks_inv.mol.atom[i_atom][0] in AI_LIST:
+        if mrks_inv.mol.atom[i_atom][0] in args.ai_list:
             exc_grid[i_atom] = predict_potential(
                 net_dict[mrks_inv.mol.atom[i_atom][0]],
                 rho_0_grid_atom.reshape(1, dm1_r_grid.shape[1], dm1_r_grid.shape[2]),
