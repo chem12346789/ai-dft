@@ -177,6 +177,7 @@ class DFT2CC:
         self.exc = None
         self.tau_rho_wf = None
         self.ene_nuc = None
+        self.energy = None
 
     def save_mol_info(self):
         """
@@ -301,13 +302,17 @@ class DFT2CC:
         ene_vc = np.sum(self.exc * self.grids.weights)
         kin = np.sum(self.tau_rho_wf * self.grids.weights)
         nuc = np.sum(self.ene_nuc * self.grids.weights)
-        c_ene_vc = np.einsum("ij,ji->", self.nuc, self.dm1)
+        c_ene_vc = np.einsum("pqrs,pqrs", self.eri, self.dm2).real / 2
         c_kin = np.einsum("ij,ji->", self.kin, self.dm1)
-        c_nuc = np.einsum("pqrs,pqrs", self.eri, self.dm2).real / 2
+        c_nuc = np.einsum("ij,ji->", self.nuc, self.dm1)
+        self.energy = self.exc + self.tau_rho_wf + self.ene_nuc
+        energy = np.sum(self.energy * self.grids.weights)
         self.logger.info(
-            f"\nenergy ene_vc: {ene_vc:<10.4e}, right {c_ene_vc:16.10f}\n"
-            f"\nenergy kin: {kin:<10.4e}, right {c_kin:16.10f}\n"
-            f"\nenergy nuc: {nuc:<10.4e}, right {c_nuc:16.10f}\n"
+            f"\nenergy ene_vc: {ene_vc:<16.10f}, right {c_ene_vc:16.10f}\n"
+            f"\nenergy kin: {kin:<16.10f}, right {c_kin:16.10f}\n"
+            f"\nenergy nuc: {nuc:<16.10f}, right {c_nuc:16.10f}\n"
+            f"\nerror: {((energy + self.mol.energy_nuc() - self.e) * self.au2kjmol):16.10f} kj/mol\n"
+            f"\nerror: {((c_ene_vc + self.mol.energy_nuc() + c_kin + c_nuc - self.e) * self.au2kjmol):16.10f} kj/mol\n"
             f"The exchange-correlation energy is generated.\n\n"
         )
 
@@ -315,29 +320,6 @@ class DFT2CC:
         del self.dm2
         gc.collect()
         torch.cuda.empty_cache()
-
-    def check(self):
-        """
-        This function is used to check the density matrix and the energy.
-        """
-        self.logger.info(
-            "Check the density matrix and the energy.\n"
-            "WARNING!!!!\n"
-            "WARNING!!!!\n"
-            "WARNING!!!!\n"
-            "This part of code should not be used in the production.\n"
-        )
-        save_data = {}
-        save_data["energy_dft"] = self.au2kjmol * (self.mdft.e_tot - self.e)
-        save_data["energy"] = self.au2kjmol * self.e
-        save_data["error of energy"] = self.au2kjmol * (
-            self.gen_energy(self.dm1) - self.e
-        )
-        # rho_t = self.aux_function.oe_rho_r(self.dm1, backend="torch")
-        # save_data["error of energy"] = self.au2kjmol * (self.gen_energy_rho(rho_t) - self.e)
-
-        with open(self.path / "save_data.json", "w", encoding="utf-8") as f:
-            json.dump(save_data, f, indent=4)
 
     def save_data(self):
         """
@@ -349,22 +331,34 @@ class DFT2CC:
 
         rho_t_grid = self.grids.vector_to_matrix(rho_t)
         rho_dft_grid = self.grids.vector_to_matrix(rho_dft)
-        exc_mrks_grid = self.grids.vector_to_matrix(self.exc)
+        energy_grid = self.grids.vector_to_matrix(self.energy)
+        exc_grid = self.grids.vector_to_matrix(self.exc)
+        tau_rho_wf_grid = self.grids.vector_to_matrix(self.tau_rho_wf)
+        ene_nuc_grid = self.grids.vector_to_matrix(self.ene_nuc)
         weight_grid = self.grids.vector_to_matrix(self.grids.weights)
 
         rho_t_check = self.grids.matrix_to_vector(rho_t_grid)
         rho_dft_check = self.grids.matrix_to_vector(rho_dft_grid)
-        exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
+        energy_check = self.grids.matrix_to_vector(energy_grid)
+        exc_check = self.grids.matrix_to_vector(exc_grid)
+        tau_rho_wf_check = self.grids.matrix_to_vector(tau_rho_wf_grid)
+        ene_nuc_check = self.grids.matrix_to_vector(ene_nuc_grid)
         weight_check = self.grids.matrix_to_vector(weight_grid)
 
         self.logger.info(
             f"{np.linalg.norm(rho_t - rho_t_check):16.10f}\n"
             f"{np.linalg.norm(rho_dft - rho_dft_check):16.10f}\n"
-            f"{np.linalg.norm(self.exc - exc_mrks_check):16.10f}\n"
+            f"{np.linalg.norm(self.energy - energy_check):16.10f}\n"
+            f"{np.linalg.norm(self.exc - exc_check):16.10f}\n"
+            f"{np.linalg.norm(self.tau_rho_wf - tau_rho_wf_check):16.10f}\n"
+            f"{np.linalg.norm(self.ene_nuc - ene_nuc_check):16.10f}\n"
             f"{np.linalg.norm(weight_check - self.grids.weights):16.10f}\n"
         )
 
-        np.save(self.path / "e_output.npy", exc_mrks_grid)
+        np.save(self.path / "e_output.npy", energy_grid)
+        np.save(self.path / "exc.npy", exc_grid)
+        np.save(self.path / "tau_rho_wf.npy", tau_rho_wf_grid)
+        np.save(self.path / "ene_nuc.npy", ene_nuc_grid)
         np.save(self.path / "rho_output.npy", rho_t_grid)
         np.save(self.path / "rho_input.npy", rho_dft_grid)
         np.save(self.path / "weight.npy", weight_grid)

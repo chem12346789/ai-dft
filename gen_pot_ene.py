@@ -41,7 +41,6 @@ for distance in distance_l:
         logger=logger,
     )
     dft2cc.kernel(method=args.method)
-    dft2cc.check()
     dft2cc.save_data()
 
     del dft2cc
