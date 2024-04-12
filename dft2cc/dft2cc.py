@@ -237,16 +237,6 @@ class DFT2CC:
             )
         self.gen_e_vxc()
 
-    def save_kernel_dm12(self):
-        """
-        Do NOT use this function. Cost too much disk space (40Gb * 40 = 1.6T).
-        """
-
-    def load_kernel_dm12(self):
-        """
-        Do NOT use this function. Cost too much disk space.
-        """
-
     def gen_e_vxc(self):
         """
         This function is used to generate the exchange-correlation energy on the grid.
@@ -272,11 +262,11 @@ class DFT2CC:
             elif i % 1000 == 0:
                 self.logger.info(".")
             for i_atom in range(self.mol.natm):
-                self.ene_nuc[i] += (
+                self.ene_nuc[i] -= (
                     2
                     * dm1_r[i]
                     * self.mol.atom_charges()[i_atom]
-                    / np.linalg.norm(self.mol.atom_coords()[i_atom], coord)
+                    / np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
                 )
 
         self.exc = np.zeros(len(self.grids.coords))
@@ -311,15 +301,13 @@ class DFT2CC:
         ene_vc = np.sum(self.exc * self.grids.weights)
         kin = np.sum(self.tau_rho_wf * self.grids.weights)
         nuc = np.sum(self.ene_nuc * self.grids.weights)
-        error = (
-            ene_vc
-            + kin
-            + nuc
-            - np.einsum("ij,ji->", self.h1e, self.dm1)
-            - (np.einsum("pqrs,pqrs", self.eri, self.dm2).real / 2)
-        )
+        c_ene_vc = np.einsum("ij,ji->", self.nuc, self.dm1)
+        c_kin = np.einsum("ij,ji->", self.kin, self.dm1)
+        c_nuc = np.einsum("pqrs,pqrs", self.eri, self.dm2).real / 2
         self.logger.info(
-            f"\nenergy: {ene_vc:<10.4e}, error {error:16.10f}\n"
+            f"\nenergy ene_vc: {ene_vc:<10.4e}, right {c_ene_vc:16.10f}\n"
+            f"\nenergy kin: {kin:<10.4e}, right {c_kin:16.10f}\n"
+            f"\nenergy nuc: {nuc:<10.4e}, right {c_nuc:16.10f}\n"
             f"The exchange-correlation energy is generated.\n\n"
         )
 
@@ -380,20 +368,3 @@ class DFT2CC:
         np.save(self.path / "rho_output.npy", rho_t_grid)
         np.save(self.path / "rho_input.npy", rho_dft_grid)
         np.save(self.path / "weight.npy", weight_grid)
-
-    def gen_energy(
-        self,
-        dm1,
-    ):
-        """
-        This function is used to check the energy.
-        """
-        e_h1 = oe.contract("ij,ji->", self.nuc, dm1)
-
-        ene_t_vc = (
-            e_h1
-            + self.mol.energy_nuc()
-            + np.sum((self.tau_rho_wf + self.exc) * self.grids.weights)
-        )
-
-        return ene_t_vc
