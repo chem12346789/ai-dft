@@ -86,7 +86,7 @@ for data_i in args.data:
                 continue
 
         # exclude the data with long distance.
-        if float(child.parts[-1]) > 4.501:
+        if float(child.parts[-1]) > 3.501:
             continue
 
         data_file = list(child.glob("rho_inv_mrks.npy"))

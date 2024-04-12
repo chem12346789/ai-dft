@@ -17,11 +17,11 @@ from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import ccsd_t_slow as ccsd_t
 
-from mrks_pyscf.mrksinv import Mrksinv
-from mrks_pyscf.utils.mol import old_function
-from mrks_pyscf.utils.logger import gen_logger
-from mrks_pyscf.utils.mol import Mol, PREDICT_MOLECULAR
-from mrks_pyscf.utils.grids import rotate
+from dft2cc.dft2cc import DFT2CC
+from dft2cc.utils.mol import old_function
+from dft2cc.utils.logger import gen_logger
+from dft2cc.utils.mol import Mol, PREDICT_MOLECULAR
+from dft2cc.utils.grids import rotate
 from aidft import numpy2str, parser_model, gen_model
 
 
@@ -136,7 +136,8 @@ if args.load:
             list_of_path = dir_checkpoint.glob("*.pth")
             load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
         else:
-            load_path = dir_checkpoint / f"rmsprop-plateau-{args.load}.pth"
+            list_of_path = dir_checkpoint.glob(f"*{args.load}*.pth")
+            load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
 
         state_dict = torch.load(load_path, map_location=device)
         model.load_state_dict(state_dict)
@@ -167,7 +168,7 @@ for distance in distance_l:
     logger.info("%s", f"The distance is {distance}.")
     FRAC_OLD = old_function(distance, args.old_factor_scheme, args.old_factor)
 
-    mrks_inv = Mrksinv(
+    mrks_inv = DFT2CC(
         molecular,
         path=path_dir / f"{distance:.4f}",
         args=None,
@@ -270,7 +271,7 @@ for distance in distance_l:
         if error < args.error_scf:
             break
 
-    mrks_inv.logger.info("\nSCF DONE")
+    mrks_inv.logger.info("\nError of final SCF: %s .SCF DONE", error)
 
     ccsd_dm1_file = list(mrks_inv.path.glob("ccsd-dm1.npy"))
     ccsdt_dm1_file = list(mrks_inv.path.glob("ccsdt-dm1.npy"))

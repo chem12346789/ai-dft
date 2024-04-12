@@ -9,11 +9,11 @@ import argparse
 import gc
 from pathlib import Path
 
-from mrks_pyscf.mrksinv import Mrksinv
-from mrks_pyscf.utils.parser import parser_inv
-from mrks_pyscf.utils.mol import Mol
-from mrks_pyscf.utils.mol import old_function
-from mrks_pyscf.utils.logger import gen_logger
+from dft2cc.dft2cc import DFT2CC
+from dft2cc.utils.parser import parser_inv
+from dft2cc.utils.mol import Mol
+from dft2cc.utils.mol import old_function
+from dft2cc.utils.logger import gen_logger
 
 
 path = Path(__file__).resolve().parents[1] / "data"
@@ -35,7 +35,7 @@ for distance in distance_l:
     logger.info("%s", f"The distance is {distance}.")
     FRAC_OLD = old_function(distance, args.old_factor_scheme, args.old_factor)
 
-    mrks_inv = Mrksinv(
+    dft2cc = DFT2CC(
         molecular,
         path=path_dir / f"{distance:.4f}",
         args=args,
@@ -44,15 +44,16 @@ for distance in distance_l:
     )
 
     if args.load:
-        mrks_inv.load_prepare_inverse()
+        dft2cc.load_prepare_inverse()
     else:
-        mrks_inv.kernel(method=args.method)
+        dft2cc.kernel(method=args.method)
         if args.save:
-            mrks_inv.save_prepare_inverse()
-    mrks_inv.inv()
-    mrks_inv.save_mol_info()
-    mrks_inv.save_b3lyp()
+            dft2cc.save_prepare_inverse()
 
-    del mrks_inv
+    dft2cc.inv()
+    dft2cc.save_mol_info()
+    dft2cc.save_b3lyp()
+
+    del dft2cc
     gc.collect()
     print("All done.\n")

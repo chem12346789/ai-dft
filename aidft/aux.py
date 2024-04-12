@@ -95,7 +95,7 @@ def gen_model(args):
         if "unetplusplus" in args.name:
             if "efficient" in args.name:
                 model = smp.UnetPlusPlus(
-                    encoder_name="timm-efficientnet-b0",
+                    encoder_name="timm-efficientnet-b2",
                     in_channels=1,
                     classes=2,
                 )
@@ -109,7 +109,7 @@ def gen_model(args):
                         classes=2,
                     )
                     print("Using unetplusplus with 32 decoder_channels and resnet34")
-                if "64" in args.name:
+                elif "64" in args.name:
                     model = smp.UnetPlusPlus(
                         encoder_name="resnet34",
                         decoder_channels=(1024, 512, 256, 128, 64),
@@ -117,7 +117,7 @@ def gen_model(args):
                         classes=2,
                     )
                     print("Using unetplusplus with 64 decoder_channels and resnet34")
-                if "128" in args.name:
+                elif "128" in args.name:
                     model = smp.UnetPlusPlus(
                         encoder_name="resnet34",
                         decoder_channels=(2048, 1024, 512, 256, 128),
@@ -150,7 +150,7 @@ def gen_model(args):
                 classes=2,
             )
             print("Using manet with 32 decoder_channels and resnet34")
-        if "64" in args.name:
+        elif "64" in args.name:
             model = smp.MAnet(
                 encoder_name="resnet34",
                 decoder_channels=(1024, 512, 256, 128, 64),

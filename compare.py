@@ -4,8 +4,8 @@ import numpy as np
 import pyscf
 import argparse
 
-from mrks_pyscf.mrksinv import Mrksinv
-from mrks_pyscf.utils.mol import Mol, BASIS
+from dft2cc.dft2cc import DFT2CC
+from dft2cc.utils.mol import Mol, BASIS
 
 path = Path(__file__).resolve().parents[1] / "data"
 parser = argparse.ArgumentParser(
@@ -83,9 +83,9 @@ parser.add_argument(
 args = parser.parse_args()
 
 if args.old_factor_scheme == 1:
-    from src.mrks_pyscf.utils.mol import old_function1 as old_function
+    from src.dft2cc.utils.mol import old_function1 as old_function
 elif args.old_factor_scheme == 2:
-    from src.mrks_pyscf.utils.mol import old_function2 as old_function
+    from src.dft2cc.utils.mol import old_function2 as old_function
 else:
 
     def old_function(distance):
@@ -133,7 +133,7 @@ for distance in distance_l:
         basis=basis,
     )
 
-    mrks_inv = Mrksinv(
+    mrks_inv = DFT2CC(
         mol,
         frac_old=old_function(distance),
         level=args.level,
