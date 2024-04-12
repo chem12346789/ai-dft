@@ -22,9 +22,9 @@ from pyscf.dft import numint as ni
 
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
+from .utils.gen_tau_rho import gen_tau_rho
 from .utils.kernel import kernel
-from .utils.gen_tau_rho import gen_taup_rho, gen_tau_rho
-from .utils.gen_w import gen_w_vec
+from .utils.rotate import rotate
 from .utils.mol import BASIS, BASISTRAN
 
 DIRPATH = Path(__file__).resolve().parents[0]
@@ -37,15 +37,10 @@ class Args:
     """
 
     level: int
-    inv_step: int
-    scf_step: int
     device: str
     noisy_print: bool
     basis: str
     if_basis_str: bool
-    error_inv: float
-    error_scf: float
-    frac_old: float
 
 
 class DFT2CC:
@@ -57,42 +52,27 @@ class DFT2CC:
         path=Path(__file__).resolve().parents[0],
         args=None,
         logger=None,
-        frac_old=0.8,
         level=3,
         basis="sto-3g",
-        inv_step=25000,
-        scf_step=2500,
         device=None,
         noisy_print=False,
         if_basis_str=False,
-        error_inv=1e-6,
-        error_scf=1e-8,
     ):
         if args is None:
             self.args = Args(
                 level,
-                inv_step,
-                scf_step,
                 device,
                 noisy_print,
                 basis,
                 if_basis_str,
-                error_inv,
-                error_scf,
-                frac_old,
             )
         else:
             self.args = Args(
                 args.level,
-                args.inv_step,
-                args.scf_step,
                 args.device,
                 args.noisy_print,
                 BASISTRAN[args.basis] if args.basis in BASISTRAN else args.basis,
                 args.if_basis_str,
-                args.error_inv,
-                args.error_scf,
-                frac_old,
             )
 
         if self.args.device is None:
@@ -109,6 +89,7 @@ class DFT2CC:
         # make directory if not exist
         if not self.path.exists():
             self.path.mkdir(parents=True)
+        rotate(molecular)
 
         basis = {}
         for i_atom in molecular:
@@ -149,7 +130,6 @@ class DFT2CC:
         self.logger = logger
         self.logger.info(f"Path: {self.path} \n")
         self.logger.info(f"Device: {self.device} \n")
-        self.logger.info(f"Fraction of old: {self.args.frac_old} \n")
         self.logger.info(f"Level of grid: {self.args.level} \n")
         self.logger.info(f"Basis set: {self.args.basis.lower()} \n")
         self.logger.info(f"Unit of distance: {self.mol.unit} \n")
@@ -194,8 +174,9 @@ class DFT2CC:
         self.dm2_mo = None
         self.e = None
 
-        self.vj = None
         self.exc = None
+        self.tau_rho_wf = None
+        self.ene_nuc = None
 
     def save_mol_info(self):
         """
@@ -207,12 +188,6 @@ class DFT2CC:
         save_json["basis"] = self.mol.basis
         with open(self.path / "mol_info.json", "w", encoding="utf-8") as f:
             json.dump(save_json, f, indent=4)
-
-    def hybrid(self, new, old):
-        """
-        Generate the hybrid density matrix.
-        """
-        return new * (1 - self.args.frac_old) + old * self.args.frac_old
 
     def kernel(self, method="fci", gen_dm2=True):
         """
@@ -276,11 +251,35 @@ class DFT2CC:
         """
         This function is used to generate the exchange-correlation energy on the grid.
         """
-        dm1_r = self.aux_function.oe_rho_r(self.dm1)
-        dm1_cuda = torch.from_numpy(self.dm1).to(self.device)
-        self.exc_over_dm = np.zeros(len(self.grids.coords))
+        dm1_r = self.aux_function.oe_rho_r(self.dm1.copy() / 2, backend="torch")
+        eigs_e_dm1, eigs_v_dm1 = np.linalg.eigh(self.dm1_mo)
+        eigs_v_dm1 = self.mo @ eigs_v_dm1
+        eigs_e_dm1 = eigs_e_dm1 / 2
+        eigs_v_dm1_cuda = torch.from_numpy(eigs_v_dm1).to(self.device)
+        self.tau_rho_wf = 2 * gen_tau_rho(
+            self.aux_function,
+            dm1_r,
+            eigs_v_dm1_cuda,
+            eigs_e_dm1,
+            backend="torch",
+            logger=self.logger,
+        )
 
-        # 2rdm
+        self.ene_nuc = np.zeros(len(self.grids.coords))
+        for i, coord in enumerate(self.grids.coords):
+            if i % 10000 == 0:
+                self.logger.info(f"\nNuc, Grid {i:<8} of {len(self.grids.coords):<8}")
+            elif i % 1000 == 0:
+                self.logger.info(".")
+            for i_atom in range(self.mol.natm):
+                self.ene_nuc[i] += (
+                    2
+                    * dm1_r[i]
+                    * self.mol.atom_charges()[i_atom]
+                    / np.linalg.norm(self.mol.atom_coords()[i_atom], coord)
+                )
+
+        self.exc = np.zeros(len(self.grids.coords))
         dm2_cuda = torch.from_numpy(self.dm2).to(self.device)
         expr_rinv_dm2_r = oe.contract_expression(
             "ijkl,i,j,kl->",
@@ -297,48 +296,27 @@ class DFT2CC:
                 self.logger.info(f"\n2Rdm, Grid {i:<8} of {len(self.grids.coords):<8}")
             elif i % 100 == 0:
                 self.logger.info(".")
-
             ao_0_i = torch.from_numpy(self.ao_0[i]).to(self.device)
-
             with self.mol.with_rinv_origin(coord):
-                rinv = self.mol.intor("int1e_rinv")
-                rinv = torch.from_numpy(rinv).to(self.device)
-                self.exc_over_dm[i] += (
-                    expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch") / 2
+                int1e_rinv = self.mol.intor("int1e_rinv")
+                int1e_rinv = torch.from_numpy(int1e_rinv).to(self.device)
+                self.exc[i] += (
+                    expr_rinv_dm2_r(ao_0_i, ao_0_i, int1e_rinv, backend="torch") / 2
                 )
 
         del dm2_cuda
         torch.cuda.empty_cache()
         self.logger.info(f"\nAfter 2Rdm,\n {torch.cuda.memory_summary()}.\n\n")
-        self.exc_over_dm = self.exc_over_dm / dm1_r
 
-        # 1rdm
-        expr_rinv_dm1_r = oe.contract_expression(
-            "ij,ij->",
-            dm1_cuda,
-            (self.norb, self.norb),
-            constants=[0],
-            optimize="optimal",
-        )
-
-        self.logger.info(f"\nAfter 1Rdm,\n {torch.cuda.memory_summary()}.\n\n")
-        for i, coord in enumerate(self.grids.coords):
-            if i % 1000 == 0:
-                self.logger.info(f"\n1Rdm, Grid {i:<8} of {len(self.grids.coords):<8}")
-            elif i % 100 == 0:
-                self.logger.info(".")
-
-            with self.mol.with_rinv_origin(coord):
-                rinv = self.mol.intor("int1e_rinv")
-                rinv = torch.from_numpy(rinv).to(self.device)
-                rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
-                self.exc_over_dm[i] += -rinv_dm1_r / 2
-
-        self.exc = self.exc_over_dm * dm1_r
         ene_vc = np.sum(self.exc * self.grids.weights)
-        error = ene_vc - (
-            np.einsum("pqrs,pqrs", self.eri, self.dm2).real / 2
-            - np.einsum("pqrs,pq,rs", self.eri, self.dm1, self.dm1).real / 2
+        kin = np.sum(self.tau_rho_wf * self.grids.weights)
+        nuc = np.sum(self.ene_nuc * self.grids.weights)
+        error = (
+            ene_vc
+            + kin
+            + nuc
+            - np.einsum("ij,ji->", self.h1e, self.dm1)
+            - (np.einsum("pqrs,pqrs", self.eri, self.dm2).real / 2)
         )
         self.logger.info(
             f"\nenergy: {ene_vc:<10.4e}, error {error:16.10f}\n"
@@ -359,11 +337,14 @@ class DFT2CC:
             "WARNING!!!!\n"
             "WARNING!!!!\n"
             "WARNING!!!!\n"
-            "This part of code should not be used in the production.\n")
+            "This part of code should not be used in the production.\n"
+        )
         save_data = {}
         save_data["energy_dft"] = self.au2kjmol * (self.mdft.e_tot - self.e)
         save_data["energy"] = self.au2kjmol * self.e
-        save_data["error of energy"] = self.au2kjmol * (self.gen_energy(self.dm1) - self.e)
+        save_data["error of energy"] = self.au2kjmol * (
+            self.gen_energy(self.dm1) - self.e
+        )
         # rho_t = self.aux_function.oe_rho_r(self.dm1, backend="torch")
         # save_data["error of energy"] = self.au2kjmol * (self.gen_energy_rho(rho_t) - self.e)
 
@@ -377,33 +358,28 @@ class DFT2CC:
         rho_t = self.aux_function.oe_rho_r(self.dm1, backend="torch")
         dm1_dft = self.mdft.make_rdm1()
         rho_dft = self.aux_function.oe_rho_r(dm1_dft, backend="torch")
-        
+
         rho_t_grid = self.grids.vector_to_matrix(rho_t)
         rho_dft_grid = self.grids.vector_to_matrix(rho_dft)
         exc_mrks_grid = self.grids.vector_to_matrix(self.exc)
-        exc_dm_grid = self.grids.vector_to_matrix(self.exc_over_dm)
         weight_grid = self.grids.vector_to_matrix(self.grids.weights)
 
         rho_t_check = self.grids.matrix_to_vector(rho_t_grid)
         rho_dft_check = self.grids.matrix_to_vector(rho_dft_grid)
         exc_mrks_check = self.grids.matrix_to_vector(exc_mrks_grid)
-        exc_dm_check = self.grids.matrix_to_vector(exc_dm_grid)
         weight_check = self.grids.matrix_to_vector(weight_grid)
 
         self.logger.info(
             f"{np.linalg.norm(rho_t - rho_t_check):16.10f}\n"
             f"{np.linalg.norm(rho_dft - rho_dft_check):16.10f}\n"
             f"{np.linalg.norm(self.exc - exc_mrks_check):16.10f}\n"
-            f"{np.linalg.norm(self.exc_over_dm - exc_dm_check):16.10f}\n"
             f"{np.linalg.norm(weight_check - self.grids.weights):16.10f}\n"
         )
 
         np.save(self.path / "e_output.npy", exc_mrks_grid)
-        np.save(self.path / "mrks_e_dm.npy", exc_dm_grid)
         np.save(self.path / "rho_output.npy", rho_t_grid)
         np.save(self.path / "rho_input.npy", rho_dft_grid)
         np.save(self.path / "weight.npy", weight_grid)
-
 
     def gen_energy(
         self,
@@ -412,14 +388,12 @@ class DFT2CC:
         """
         This function is used to check the energy.
         """
-        e_h1 = oe.contract("ij,ji->", self.h1e, dm1)
-        e_vj = oe.contract("pqrs,pq,rs->", self.eri, dm1, dm1)
+        e_h1 = oe.contract("ij,ji->", self.nuc, dm1)
 
         ene_t_vc = (
             e_h1
             + self.mol.energy_nuc()
-            + e_vj * 0.5
-            + np.sum(self.exc * self.grids.weights)
+            + np.sum((self.tau_rho_wf + self.exc) * self.grids.weights)
         )
 
         return ene_t_vc
