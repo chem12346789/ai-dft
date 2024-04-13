@@ -39,7 +39,7 @@ def train_model(
     train_set, val_set = random_split(
         dataset,
         [n_train, n_val],
-        generator=torch.Generator().manual_seed(0),
+        # generator=torch.Generator().manual_seed(0),
     )
     print("""Split into train / validation partitions.""")
 

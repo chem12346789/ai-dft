@@ -23,6 +23,7 @@ from pyscf.dft import numint as ni
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
 from .utils.kernel import kernel
+from .utils.rotate import rotate
 from .utils.gen_tau_rho import gen_taup_rho, gen_tau_rho
 from .utils.gen_w import gen_w_vec
 from .utils.mol import BASIS, BASISTRAN
@@ -109,6 +110,7 @@ class Mrksinv:
         # make directory if not exist
         if not self.path.exists():
             self.path.mkdir(parents=True)
+        rotate(molecular)
 
         basis = {}
         for i_atom in molecular:
@@ -208,6 +210,7 @@ class Mrksinv:
         self.dm1_inv = None
         self.eigs_e_dm1 = None
         self.eigs_v_dm1 = None
+        self.e_vj_correct = None
 
     def save_mol_info(self):
         """
@@ -373,7 +376,7 @@ class Mrksinv:
         """
         dm1_r = self.aux_function.oe_rho_r(self.dm1)
         dm1_cuda = torch.from_numpy(self.dm1).to(self.device)
-        self.exc_over_dm = np.zeros(len(self.grids.coords))
+        self.exc = np.zeros(len(self.grids.coords))
 
         # 2rdm
         dm2_cuda = torch.from_numpy(self.dm2).to(self.device)
@@ -398,14 +401,13 @@ class Mrksinv:
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
                 rinv = torch.from_numpy(rinv).to(self.device)
-                self.exc_over_dm[i] += (
+                self.exc[i] += (
                     expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch") / 2
                 )
 
         del dm2_cuda
         torch.cuda.empty_cache()
         self.logger.info(f"\nAfter 2Rdm,\n {torch.cuda.memory_summary()}.\n\n")
-        self.exc_over_dm = self.exc_over_dm / dm1_r
 
         # 1rdm
         expr_rinv_dm1_r = oe.contract_expression(
@@ -427,9 +429,9 @@ class Mrksinv:
                 rinv = self.mol.intor("int1e_rinv")
                 rinv = torch.from_numpy(rinv).to(self.device)
                 rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
-                self.exc_over_dm[i] += -rinv_dm1_r / 2
+                self.exc[i] += -rinv_dm1_r * dm1_r[i] / 2
 
-        self.exc = self.exc_over_dm * dm1_r
+        self.exc_over_dm = self.exc / dm1_r
         ene_vc = np.sum(self.exc * self.grids.weights)
         error = ene_vc - (
             np.einsum("pqrs,pqrs", self.eri, self.dm2).real / 2
@@ -647,10 +649,55 @@ class Mrksinv:
         kin_correct = 2 * np.sum(
             (self.tau_rho_wf - self.tau_rho_ks) * self.grids.weights
         )
-
         kin_correct1 = 2 * np.sum(
             (self.taup_rho_wf - self.taup_rho_ks) * self.grids.weights
         )
+
+        # 1rdm
+        dm1_cuda = torch.from_numpy(self.dm1).to(self.device)
+        dm1_inv_cuda = torch.from_numpy(self.dm1).to(self.device)
+
+        expr_rinv_dm1_r = oe.contract_expression(
+            "ij,ij->",
+            dm1_cuda,
+            (self.norb, self.norb),
+            constants=[0],
+            optimize="optimal",
+        )
+        expr_rinv_dm1_inv_r = oe.contract_expression(
+            "ij,ij->",
+            dm1_inv_cuda,
+            (self.norb, self.norb),
+            constants=[0],
+            optimize="optimal",
+        )
+
+        for i, coord in enumerate(self.grids.coords):
+            if i % 1000 == 0:
+                self.logger.info(
+                    f"\n1Rdm, ej correction, Grid {i:<8} of {len(self.grids.coords):<8}"
+                )
+            elif i % 100 == 0:
+                self.logger.info(".")
+
+            with self.mol.with_rinv_origin(coord):
+                rinv = self.mol.intor("int1e_rinv")
+                rinv = torch.from_numpy(rinv).to(self.device)
+                rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
+                rinv_dm1_inv_r = expr_rinv_dm1_inv_r(rinv, backend="torch")
+                self.exc[i] += rinv_dm1_r * dm1_r[i] - rinv_dm1_inv_r * dm1_inv_r[i]
+
+        for i, coord in enumerate(self.grids.coords):
+            if i % 10000 == 0:
+                self.logger.info(f"\nNuc, Grid {i:<8} of {len(self.grids.coords):<8}")
+            elif i % 1000 == 0:
+                self.logger.info(".")
+            for i_atom in range(self.mol.natm):
+                self.exc[i] -= (
+                    (dm1_r[i] - dm1_inv_r[i])
+                    * self.mol.atom_charges()[i_atom]
+                    / np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
+                )
 
         save_data = {}
         save_data["energy_dft"] = self.au2kjmol * (self.mdft.e_tot - self.e)
@@ -664,6 +711,25 @@ class Mrksinv:
         save_data["error of dm1_inv"] = error_inv_r
         save_data["error of dm1_scf"] = error_scf_r
         save_data["error of dm1_dft"] = error_dft_r
+
+        dipole_x = np.sum(dm1_r * self.grids.coords[:, 0] * self.grids.weights)
+        dipole_x_inv = np.sum(dm1_inv_r * self.grids.coords[:, 0] * self.grids.weights)
+        dipole_x_dft = np.sum(dm1_dft_r * self.grids.coords[:, 0] * self.grids.weights)
+        dipole_y = np.sum(dm1_r * self.grids.coords[:, 1] * self.grids.weights)
+        dipole_y_inv = np.sum(dm1_inv_r * self.grids.coords[:, 1] * self.grids.weights)
+        dipole_y_dft = np.sum(dm1_dft_r * self.grids.coords[:, 1] * self.grids.weights)
+        dipole_z = np.sum(dm1_r * self.grids.coords[:, 2] * self.grids.weights)
+        dipole_z_inv = np.sum(dm1_inv_r * self.grids.coords[:, 2] * self.grids.weights)
+        dipole_z_dft = np.sum(dm1_dft_r * self.grids.coords[:, 2] * self.grids.weights)
+        save_data["dipole_x"] = dipole_x
+        save_data["dipole_x_inv"] = dipole_x_inv
+        save_data["dipole_x_dft"] = dipole_x_dft
+        save_data["dipole_y"] = dipole_y
+        save_data["dipole_y_inv"] = dipole_y_inv
+        save_data["dipole_y_dft"] = dipole_y_dft
+        save_data["dipole_z"] = dipole_z
+        save_data["dipole_z_inv"] = dipole_z_inv
+        save_data["dipole_z_dft"] = dipole_z_dft
 
         self.logger.info(
             f"\nCheck! {error_inv_r:16.10f}\n"

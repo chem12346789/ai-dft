@@ -136,7 +136,8 @@ if args.load:
             list_of_path = dir_checkpoint.glob("*.pth")
             load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
         else:
-            load_path = dir_checkpoint / f"rmsprop-plateau-{args.load}.pth"
+            list_of_path = dir_checkpoint.glob(f"*{args.load}*.pth")
+            load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
 
         state_dict = torch.load(load_path, map_location=device)
         model.load_state_dict(state_dict)
@@ -270,7 +271,7 @@ for distance in distance_l:
         if error < args.error_scf:
             break
 
-    mrks_inv.logger.info("\nSCF DONE")
+    mrks_inv.logger.info("\nError of final SCF: %s .SCF DONE", error)
 
     ccsd_dm1_file = list(mrks_inv.path.glob("ccsd-dm1.npy"))
     ccsdt_dm1_file = list(mrks_inv.path.glob("ccsdt-dm1.npy"))

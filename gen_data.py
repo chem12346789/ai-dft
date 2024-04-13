@@ -86,7 +86,7 @@ for data_i in args.data:
                 continue
 
         # exclude the data with long distance.
-        if float(child.parts[-1]) > 4.501:
+        if float(child.parts[-1]) > 3.501:
             continue
 
         data_file = list(child.glob("rho_inv_mrks.npy"))
@@ -191,11 +191,11 @@ for data_i in args.data:
                 if args.energy:
                     print(
                         f"""{child.parts[-1]} max of masks_e {np.max(masks_e[i, :, :]):.3e} """
-                        f"""min of masks {np.min(masks_e[i, :, :]):.3e}"""
+                        f"""min of masks_e {np.min(masks_e[i, :, :]):.3e}"""
                     )
                 print(
                     f"""{child.parts[-1]} max of masks_v {np.max(masks_v[i, :, :]):.3e} """
-                    f"""min of masks {np.min(masks_v[i, :, :]):.3e}"""
+                    f"""min of masks_v {np.min(masks_v[i, :, :]):.3e}"""
                 )
         else:
             MESSAGE += f"""{child.parts[-1]} not found\n"""

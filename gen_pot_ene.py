@@ -8,6 +8,7 @@ More details.
 import argparse
 import gc
 from pathlib import Path
+import copy
 
 from mrks_pyscf.mrksinv import Mrksinv
 from mrks_pyscf.utils.parser import parser_inv
@@ -28,10 +29,10 @@ distance_l, logger, path_dir = gen_logger(
     f"{args.molecular}-{args.basis}-{args.method}-{args.level}",
     path,
 )
-molecular = Mol[args.molecular]
 
 for distance in distance_l:
-    molecular[0][1] = distance
+    molecular = copy.deepcopy(Mol[args.molecular])
+    molecular[0][1] += distance
     logger.info("%s", f"The distance is {distance}.")
     FRAC_OLD = old_function(distance, args.old_factor_scheme, args.old_factor)
 
