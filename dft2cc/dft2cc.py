@@ -11,14 +11,13 @@ from pathlib import Path
 from dataclasses import dataclass
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 
 import opt_einsum as oe
 from scipy import linalg as LA
 
 import pyscf
-from pyscf import dft
 from pyscf.dft import numint as ni
+import basis_set_exchange
 
 from .utils.grids import Grid
 from .utils.aux_function import Auxfunction
@@ -94,8 +93,6 @@ class DFT2CC:
         basis = {}
         for i_atom in molecular:
             if self.args.if_basis_str:
-                import basis_set_exchange
-
                 basis[i_atom[0]] = pyscf.gto.load(
                     (
                         basis_set_exchange.api.get_basis(
