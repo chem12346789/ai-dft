@@ -21,3 +21,4 @@ checkpoint*/
 
 # ignore bash
 bash*
+out_mkdir
