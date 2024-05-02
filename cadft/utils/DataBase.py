@@ -100,6 +100,10 @@ class DataBase:
         ene_loss = []
         rho_loss = []
         name_train = []
+        dipole_x_loss = []
+        dipole_y_loss = []
+        dipole_z_loss = []
+
         for (
             name_mol,
             extend_atom,
@@ -240,5 +244,40 @@ class DataBase:
 
                 rho_loss.append(1000 * np.sum(np.abs(dm_cc_r - dm_cc_real_r)))
 
+                dipole_x_loss.append(
+                    1000
+                    * np.sum(
+                        np.abs(
+                            mdft.grids.coords[:, 0] * dm_cc_r
+                            - mdft.grids.coords[:, 0] * dm_cc_real_r
+                        )
+                    )
+                )
+                dipole_y_loss.append(
+                    1000
+                    * np.sum(
+                        np.abs(
+                            mdft.grids.coords[:, 1] * dm_cc_r
+                            - mdft.grids.coords[:, 1] * dm_cc_real_r
+                        )
+                    )
+                )
+                dipole_z_loss.append(
+                    1000
+                    * np.sum(
+                        np.abs(
+                            mdft.grids.coords[:, 2] * dm_cc_r
+                            - mdft.grids.coords[:, 2] * dm_cc_real_r
+                        )
+                    )
+                )
+
         print()
-        return ene_loss, rho_loss, name_train
+        return (
+            ene_loss,
+            rho_loss,
+            dipole_x_loss,
+            dipole_y_loss,
+            dipole_z_loss,
+            name_train,
+        )
