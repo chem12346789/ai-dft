@@ -25,7 +25,6 @@ if __name__ == "__main__":
     # )
 
     model = gen_model(args)
-
     model.double()
     model = model.to(memory_format=torch.channels_last)
 
