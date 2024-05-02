@@ -272,7 +272,6 @@ class DataBase:
                     )
                 )
 
-        print()
         return (
             ene_loss,
             rho_loss,
