@@ -1,0 +1,6 @@
+# ignore python run file
+*.pyc
+.history
+__pycache__
+data*/
+checkpoint*/
