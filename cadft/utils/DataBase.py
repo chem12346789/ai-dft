@@ -143,7 +143,11 @@ class DataBase:
                     input_mat = self.input[atom_name][f"{name}_{i}_{j}"]
                     output_mat_real = self.output[atom_name][f"{name}_{i}_{j}"]
                     middle_mat_real = self.middle[atom_name][f"{name}_{i}_{j}"]
-
+                    dm1_cc_real[
+                        dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                    ] = middle_mat_real.reshape(
+                        NAO[molecular[i][0]], NAO[molecular[j][0]]
+                    )
                     # self.weight_h1e[atom_name][f"{name}_{i}_{j}"] = h1e[
                     #     dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                     # ].flatten()
@@ -158,11 +162,6 @@ class DataBase:
                     # )
 
                     if model_list is None:
-                        dm1_cc_real[
-                            dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-                        ] = middle_mat_real.reshape(
-                            NAO[molecular[i][0]], NAO[molecular[j][0]]
-                        )
                         output_mat = output_mat_real.copy()
                         # exc += (
                         #     self.weight_h1e[atom_name][f"{name}_{i}_{j}"]

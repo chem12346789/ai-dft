@@ -136,7 +136,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     loss_fn = nn.MSELoss()
 
-    pbar = trange(1, 100000 + 1)
+    pbar = trange(1, 1)
     for epoch in pbar:
         train_loss1 = []
         train_loss2 = []
@@ -198,7 +198,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     )
 
     dice_after_train = database_train.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / f"train-{epoch}.csv")
+    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / f"train.csv")
     dice_after_train = database_eval.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / f"eval-{epoch}.csv")
+    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / f"eval.csv")
     pbar.close()

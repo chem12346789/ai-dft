@@ -1,7 +1,17 @@
 # ignore python run file
 *.pyc
-.history
 __pycache__
+
+# ignore large files
 data*/
 checkpoint*/
 *.zip
+
+# ignore backup files
+.history
+
+# ignore latex files
+*.aux
+*.log
+*.out
+*.synctex.gz
