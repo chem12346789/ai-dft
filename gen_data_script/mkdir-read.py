@@ -42,10 +42,34 @@ for item in Path(main_dir).glob("*"):
             item.rmdir()
 
 for mol, basis_set, range_list in itertools.product(
-    ["Butyne", "Bicyclobutane", "Cyclopropylmethyl", "Cyclobutane", "Spiropentane", "Benzene","Pentane", "Isopentane", "Neopentane","Cyclopentane",],
+    [
+        "Methane",
+        "Ethane",
+        "Ethylene",
+        "Acetylene",
+        "Allene",
+        "Cyclopropene",
+        "Propyne",
+        "Cyclopropane",
+        "Propylene",
+        "Propane",
+        "Isobutane",
+        "Butane",
+        "Butadiene",
+        "Butyne",
+        "Bicyclobutane",
+        "Cyclopropylmethyl",
+        "Cyclobutane",
+        "Spiropentane",
+        "Benzene",
+        "Pentane",
+        "Isopentane",
+        "Neopentane",
+        "Cyclopentane",
+    ],
     ["cc-pvdz"],
     [
-        (-0.225, 0.225, 10),
+        (-0.475, -0.3, 8),
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""

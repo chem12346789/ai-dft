@@ -41,25 +41,14 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
-for (optimizer, scheduler), name in itertools.product(
-    [("rmsprop", "plateau")],
-    [
-        "mrks-e-HOH-H-weit-unetplusplus-all",
-    ],
-    # ["mrks-e-HH-H-weit"],
+for checkpoint, _ in itertools.product(
+    ["checkpoint2024-04-30-21-13-50"], [1]   # ["mrks-e-HH-H-weit"],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/OPTIMIZER/{optimizer}/g" {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/SCHEDULER/{scheduler}/g" {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/NAME/{name}/g" {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/N_CLASS/{2 if "e" in name else 1}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
     cmd += (
         "&&"
-        + f"""sed -i "s/WEIGHT_DECAY/{1e-4 if "wd" in name else 0}/g" {work_bash}"""
-    )
-    cmd += (
-        "&&"
-        + f"""mv {work_bash} {work_dir / f"train_{optimizer}_{scheduler}_{name}.bash"}"""
+        + f"""mv {work_bash} {work_dir / f"train_{checkpoint}.bash"}"""
     )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)

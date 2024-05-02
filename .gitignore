@@ -20,4 +20,4 @@ checkpoint*/
 .ipynb_checkpoints
 
 # ignore bash
-.bash
+bash*
