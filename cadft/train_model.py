@@ -136,7 +136,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     loss_fn = nn.MSELoss()
 
-    pbar = trange(1, 1)
+    pbar = trange(1, args.epoch + 1)
     for epoch in pbar:
         train_loss1 = []
         train_loss2 = []

@@ -15,3 +15,9 @@ checkpoint*/
 *.log
 *.out
 *.synctex.gz
+
+# ignore jupyter notebook checkpoints
+.ipynb_checkpoints
+
+# ignore bash
+.bash

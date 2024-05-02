@@ -97,6 +97,13 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--epoch",
+        type=int,
+        default=100000,
+        help="Number of epoch for training. Default is 100000.",
+    )
+
+    parser.add_argument(
         "--batch_size",
         type=int,
         default=100000,
