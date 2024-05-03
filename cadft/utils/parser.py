@@ -86,7 +86,7 @@ def add_args(parser: argparse.ArgumentParser):
         "--load",
         type=str,
         default="",
-        help="Weather to load the saved data. Default is "".",
+        help="Weather to load the saved data. Default is " ".",
     )
 
     parser.add_argument(
@@ -108,6 +108,13 @@ def add_args(parser: argparse.ArgumentParser):
         type=int,
         default=100000,
         help="Batch size for training. Default is 100000 (FCnet).",
+    )
+
+    parser.add_argument(
+        "--adam",
+        type=bool,
+        default=True,
+        help="Weather to use Adam optimizer. Default is True.",
     )
 
     parser.add_argument(
