@@ -9,6 +9,17 @@ import argparse
 from cadft.utils.mol import Mol
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "True" "t", "y", "1"):
+        return True
+    elif v.lower() in ("no", "false", "False" "f", "n", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
 def add_args(parser: argparse.ArgumentParser):
     """
     Documentation for a function.
@@ -112,9 +123,8 @@ def add_args(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--adam",
-        type=bool,
-        action="store_true",
-        default=True,
+        type=str2bool,
+        default=False,
         help="Weather to use Adam optimizer. Default is True.",
     )
 
