@@ -247,28 +247,22 @@ class DataBase:
                 dipole_x_loss.append(
                     1000
                     * np.sum(
-                        np.abs(
-                            mdft.grids.coords[:, 0] * dm_cc_r
-                            - mdft.grids.coords[:, 0] * dm_cc_real_r
-                        )
+                        mdft.grids.coords[:, 0] * dm_cc_r
+                        - mdft.grids.coords[:, 0] * dm_cc_real_r
                     )
                 )
                 dipole_y_loss.append(
                     1000
                     * np.sum(
-                        np.abs(
-                            mdft.grids.coords[:, 1] * dm_cc_r
-                            - mdft.grids.coords[:, 1] * dm_cc_real_r
-                        )
+                        mdft.grids.coords[:, 1] * dm_cc_r
+                        - mdft.grids.coords[:, 1] * dm_cc_real_r
                     )
                 )
                 dipole_z_loss.append(
                     1000
                     * np.sum(
-                        np.abs(
-                            mdft.grids.coords[:, 2] * dm_cc_r
-                            - mdft.grids.coords[:, 2] * dm_cc_real_r
-                        )
+                        mdft.grids.coords[:, 2] * dm_cc_r
+                        - mdft.grids.coords[:, 2] * dm_cc_real_r
                     )
                 )
 

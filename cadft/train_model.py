@@ -117,21 +117,22 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             )
             eval_dict[atom_name] = load_to_gpu(eval_loader, device)
 
-            optimizer_dict[atom_name + "1"] = optim.Adam(
+            optimizer_dict[atom_name + "1"] = optim.RMSprop(
                 model_dict[atom_name + "1"].parameters(),
-                lr=0.0001,
+                lr=0.001,
             )
-            scheduler_dict[atom_name + "1"] = optim.lr_scheduler.CosineAnnealingLR(
+            scheduler_dict[atom_name + "1"] = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer_dict[atom_name + "1"],
-                T_max=250,
+                mode="min",
             )
+
             optimizer_dict[atom_name + "2"] = optim.Adam(
                 model_dict[atom_name + "2"].parameters(),
-                lr=0.0001,
+                lr=0.001,
             )
-            scheduler_dict[atom_name + "2"] = optim.lr_scheduler.CosineAnnealingLR(
+            scheduler_dict[atom_name + "2"] = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer_dict[atom_name + "2"],
-                T_max=250,
+                mode="min",
             )
 
     loss_fn = nn.MSELoss()
