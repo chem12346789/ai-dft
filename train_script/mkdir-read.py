@@ -42,7 +42,7 @@ work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
 for checkpoint, _ in itertools.product(
-    ["checkpoint2024-04-30-21-13-50"], [1]   # ["mrks-e-HH-H-weit"],
+    ["checkpoint2024-05-02-15-44-25"], [1]  # ["mrks-e-HH-H-weit"],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
