@@ -156,23 +156,22 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     train_loss1.append(loss.item())
                     loss.backward()
                     optimizer_dict[key + "1"].step()
-                    scheduler_dict[key + "1"].step()
 
                     output_mat = model_dict[key + "2"](middle_mat_real)
                     loss = loss_fn(output_mat, output_mat_real)
                     train_loss2.append(loss.item())
                     loss.backward()
                     optimizer_dict[key + "2"].step()
-                    scheduler_dict[key + "2"].step()
 
         pbar.set_description(
             f"train loss: {np.mean(train_loss1):5.3e} {np.mean(train_loss2):5.3e}"
         )
 
         if epoch % args.eval_step == 0:
-            eval_loss1 = []
-            eval_loss2 = []
+            experiment.log({"epoch": epoch})
             for key in key_l:
+                eval_loss1 = []
+                eval_loss2 = []
                 for batch in eval_dict[key]:
                     input_mat = batch["input"]
                     middle_mat_real = batch["middle"]
@@ -180,14 +179,16 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
                     middle_mat = model_dict[key + "1"](input_mat)
                     eval_loss1.append(loss_fn(middle_mat, middle_mat_real).item())
+                    scheduler_dict[key + "1"].step(np.mean(eval_loss1))
 
                     output_mat = model_dict[key + "2"](middle_mat_real)
                     eval_loss2.append(loss_fn(output_mat, output_mat_real).item())
-            experiment.log({"epoch": epoch})
-            experiment.log({"train loss1": np.mean(train_loss1)})
-            experiment.log({"train loss2": np.mean(train_loss2)})
-            experiment.log({"eval loss1": np.mean(eval_loss1)})
-            experiment.log({"eval loss2": np.mean(eval_loss2)})
+                    scheduler_dict[key + "2"].step(np.mean(eval_loss2))
+
+                experiment.log({f"train loss1 {key}": np.mean(train_loss1)})
+                experiment.log({f"train loss2 {key}": np.mean(train_loss2)})
+                experiment.log({f"eval loss1 {key}": np.mean(eval_loss1)})
+                experiment.log({f"eval loss2 {key}": np.mean(eval_loss2)})
 
         if epoch % 10000 == 0:
             for key in key_l:
