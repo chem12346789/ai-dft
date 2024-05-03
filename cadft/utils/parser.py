@@ -113,6 +113,7 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--adam",
         type=bool,
+        action="store_true",
         default=True,
         help="Weather to use Adam optimizer. Default is True.",
     )
