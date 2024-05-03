@@ -13,7 +13,6 @@ def save_csv_loss(dice_after_train, path):
         np.mean(dice_after_train[2]),
         np.mean(dice_after_train[3]),
         np.mean(dice_after_train[4]),
-        np.mean(dice_after_train[5]),
     ]
     for i, i_str in enumerate(dice_after_train[5]):
         data_frame[i_str] = [
@@ -22,6 +21,5 @@ def save_csv_loss(dice_after_train, path):
             dice_after_train[2][i],
             dice_after_train[3][i],
             dice_after_train[4][i],
-            dice_after_train[5][i],
         ]
     pd.DataFrame(data=data_frame).to_csv(path)
