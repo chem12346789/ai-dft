@@ -189,20 +189,23 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
             train_loss1_sum.append(np.mean(train_loss1))
             train_loss2_sum.append(np.mean(train_loss2))
-            experiment.log({f"train loss1 {key}": np.mean(train_loss1)})
-            experiment.log({f"train loss2 {key}": np.mean(train_loss2)})
+            if epoch % args.eval_step == 0:
+                experiment.log({f"train loss1 {key}": np.mean(train_loss1)})
+                experiment.log({f"train loss2 {key}": np.mean(train_loss2)})
 
-        experiment.log({"train loss1": np.mean(train_loss1_sum)})
-        experiment.log({"train loss2": np.mean(train_loss2_sum)})
+        if epoch % args.eval_step == 0:
+            experiment.log({"epoch": epoch})
+            experiment.log({"train loss1": np.mean(train_loss1_sum)})
+            experiment.log({"train loss2": np.mean(train_loss2_sum)})
 
-        pbar.set_description(
-            f"train loss: {np.mean(train_loss1):5.3e} {np.mean(train_loss2):5.3e}"
-        )
+        if epoch % args.eval_step == 0:
+            pbar.set_description(
+                f"train loss: {np.mean(train_loss1_sum):5.3e} {np.mean(train_loss2_sum):5.3e}"
+            )
 
         if epoch % args.eval_step == 0:
             eval_loss1_sum = []
             eval_loss2_sum = []
-            experiment.log({"epoch": epoch})
             for key in key_l:
                 eval_loss1 = []
                 eval_loss2 = []
