@@ -84,8 +84,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
-    print(database_train.check())
-    print(database_eval.check())
+    # print(database_train.check())
+    # print(database_eval.check())
 
     for i_atom in ATOM_LIST:
         for j_atom in ATOM_LIST:
@@ -217,9 +217,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     eval_loss2.append(loss_fn(output_mat, output_mat_real).item())
 
                 if not args.adam:
-                    scheduler_dict[key + "1"].step(eval_loss1)
+                    scheduler_dict[key + "1"].step(np.mean(eval_loss1))
                 if not args.adam:
-                    scheduler_dict[key + "2"].step(eval_loss2)
+                    scheduler_dict[key + "2"].step(np.mean(eval_loss2))
 
                 experiment.log({f"eval loss1 {key}": np.mean(eval_loss1)})
                 experiment.log({f"eval loss2 {key}": np.mean(eval_loss2)})
