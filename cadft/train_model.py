@@ -242,7 +242,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     )
 
     dice_after_train = database_train.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / f"train.csv")
+    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / "train.csv")
     dice_after_train = database_eval.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / f"eval.csv")
+    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / "eval.csv")
     pbar.close()

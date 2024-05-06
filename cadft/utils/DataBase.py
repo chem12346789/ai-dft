@@ -2,7 +2,6 @@ from pathlib import Path
 import copy
 from itertools import product
 
-import h5py
 import pyscf
 import torch
 import numpy as np
@@ -65,6 +64,10 @@ class DataBase:
             dir_weight = data_path / "weight/"
             e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
             energy_nuc = np.load(dir_weight / f"energy_nuc_{name}.npy")
+            self.data[name] = {
+                "e_cc": e_cc,
+                "energy_nuc": energy_nuc,
+            }
 
             molecular = Mol[name_mol]
             natom = len(molecular)
@@ -89,11 +92,6 @@ class DataBase:
                         output_path / f"output_exc_{name}_{i}_{j}.npy"
                     ).sum()
                     self.output[atom_name][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
-
-            self.data[name] = {
-                "e_cc": e_cc,
-                "energy_nuc": energy_nuc,
-            }
 
     def check(self, model_list=None, if_equilibrium=True):
         """
