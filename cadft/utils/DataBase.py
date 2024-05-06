@@ -1,6 +1,7 @@
 from pathlib import Path
 import copy
 from itertools import product
+import h5py
 
 import pyscf
 import torch
@@ -29,7 +30,6 @@ class DataBase:
         self.device = device
 
         self.distance_l = gen_logger(args.distance_list)
-        data_path = Path("data")
         self.data = {}
         self.input = {}
         self.middle = {}
@@ -42,55 +42,53 @@ class DataBase:
                 self.middle[atom_name] = {}
                 self.output[atom_name] = {}
 
-        for (
-            name_mol,
-            extend_atom,
-            extend_xyz,
-            distance,
-        ) in product(
-            self.molecular_list,
-            self.args.extend_atom,
-            self.args.extend_xyz,
-            self.distance_l,
-        ):
-            if abs(distance) < 1e-3:
-                if (extend_atom != 0) or extend_xyz != 1:
-                    print(
-                        f"Skip {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
-                        end="",
-                    )
-                    continue
-            name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-            dir_weight = data_path / "weight/"
-            e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
-            energy_nuc = np.load(dir_weight / f"energy_nuc_{name}.npy")
-            self.data[name] = {
-                "e_cc": e_cc,
-                "energy_nuc": energy_nuc,
-            }
+        with h5py.File(Path("data") / "file.h5", "r") as f:
+            for (
+                name_mol,
+                extend_atom,
+                extend_xyz,
+                distance,
+            ) in product(
+                self.molecular_list,
+                self.args.extend_atom,
+                self.args.extend_xyz,
+                self.distance_l,
+            ):
+                if abs(distance) < 1e-3:
+                    if (extend_atom != 0) or extend_xyz != 1:
+                        print(
+                            f"\rSkip {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+                            end="",
+                        )
+                        continue
 
-            molecular = Mol[name_mol]
-            natom = len(molecular)
+                name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+                molecular = Mol[name_mol]
+                natom = len(molecular)
 
-            for i in range(natom):
-                for j in range(natom):
+                e_cc = f["weight"][f"e_ccsd_{name}"][()]
+                energy_nuc = f["weight"][f"energy_nuc_{name}"][()]
+                self.data[name] = {
+                    "e_cc": e_cc,
+                    "energy_nuc": energy_nuc,
+                }
+
+                for i, j in product(range(natom), range(natom)):
                     atom_name = molecular[i][0] + molecular[j][0]
-                    input_path = data_path / atom_name / "input"
-                    output_path = data_path / atom_name / "output"
 
-                    input_mat = np.load(
-                        input_path / f"input_{name}_{i}_{j}.npy"
-                    ).flatten()
+                    input_mat = f[atom_name]["input"][f"input_{name}_{i}_{j}"][
+                        :
+                    ].flatten()
                     self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
 
-                    middle_mat = np.load(
-                        output_path / f"output_dm1_{name}_{i}_{j}.npy"
-                    ).flatten()
+                    middle_mat = f[atom_name]["output"][f"output_dm1_{name}_{i}_{j}"][
+                        :
+                    ].flatten()
                     self.middle[atom_name][f"{name}_{i}_{j}"] = middle_mat
 
-                    output_mat = np.load(
-                        output_path / f"output_exc_{name}_{i}_{j}.npy"
-                    ).sum()
+                    output_mat = f[atom_name]["output"][f"output_exc_{name}_{i}_{j}"][
+                        :
+                    ].sum()
                     self.output[atom_name][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
 
     def check(self, model_list=None, if_equilibrium=True):
