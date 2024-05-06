@@ -2,10 +2,11 @@ from pathlib import Path
 import copy
 from itertools import product
 
+import h5py
+import pyscf
 import torch
 import numpy as np
 import opt_einsum as oe
-import pyscf
 
 from cadft.utils.logger import gen_logger
 from cadft.utils.nao import NAO
@@ -62,7 +63,6 @@ class DataBase:
                     continue
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
             dir_weight = data_path / "weight/"
-
             e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
             energy_nuc = np.load(dir_weight / f"energy_nuc_{name}.npy")
 
@@ -94,9 +94,11 @@ class DataBase:
                 "e_cc": e_cc,
                 "energy_nuc": energy_nuc,
             }
-        print()
 
     def check(self, model_list=None, if_equilibrium=True):
+        """
+        Check the input data, if model_list is not none, check loss of the model.
+        """
         ene_loss = []
         rho_loss = []
         name_train = []

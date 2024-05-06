@@ -40,67 +40,72 @@ ATOM_STR_DICT = [
 def numpy_to_hdf5():
     path = Path("./") / "data"
     path_h5py = Path("./") / "data" / "file.h5"
+
     with h5py.File(path_h5py, "w") as f:
-        for i_atom in ATOM_LIST:
-            for j_atom in ATOM_LIST:
-                atom_name = i_atom + j_atom
-                grp = f.require_group(atom_name)
-                for i_molecular in ATOM_STR_DICT:
-                    dset = grp.require_group(i_molecular)
-                    for (
-                        extend_atom,
-                        extend_xyz,
-                        distance,
-                        (if_sub, magic_str),
-                    ) in product(
-                        [0, 1],
-                        [1, 2, 3],
-                        np.linspace(-0.5, 0.5, 41),
-                        [
-                            (False, "weight/energy_nuc"),
-                            (False, "weight/e_ccsd"),
-                            (True, f"{atom_name}/input/input"),
-                            (True, f"{atom_name}/output/output_dm1"),
-                            (True, f"{atom_name}/output/output_exc"),
-                        ],
-                    ):
-
-                        if abs(distance) < 1e-3:
-                            if (extend_atom != 0) or extend_xyz != 1:
-                                print(
-                                    f"Skip {i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-                                )
-                                continue
-
+        grp_weight = f.require_group("weight")
+        for i_molecular in ATOM_STR_DICT:
+            for (
+                extend_atom,
+                extend_xyz,
+                distance,
+            ) in product(
+                [0, 1],
+                [1, 2, 3],
+                np.linspace(-0.5, 0.5, 41),
+            ):
+                if abs(distance) < 1e-3:
+                    if (extend_atom != 0) or extend_xyz != 1:
                         print(
-                            f"{atom_name}/{magic_str}_{extend_atom}_{magic_str}_{i_molecular}_{extend_xyz}_{distance:.4f}"
+                            f"Skip {i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}"
                         )
-                        if if_sub:
-                            molecular = Mol[i_molecular]
-                            natom = len(molecular)
-                            for i, j in product(range(natom), range(natom)):
-                                if molecular[i][0] != i_atom:
-                                    continue
-                                if molecular[j][0] != j_atom:
-                                    continue
+                        continue
 
-                                data = np.load(
-                                    path
-                                    / f"{magic_str}_{i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}_{i}_{j}.npy"
-                                )
-                                dset.create_dataset(
-                                    f"{magic_str}_{i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}_{i}_{j}",
-                                    data=data,
-                                )
-                        else:
-                            data = np.load(
-                                path
-                                / f"{magic_str}_{i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}.npy"
-                            )
-                            dset.create_dataset(
-                                f"{magic_str}_{i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}",
-                                data=data,
-                            )
+                for magic_str in [
+                    "energy_nuc",
+                    "e_ccsd",
+                ]:
+                    data = np.load(
+                        path
+                        / "weight"
+                        / f"{magic_str}_{i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}.npy"
+                    )
+                    grp_weight.create_dataset(
+                        f"{magic_str}_{i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+                        data=data,
+                    )
+
+                for i_atom, j_atom, (dir_name, file_name) in product(
+                    ATOM_LIST,
+                    ATOM_LIST,
+                    [
+                        ("input", "input"),
+                        ("output", "output_dm1"),
+                        ("output", "output_exc"),
+                    ],
+                ):
+                    atom_name = i_atom + j_atom
+                    grp = f.require_group(atom_name).require_group(dir_name)
+
+                    print(
+                        f"{atom_name}/{dir_name}/{file_name}_{extend_atom}_{i_molecular}_{extend_xyz}_{distance:.4f}"
+                    )
+                    molecular = Mol[i_molecular]
+                    natom = len(molecular)
+                    for i, j in product(range(natom), range(natom)):
+                        if molecular[i][0] != i_atom:
+                            continue
+                        if molecular[j][0] != j_atom:
+                            continue
+                        data = np.load(
+                            path
+                            / atom_name
+                            / dir_name
+                            / f"{file_name}_{i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}_{i}_{j}.npy"
+                        )
+                        grp.create_dataset(
+                            f"{file_name}_{i_molecular}_{extend_atom}_{extend_xyz}_{distance:.4f}_{i}_{j}",
+                            data=data,
+                        )
 
 
 numpy_to_hdf5()
