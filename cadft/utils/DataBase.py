@@ -123,7 +123,7 @@ class DataBase:
                 if abs(distance) > 1e-3:
                     continue
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-            print(f"\rCheck {name:>40}", end="")
+            print(f"Check {name:>40}", end="")
             name_train.append(name)
 
             molecular = copy.deepcopy(Mol[name_mol])

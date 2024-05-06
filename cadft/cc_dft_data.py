@@ -11,7 +11,6 @@ from cadft.utils import Mol
 
 
 class CC_DFT_DATA:
-
     def __init__(
         self,
         molecular=Mol["Methane"],
