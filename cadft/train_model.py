@@ -3,9 +3,10 @@
 import argparse
 from pathlib import Path
 import copy
-from tqdm import trange
 import datetime
+from itertools import product
 
+from tqdm import trange
 import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
@@ -41,8 +42,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     today = datetime.datetime.today()
     if_adam = "adam" if args.adam else "RMSprop"
-    print(f"Start training at {today:%Y-%m-%d-%H-%M-%S} with {if_adam}")
     dir_checkpoint = Path(f"./checkpoint-{today:%Y-%m-%d-%H-%M-%S}-{if_adam}/")
+    print(f"Start training at {today:%Y-%m-%d-%H-%M-%S} with {if_adam}")
     dir_checkpoint.mkdir(parents=True, exist_ok=True)
     (dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
@@ -55,103 +56,98 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    for i_atom in ATOM_LIST:
-        for j_atom in ATOM_LIST:
-            atom_name = i_atom + j_atom
-            key_l.append(atom_name)
+    for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
+        atom_name = i_atom + j_atom
+        key_l.append(atom_name)
 
-            model_dict[atom_name + "1"] = FCNet(
-                NAO[i_atom] * NAO[j_atom], 100, NAO[i_atom] * NAO[j_atom]
-            ).to(device)
-            model_dict[atom_name + "1"].double()
+        model_dict[atom_name + "1"] = FCNet(
+            NAO[i_atom] * NAO[j_atom], 100, NAO[i_atom] * NAO[j_atom]
+        ).to(device)
+        model_dict[atom_name + "1"].double()
 
-            model_dict[atom_name + "2"] = FCNet(NAO[i_atom] * NAO[j_atom], 100, 1).to(
-                device
-            )
-            model_dict[atom_name + "2"].double()
+        model_dict[atom_name + "2"] = FCNet(NAO[i_atom] * NAO[j_atom], 100, 1).to(
+            device
+        )
+        model_dict[atom_name + "2"].double()
 
-    if args.load:
-        dir_load = Path(f"./checkpoint-{args.load}-{if_adam}/")
-        for i_atom in ATOM_LIST:
-            for j_atom in ATOM_LIST:
-                for i_str in ["1", "2"]:
-                    atom_name = i_atom + j_atom
-                    list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
-                    load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
-                    state_dict = torch.load(load_path, map_location=device)
-                    model_dict[atom_name + i_str].load_state_dict(state_dict)
-                    print(f"Model loaded from {load_path}")
+    dir_load = Path(f"./checkpoint-{args.load}-{if_adam}/")
+    for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
+        atom_name = i_atom + j_atom
+        list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
+        load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
+        state_dict = torch.load(load_path, map_location=device)
+        model_dict[atom_name + i_str].load_state_dict(state_dict)
+        print(f"Model loaded from {load_path}")
 
     database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
     # print(database_train.check())
     # print(database_eval.check())
 
-    for i_atom in ATOM_LIST:
-        for j_atom in ATOM_LIST:
-            atom_name = i_atom + j_atom
-            dataset = BasicDataset(
-                database_train.input[atom_name],
-                database_train.middle[atom_name],
-                database_train.output[atom_name],
-            )
-            train_loader = DataLoader(
-                dataset,
-                shuffle=False,
-                batch_size=args.batch_size,
-                num_workers=4,
-                pin_memory=True,
-            )
-            train_dict[atom_name] = load_to_gpu(train_loader, device)
+    for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
+        atom_name = i_atom + j_atom
+        dataset = BasicDataset(
+            database_train.input[atom_name],
+            database_train.middle[atom_name],
+            database_train.output[atom_name],
+        )
+        train_loader = DataLoader(
+            dataset,
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=4,
+            pin_memory=True,
+        )
+        train_dict[atom_name] = load_to_gpu(train_loader, device)
 
-            dataset = BasicDataset(
-                database_eval.input[atom_name],
-                database_eval.middle[atom_name],
-                database_eval.output[atom_name],
-            )
-            eval_loader = DataLoader(
-                dataset,
-                shuffle=False,
-                batch_size=args.batch_size,
-                num_workers=4,
-                pin_memory=True,
-            )
-            eval_dict[atom_name] = load_to_gpu(eval_loader, device)
+        dataset = BasicDataset(
+            database_eval.input[atom_name],
+            database_eval.middle[atom_name],
+            database_eval.output[atom_name],
+        )
+        eval_loader = DataLoader(
+            dataset,
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=4,
+            pin_memory=True,
+        )
+        eval_dict[atom_name] = load_to_gpu(eval_loader, device)
 
-            if args.adam:
-                optimizer_dict[atom_name + "1"] = optim.Adam(
-                    model_dict[atom_name + "1"].parameters(),
-                    lr=0.001,
-                )
-                scheduler_dict[atom_name + "1"] = optim.lr_scheduler.CosineAnnealingLR(
-                    optimizer_dict[atom_name + "1"],
-                    T_max=250,
-                )
-                optimizer_dict[atom_name + "2"] = optim.Adam(
-                    model_dict[atom_name + "2"].parameters(),
-                    lr=0.001,
-                )
-                scheduler_dict[atom_name + "2"] = optim.lr_scheduler.CosineAnnealingLR(
-                    optimizer_dict[atom_name + "2"],
-                    T_max=250,
-                )
-            else:
-                optimizer_dict[atom_name + "1"] = optim.RMSprop(
-                    model_dict[atom_name + "1"].parameters(),
-                    lr=0.01,
-                )
-                scheduler_dict[atom_name + "1"] = optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer_dict[atom_name + "1"],
-                    mode="min",
-                )
-                optimizer_dict[atom_name + "2"] = optim.RMSprop(
-                    model_dict[atom_name + "2"].parameters(),
-                    lr=0.01,
-                )
-                scheduler_dict[atom_name + "2"] = optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer_dict[atom_name + "2"],
-                    mode="min",
-                )
+        if args.adam:
+            optimizer_dict[atom_name + "1"] = optim.Adam(
+                model_dict[atom_name + "1"].parameters(),
+                lr=0.0001,
+            )
+            scheduler_dict[atom_name + "1"] = optim.lr_scheduler.CosineAnnealingLR(
+                optimizer_dict[atom_name + "1"],
+                T_max=250,
+            )
+            optimizer_dict[atom_name + "2"] = optim.Adam(
+                model_dict[atom_name + "2"].parameters(),
+                lr=0.0001,
+            )
+            scheduler_dict[atom_name + "2"] = optim.lr_scheduler.CosineAnnealingLR(
+                optimizer_dict[atom_name + "2"],
+                T_max=250,
+            )
+        else:
+            optimizer_dict[atom_name + "1"] = optim.RMSprop(
+                model_dict[atom_name + "1"].parameters(),
+                lr=0.0001,
+            )
+            scheduler_dict[atom_name + "1"] = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer_dict[atom_name + "1"],
+                mode="min",
+            )
+            optimizer_dict[atom_name + "2"] = optim.RMSprop(
+                model_dict[atom_name + "2"].parameters(),
+                lr=0.0001,
+            )
+            scheduler_dict[atom_name + "2"] = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer_dict[atom_name + "2"],
+                mode="min",
+            )
 
     loss_fn = nn.MSELoss()
 
