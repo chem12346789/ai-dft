@@ -2,14 +2,14 @@
 
 #slurm options
 #SBATCH -p cpu
-#SBATCH -c 7
+#SBATCH -c 14
 #SBATCH -J MOL_BASIS_START_END_STEP
 #SBATCH -o log/%j.log
 
 ## user's own commands below
-export OMP_NUM_THREADS=7
-export MKL_NUM_THREADS=7
-export OPENBLAS_NUM_THREADS=7
+export OMP_NUM_THREADS=14
+export MKL_NUM_THREADS=14
+export OPENBLAS_NUM_THREADS=14
 
 export PYSCF_TMPDIR=~/workdir/tmp
 export PYTHONPATH=~/python:$PYTHONPATH

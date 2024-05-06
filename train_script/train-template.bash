@@ -5,7 +5,7 @@
 #SBATCH -J train-CHECKPOINT-ADAM
 #SBATCH -o log/%j.log
 #SBATCH --gres=gpu:1
-#SBATCH --exclude=gpu[002-007]
+#SBATCH --exclude=gpu[003-007]
 
 ## user's own commands below
 export OMP_NUM_THREADS=12
