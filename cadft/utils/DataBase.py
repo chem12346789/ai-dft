@@ -61,6 +61,12 @@ class DataBase:
                     continue
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
             dir_weight = data_path / "weight/"
+            if not (dir_weight / f"e_ccsd_{name}.npy").exists():
+                print(
+                    f"\rSkip {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+                    end="",
+                )
+                continue
             e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
             energy_nuc = np.load(dir_weight / f"energy_nuc_{name}.npy")
             self.data[name] = {
@@ -76,9 +82,7 @@ class DataBase:
                 input_path = data_path / atom_name / "input"
                 output_path = data_path / atom_name / "output"
 
-                input_mat = np.load(
-                    input_path / f"input_{name}_{i}_{j}.npy"
-                ).flatten()
+                input_mat = np.load(input_path / f"input_{name}_{i}_{j}.npy").flatten()
                 self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
 
                 middle_mat = np.load(
