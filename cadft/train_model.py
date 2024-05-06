@@ -70,14 +70,15 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         )
         model_dict[atom_name + "2"].double()
 
-    dir_load = Path(f"./checkpoint-{args.load}-{if_adam}/")
-    for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
-        atom_name = i_atom + j_atom
-        list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
-        load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
-        state_dict = torch.load(load_path, map_location=device)
-        model_dict[atom_name + i_str].load_state_dict(state_dict)
-        print(f"Model loaded from {load_path}")
+    if args.load != "":
+        dir_load = Path(f"./checkpoint-{args.load}-{if_adam}/")
+        for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
+            atom_name = i_atom + j_atom
+            list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
+            load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
+            state_dict = torch.load(load_path, map_location=device)
+            model_dict[atom_name + i_str].load_state_dict(state_dict)
+            print(f"Model loaded from {load_path}")
 
     database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
