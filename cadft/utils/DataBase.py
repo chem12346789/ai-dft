@@ -1,6 +1,7 @@
 from pathlib import Path
 import copy
 from itertools import product
+import h5py
 
 import pyscf
 import torch
@@ -29,7 +30,6 @@ class DataBase:
         self.device = device
 
         self.distance_l = gen_logger(args.distance_list)
-        data_path = Path("data")
         self.data = {}
         self.input = {}
         self.middle = {}
@@ -63,6 +63,9 @@ class DataBase:
                         continue
 
                 name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+                molecular = Mol[name_mol]
+                natom = len(molecular)
+
                 e_cc = f["weight"][f"e_ccsd_{name}"][()]
                 energy_nuc = f["weight"][f"energy_nuc_{name}"][()]
                 self.data[name] = {
@@ -70,29 +73,23 @@ class DataBase:
                     "energy_nuc": energy_nuc,
                 }
 
-                molecular = Mol[name_mol]
-                natom = len(molecular)
+                for i, j in product(range(natom), range(natom)):
+                    atom_name = molecular[i][0] + molecular[j][0]
 
-                for i in range(natom):
-                    for j in range(natom):
-                        atom_name = molecular[i][0] + molecular[j][0]
+                    input_mat = f[atom_name]["input"][f"input_{name}_{i}_{j}"][
+                        :
+                    ].flatten()
+                    self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
 
-                        input_mat = f[atom_name]["input"][f"input_{name}_{i}_{j}"][
-                            :
-                        ].flatten()
-                        self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
+                    middle_mat = f[atom_name]["output"][f"output_dm1_{name}_{i}_{j}"][
+                        :
+                    ].flatten()
+                    self.middle[atom_name][f"{name}_{i}_{j}"] = middle_mat
 
-                        middle_mat = f[atom_name]["output"][
-                            f"output_dm1_{name}_{i}_{j}"
-                        ][:].flatten()
-                        self.middle[atom_name][f"{name}_{i}_{j}"] = middle_mat
-
-                        output_mat = f[atom_name]["output"][
-                            f"output_exc_{name}_{i}_{j}"
-                        ][:].sum()
-                        self.output[atom_name][f"{name}_{i}_{j}"] = output_mat[
-                            np.newaxis
-                        ]
+                    output_mat = f[atom_name]["output"][f"output_exc_{name}_{i}_{j}"][
+                        :
+                    ].sum()
+                    self.output[atom_name][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
 
     def check(self, model_list=None, if_equilibrium=True):
         """
