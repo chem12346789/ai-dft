@@ -59,6 +59,7 @@ class DataBase:
                         end="",
                     )
                     continue
+<<<<<<< HEAD
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
             dir_weight = data_path / "weight/"
             e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
@@ -79,6 +80,27 @@ class DataBase:
                 input_mat = np.load(
                     input_path / f"input_{name}_{i}_{j}.npy"
                 ).flatten()
+=======
+
+            name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+            molecular = Mol[name_mol]
+            natom = len(molecular)
+
+            dir_weight = Path("data") / "weight/"
+            e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
+            energy_nuc = np.load(dir_weight / f"energy_nuc_{name}.npy")
+            self.data[name] = {
+                "e_cc": e_cc,
+                "energy_nuc": energy_nuc,
+            }
+
+            for i, j in product(range(natom), range(natom)):
+                atom_name = molecular[i][0] + molecular[j][0]
+                input_path = Path("data") / atom_name / "input"
+                output_path = Path("data") / atom_name / "output"
+
+                input_mat = np.load(input_path / f"input_{name}_{i}_{j}.npy").flatten()
+>>>>>>> d230770593499240d1e9f9ab6599698e579906a6
                 self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
 
                 middle_mat = np.load(
