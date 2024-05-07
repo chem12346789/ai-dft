@@ -1,16 +1,22 @@
+"""
+Create a basic dataset class for torch DataLoader.
+We use preprocessing to "normalize" the output using the input.
+"""
+
+
 class BasicDataset:
     """Documentation for a class."""
 
     def __init__(
         self,
-        input,
-        middle,
-        output,
+        input_,
+        middle_,
+        output_,
     ):
-        self.input = input
-        self.middle = middle
-        self.output = output
-        self.ids = list(input.keys())
+        self.input = input_
+        self.middle = middle_
+        self.output = output_
+        self.ids = list(input_.keys())
 
     def __len__(self):
         return len(self.ids)

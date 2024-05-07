@@ -63,7 +63,7 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--noisy_print",
         "-n",
-        type=bool,
+        type=str2bool,
         default=False,
         help="Whether to noisy print. Default is False.",
     )
@@ -79,14 +79,14 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--if_basis_str",
         "-bs",
-        type=bool,
+        type=str2bool,
         default=True,
         help="Weather to use the basis set from basissetexchange. See https://www.basissetexchange.org. Default is False.",
     )
 
     parser.add_argument(
         "--cc_triple",
-        type=bool,
+        type=str2bool,
         default="False",
         help="Weather to use the noniterative CCSD(T) in the coupled cluster method. Default is False.",
     )
@@ -102,7 +102,7 @@ def add_args(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--save",
-        type=bool,
+        type=str2bool,
         default=False,
         help="Weather to save the data. Default is False.",
     )
@@ -112,6 +112,13 @@ def add_args(parser: argparse.ArgumentParser):
         type=int,
         default=100000,
         help="Number of epoch for training. Default is 100000.",
+    )
+
+    parser.add_argument(
+        "--normalize",
+        type=str2bool,
+        default=False,
+        help="Weather to normalize the data. Default is False.",
     )
 
     parser.add_argument(
@@ -136,6 +143,6 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     args = parser.parse_args()
-    for i in range(len(args.extend_xyz)):
-        args.extend_xyz[i] += 1
+    for i in args.extend_xyz:
+        i += 1
     return args
