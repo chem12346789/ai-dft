@@ -86,6 +86,14 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     # print(database_train.check())
     # print(database_eval.check())
 
+    experiment.config.update(
+        {
+            "batch_size": args.batch_size,
+            "n_val": len(database_eval.input["HH"]),
+            "n_train": len(database_train.input["HH"]),
+        }
+    )
+
     for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
         atom_name = i_atom + j_atom
         dataset = BasicDataset(
@@ -118,7 +126,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         optimizer_dict[atom_name + "1"] = optim.Adam(
             model_dict[atom_name + "1"].parameters(),
-            lr=0.00001,
+            lr=0.000001,
         )
         scheduler_dict[atom_name + "1"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[atom_name + "1"],
@@ -126,7 +134,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         )
         optimizer_dict[atom_name + "2"] = optim.Adam(
             model_dict[atom_name + "2"].parameters(),
-            lr=0.00001,
+            lr=0.000001,
         )
         scheduler_dict[atom_name + "2"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[atom_name + "2"],
