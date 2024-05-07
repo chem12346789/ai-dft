@@ -15,4 +15,4 @@ export OPENBLAS_NUM_THREADS=12
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
-~/anaconda3/bin/python train.py -dl -0.5 0.5 41 -b cc-pvdz --extend_atom 0 1 --extend_xyz 0 1 2 --eval_step 50 --load CHECKPOINT --batch_size 10000 --epoch 500000 --hidden_size HIDDEN_SIZE
+~/anaconda3/bin/python train.py -dl -0.25 0.25 21 -b cc-pvdz --extend_atom 0 1 --extend_xyz 0 1 2 --eval_step 50 --batch_size 8192 --epoch 500000 --hidden_size HIDDEN_SIZE
