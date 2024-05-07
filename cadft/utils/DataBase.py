@@ -124,7 +124,7 @@ class DataBase:
                 if abs(distance) > 1e-3:
                     continue
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-            print(f"\rCheck {name:>40}", end="")
+            print(f"\rCheck {name:>30}", end="")
             name_train.append(name)
 
             molecular = copy.deepcopy(Mol[name_mol])
@@ -193,30 +193,20 @@ class DataBase:
                     exc += output_mat[0]
 
             if model_list is None:
-                ene_loss.append(
-                    np.abs(
-                        1000
-                        * (
-                            exc
-                            + np.einsum("pqrs,pq,rs", eri, dm1_cc_real, dm1_cc_real) / 2
-                            + np.sum(h1e * dm1_cc_real)
-                            + self.data[name]["energy_nuc"]
-                            - self.data[name]["e_cc"]
-                        )
-                    )
+                ene_loss_i = 1000 * (
+                    exc
+                    + np.einsum("pqrs,pq,rs", eri, dm1_cc_real, dm1_cc_real) / 2
+                    + np.sum(h1e * dm1_cc_real)
+                    + self.data[name]["energy_nuc"]
+                    - self.data[name]["e_cc"]
                 )
             else:
-                ene_loss.append(
-                    np.abs(
-                        1000
-                        * (
-                            exc
-                            + np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc) / 2
-                            + np.sum(h1e * dm1_cc)
-                            + self.data[name]["energy_nuc"]
-                            - self.data[name]["e_cc"]
-                        )
-                    )
+                ene_loss_i = 1000 * (
+                    exc
+                    + np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc) / 2
+                    + np.sum(h1e * dm1_cc)
+                    + self.data[name]["energy_nuc"]
+                    - self.data[name]["e_cc"]
                 )
 
             if model_list is None:
@@ -234,7 +224,6 @@ class DataBase:
                     mdft.grids.weights,
                     optimize="auto",
                 )
-
                 dm_cc_real_r = oe.contract(
                     "uv,gu,gv,g->g",
                     dm1_cc_real,
@@ -244,29 +233,27 @@ class DataBase:
                     optimize="auto",
                 )
 
-                rho_loss.append(1000 * np.sum(np.abs(dm_cc_r - dm_cc_real_r)))
-
-                dipole_x_loss.append(
-                    1000
-                    * np.sum(
-                        mdft.grids.coords[:, 0] * dm_cc_r
-                        - mdft.grids.coords[:, 0] * dm_cc_real_r
-                    )
+                rho_loss_i = 1000 * np.sum(np.abs(dm_cc_r - dm_cc_real_r))
+                dipole_x_loss_i = 1000 * np.sum(
+                    mdft.grids.coords[:, 0] * dm_cc_r
+                    - mdft.grids.coords[:, 0] * dm_cc_real_r
                 )
-                dipole_y_loss.append(
-                    1000
-                    * np.sum(
-                        mdft.grids.coords[:, 1] * dm_cc_r
-                        - mdft.grids.coords[:, 1] * dm_cc_real_r
-                    )
+                dipole_y_loss_i = 1000 * np.sum(
+                    mdft.grids.coords[:, 1] * dm_cc_r
+                    - mdft.grids.coords[:, 1] * dm_cc_real_r
                 )
-                dipole_z_loss.append(
-                    1000
-                    * np.sum(
-                        mdft.grids.coords[:, 2] * dm_cc_r
-                        - mdft.grids.coords[:, 2] * dm_cc_real_r
-                    )
+                dipole_z_loss_i = 1000 * np.sum(
+                    mdft.grids.coords[:, 2] * dm_cc_r
+                    - mdft.grids.coords[:, 2] * dm_cc_real_r
                 )
+            print(
+                f"    ene_loss: {ene_loss_i:7.4f}, rho_loss: {rho_loss_i:7.4f}", end=""
+            )
+            ene_loss.append(ene_loss_i)
+            rho_loss.append(rho_loss_i)
+            dipole_x_loss.append(dipole_x_loss_i)
+            dipole_y_loss.append(dipole_y_loss_i)
+            dipole_z_loss.append(dipole_z_loss_i)
 
         return (
             ene_loss,
