@@ -152,9 +152,9 @@ class DataBase:
                     atom_name = molecular[i][0] + molecular[j][0]
                     input_mat = self.input[atom_name][f"{name}_{i}_{j}"]
                     output_mat_real = self.output[atom_name][f"{name}_{i}_{j}"]
-                    middle_mat_real = self.middle[atom_name][f"{name}_{i}_{j}"] * (
-                        np.exp(-np.abs(input_mat)) - 0.9999
-                    )
+                    middle_mat_real = self.middle[atom_name][f"{name}_{i}_{j}"]
+                    if self.normalize:
+                        middle_mat_real = middle_mat_real * (np.cosh(input_mat) - 0.95)
                     dm1_cc_real[
                         dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                     ] = middle_mat_real.reshape(
