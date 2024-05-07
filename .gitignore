@@ -7,6 +7,7 @@ data*/
 checkpoint*/
 validate*/
 *.zip
+out
 
 # ignore backup files
 .history
