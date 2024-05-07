@@ -57,7 +57,7 @@ class DataBase:
             if abs(distance) < 1e-3:
                 if (extend_atom != 0) or extend_xyz != 1:
                     print(
-                        f"\rSkip {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+                        f"\rSkip: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
                         end="",
                     )
                     continue
@@ -65,7 +65,7 @@ class DataBase:
             dir_weight = data_path / "weight/"
             if not (dir_weight / f"e_ccsd_{name}.npy").exists():
                 print(
-                    f"\rSkip {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+                    f"\rNo file: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
                     end="",
                 )
                 continue
@@ -91,7 +91,7 @@ class DataBase:
                     output_path / f"output_dm1_{name}_{i}_{j}.npy"
                 ).flatten()
                 if self.normalize:
-                    middle_mat = middle_mat / (np.exp(-np.abs(input_mat)) - 0.9999)
+                    middle_mat = middle_mat / (np.cosh(input_mat) - 0.95)
                 self.middle[atom_name][f"{name}_{i}_{j}"] = middle_mat
 
                 output_mat = np.load(
@@ -192,9 +192,7 @@ class DataBase:
                         middle_mat = middle_mat.detach().cpu().numpy()
                         output_mat = output_mat.detach().cpu().numpy()
                         if self.normalize:
-                            middle_mat = middle_mat * (
-                                np.exp(-np.abs(input_mat)) - 0.9999
-                            )
+                            middle_mat = middle_mat * (np.cosh(input_mat) - 0.95)
                         dm1_cc[
                             dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                         ] = middle_mat.reshape(

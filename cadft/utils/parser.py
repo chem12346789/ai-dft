@@ -143,6 +143,6 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     args = parser.parse_args()
-    for i in args.extend_xyz:
-        i += 1
+    for i in range(len(args.extend_xyz)):
+        args.extend_xyz[i] += 1
     return args
