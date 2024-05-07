@@ -76,6 +76,11 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
             atom_name = i_atom + j_atom
             list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
+            if len(list_of_path) == 0:
+                print(
+                    f"No model found for {atom_name}-{i_str}, use random initialization."
+                )
+                continue
             load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
             state_dict = torch.load(load_path, map_location=device)
             model_dict[atom_name + i_str].load_state_dict(state_dict)
@@ -87,8 +92,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     database_eval = DataBase(
         args, ATOM_LIST, EVAL_STR_DICT, device, normalize=args.normalize
     )
-    # print(database_train.check())
-    # print(database_eval.check())
 
     experiment.config.update(
         {
