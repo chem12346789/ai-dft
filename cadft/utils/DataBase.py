@@ -22,11 +22,13 @@ class DataBase:
         atom_list,
         molecular_list,
         device,
+        normalize=False,
     ):
         self.args = args
         self.atom_list = atom_list
         self.molecular_list = molecular_list
         self.device = device
+        self.normalize = normalize
 
         self.distance_l = gen_logger(args.distance_list)
         data_path = Path("data")
@@ -88,6 +90,8 @@ class DataBase:
                 middle_mat = np.load(
                     output_path / f"output_dm1_{name}_{i}_{j}.npy"
                 ).flatten()
+                if self.normalize:
+                    middle_mat = middle_mat / (np.exp(-np.abs(input_mat)) - 0.9999)
                 self.middle[atom_name][f"{name}_{i}_{j}"] = middle_mat
 
                 output_mat = np.load(
@@ -148,7 +152,9 @@ class DataBase:
                     atom_name = molecular[i][0] + molecular[j][0]
                     input_mat = self.input[atom_name][f"{name}_{i}_{j}"]
                     output_mat_real = self.output[atom_name][f"{name}_{i}_{j}"]
-                    middle_mat_real = self.middle[atom_name][f"{name}_{i}_{j}"]
+                    middle_mat_real = self.middle[atom_name][f"{name}_{i}_{j}"] * (
+                        np.exp(-np.abs(input_mat)) - 0.9999
+                    )
                     dm1_cc_real[
                         dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                     ] = middle_mat_real.reshape(
@@ -182,8 +188,13 @@ class DataBase:
                         )
                         middle_mat = model_list[atom_name + "1"](input_mat)
                         output_mat = model_list[atom_name + "2"](middle_mat)
+                        input_mat = input_mat.detach().cpu().numpy()
                         middle_mat = middle_mat.detach().cpu().numpy()
                         output_mat = output_mat.detach().cpu().numpy()
+                        if self.normalize:
+                            middle_mat = middle_mat * (
+                                np.exp(-np.abs(input_mat)) - 0.9999
+                            )
                         dm1_cc[
                             dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                         ] = middle_mat.reshape(

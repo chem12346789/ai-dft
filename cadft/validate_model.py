@@ -1,20 +1,12 @@
 import argparse
 from pathlib import Path
-import copy
 import datetime
 from itertools import product
 
-from tqdm import trange
 import torch
-from torch.utils.data import DataLoader
-import torch.optim as optim
-import torch.nn as nn
 
-import numpy as np
-import wandb
-
-from cadft.utils import load_to_gpu, NAO
-from cadft.utils import add_args, save_csv_loss, FCNet, DataBase, BasicDataset
+from cadft.utils import NAO
+from cadft.utils import add_args, save_csv_loss, FCNet, DataBase
 
 
 def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
@@ -62,8 +54,12 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             model_dict[atom_name + i_str].load_state_dict(state_dict)
             print(f"Model loaded from {load_path}")
 
-    database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
-    database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
+    database_train = DataBase(
+        args, ATOM_LIST, TRAIN_STR_DICT, device, normalize=args.normalize
+    )
+    database_eval = DataBase(
+        args, ATOM_LIST, EVAL_STR_DICT, device, normalize=args.normalize
+    )
     dice_after_train = database_train.check(model_dict, if_equilibrium=False)
     save_csv_loss(dice_after_train, dir_validate / "train.csv")
     dice_after_train = database_eval.check(model_dict, if_equilibrium=False)
