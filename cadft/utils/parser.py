@@ -122,10 +122,10 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--adam",
-        type=str2bool,
-        default=False,
-        help="Weather to use Adam optimizer. Default is True.",
+        "--hidden_size",
+        type=int,
+        default=100,
+        help="Number of hidden size for training. Default is 100.",
     )
 
     parser.add_argument(

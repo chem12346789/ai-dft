@@ -41,13 +41,16 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
-for checkpoint, adam in itertools.product(
-    ["2024-05-05-16-51-09"], [True]  # ["mrks-e-HH-H-weit"],
+for checkpoint, hidden_size in itertools.product(
+    ["2024-05-05-16-51-09"], [100, 200, 300, 400]  # ["mrks-e-HH-H-weit"],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/ADAM/{adam}/g" {work_bash}"""
-    cmd += "&&" + f"""mv {work_bash} {work_dir / f"train_{checkpoint}_{adam}.bash"}"""
+    cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
+    cmd += (
+        "&&"
+        + f"""mv {work_bash} {work_dir / f"train_{checkpoint}_{hidden_size}.bash"}"""
+    )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
 

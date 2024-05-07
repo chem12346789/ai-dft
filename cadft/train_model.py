@@ -36,14 +36,15 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     experiment = wandb.init(
         project="DFT2CC",
         resume="allow",
-        name="run1",
+        name=f"run1-{args.hidden_size}",
         dir="/home/chenzihao/workdir/tmp",
     )
 
     today = datetime.datetime.today()
-    if_adam = "adam" if args.adam else "RMSprop"
-    dir_checkpoint = Path(f"./checkpoint-{today:%Y-%m-%d-%H-%M-%S}-{if_adam}/")
-    print(f"Start training at {today:%Y-%m-%d-%H-%M-%S} with {if_adam}")
+    dir_checkpoint = Path(f"./checkpoint-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/")
+    print(
+        f"Start training at {today:%Y-%m-%d-%H-%M-%S} with hidden size as {args.hidden_size}"
+    )
     dir_checkpoint.mkdir(parents=True, exist_ok=True)
     (dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
@@ -61,17 +62,17 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         key_l.append(atom_name)
 
         model_dict[atom_name + "1"] = FCNet(
-            NAO[i_atom] * NAO[j_atom], 100, NAO[i_atom] * NAO[j_atom]
+            NAO[i_atom] * NAO[j_atom], args.hidden_size, NAO[i_atom] * NAO[j_atom]
         ).to(device)
         model_dict[atom_name + "1"].double()
 
-        model_dict[atom_name + "2"] = FCNet(NAO[i_atom] * NAO[j_atom], 100, 1).to(
-            device
-        )
+        model_dict[atom_name + "2"] = FCNet(
+            NAO[i_atom] * NAO[j_atom], args.hidden_size, 1
+        ).to(device)
         model_dict[atom_name + "2"].double()
 
     if args.load != "":
-        dir_load = Path(f"./checkpoint-{args.load}-{if_adam}/")
+        dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
         for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
             atom_name = i_atom + j_atom
             list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
@@ -96,7 +97,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             dataset,
             shuffle=False,
             batch_size=args.batch_size,
-            num_workers=4,
+            num_workers=8,
             pin_memory=True,
         )
         train_dict[atom_name] = load_to_gpu(train_loader, device)
@@ -110,45 +111,27 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             dataset,
             shuffle=False,
             batch_size=args.batch_size,
-            num_workers=4,
+            num_workers=8,
             pin_memory=True,
         )
         eval_dict[atom_name] = load_to_gpu(eval_loader, device)
 
-        if args.adam:
-            optimizer_dict[atom_name + "1"] = optim.Adam(
-                model_dict[atom_name + "1"].parameters(),
-                lr=0.0001,
-            )
-            scheduler_dict[atom_name + "1"] = optim.lr_scheduler.CosineAnnealingLR(
-                optimizer_dict[atom_name + "1"],
-                T_max=250,
-            )
-            optimizer_dict[atom_name + "2"] = optim.Adam(
-                model_dict[atom_name + "2"].parameters(),
-                lr=0.0001,
-            )
-            scheduler_dict[atom_name + "2"] = optim.lr_scheduler.CosineAnnealingLR(
-                optimizer_dict[atom_name + "2"],
-                T_max=250,
-            )
-        else:
-            optimizer_dict[atom_name + "1"] = optim.RMSprop(
-                model_dict[atom_name + "1"].parameters(),
-                lr=0.0001,
-            )
-            scheduler_dict[atom_name + "1"] = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer_dict[atom_name + "1"],
-                mode="min",
-            )
-            optimizer_dict[atom_name + "2"] = optim.RMSprop(
-                model_dict[atom_name + "2"].parameters(),
-                lr=0.0001,
-            )
-            scheduler_dict[atom_name + "2"] = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer_dict[atom_name + "2"],
-                mode="min",
-            )
+        optimizer_dict[atom_name + "1"] = optim.Adam(
+            model_dict[atom_name + "1"].parameters(),
+            lr=0.00001,
+        )
+        scheduler_dict[atom_name + "1"] = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer_dict[atom_name + "1"],
+            T_max=250,
+        )
+        optimizer_dict[atom_name + "2"] = optim.Adam(
+            model_dict[atom_name + "2"].parameters(),
+            lr=0.00001,
+        )
+        scheduler_dict[atom_name + "2"] = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer_dict[atom_name + "2"],
+            T_max=250,
+        )
 
     loss_fn = nn.MSELoss()
 
@@ -173,16 +156,15 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     train_loss1.append(loss.item())
                     loss.backward()
                     optimizer_dict[key + "1"].step()
-                    if args.adam:
-                        scheduler_dict[key + "1"].step()
 
                     output_mat = model_dict[key + "2"](middle_mat_real)
                     loss = loss_fn(output_mat, output_mat_real)
                     train_loss2.append(loss.item())
                     loss.backward()
                     optimizer_dict[key + "2"].step()
-                    if args.adam:
-                        scheduler_dict[key + "2"].step()
+
+            scheduler_dict[key + "1"].step()
+            scheduler_dict[key + "2"].step()
 
             train_loss1_sum.append(np.mean(train_loss1))
             train_loss2_sum.append(np.mean(train_loss2))
@@ -194,13 +176,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             experiment.log({"epoch": epoch})
             experiment.log({"train loss1": np.mean(train_loss1_sum)})
             experiment.log({"train loss2": np.mean(train_loss2_sum)})
-
-        if epoch % args.eval_step == 0:
             pbar.set_description(
                 f"train loss: {np.mean(train_loss1_sum):5.3e} {np.mean(train_loss2_sum):5.3e}"
             )
-
-        if epoch % args.eval_step == 0:
             eval_loss1_sum = []
             eval_loss2_sum = []
             for key in key_l:
@@ -215,11 +193,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     eval_loss1.append(loss_fn(middle_mat, middle_mat_real).item())
                     output_mat = model_dict[key + "2"](middle_mat_real)
                     eval_loss2.append(loss_fn(output_mat, output_mat_real).item())
-
-                if not args.adam:
-                    scheduler_dict[key + "1"].step(np.mean(eval_loss1))
-                if not args.adam:
-                    scheduler_dict[key + "2"].step(np.mean(eval_loss2))
 
                 experiment.log({f"eval loss1 {key}": np.mean(eval_loss1)})
                 experiment.log({f"eval loss2 {key}": np.mean(eval_loss2)})
@@ -237,9 +210,4 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                         state_dict_,
                         dir_checkpoint / f"{key}-{i_str}-{epoch}.pth",
                     )
-
-    dice_after_train = database_train.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / "train.csv")
-    dice_after_train = database_eval.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_checkpoint / "loss" / "eval.csv")
     pbar.close()
