@@ -1,6 +1,5 @@
 """
 Create a basic dataset class for torch DataLoader.
-We use preprocessing to "normalize" the output using the input.
 """
 
 

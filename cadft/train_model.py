@@ -86,12 +86,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             model_dict[atom_name + i_str].load_state_dict(state_dict)
             print(f"Model loaded from {load_path}")
 
-    database_train = DataBase(
-        args, ATOM_LIST, TRAIN_STR_DICT, device, normalize=args.normalize
-    )
-    database_eval = DataBase(
-        args, ATOM_LIST, EVAL_STR_DICT, device, normalize=args.normalize
-    )
+    database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
+    database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
 
     experiment.config.update(
         {

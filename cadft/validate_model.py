@@ -30,12 +30,8 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     else:
         device = torch.device("cpu")
 
-    database_train = DataBase(
-        args, ATOM_LIST, TRAIN_STR_DICT, device, normalize=args.normalize
-    )
-    database_eval = DataBase(
-        args, ATOM_LIST, EVAL_STR_DICT, device, normalize=args.normalize
-    )
+    database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
+    database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
 
     key_l = []
     model_dict = {}

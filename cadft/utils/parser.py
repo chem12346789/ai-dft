@@ -115,10 +115,10 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--normalize",
+        "--hdf5",
         type=str2bool,
         default=False,
-        help="Weather to normalize the data. Default is False.",
+        help="Weather to use the hdf5 file. Default is False.",
     )
 
     parser.add_argument(

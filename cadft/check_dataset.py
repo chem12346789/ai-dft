@@ -44,7 +44,7 @@ args = add_args(parser)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device, normalize=False)
+database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
 # database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
 
 max_value1 = 0

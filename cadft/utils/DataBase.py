@@ -6,6 +6,7 @@ import pyscf
 import torch
 import numpy as np
 import opt_einsum as oe
+import h5py
 
 from cadft.utils.logger import gen_logger
 from cadft.utils.nao import NAO
@@ -22,16 +23,18 @@ class DataBase:
         atom_list,
         molecular_list,
         device,
-        normalize=False,
     ):
         self.args = args
         self.atom_list = atom_list
         self.molecular_list = molecular_list
         self.device = device
-        self.normalize = normalize
+
+        if args.hdf5:
+            hdf5file = h5py.File(Path("data") / "file.h5", "r")
+        else:
+            data_path = Path("data")
 
         self.distance_l = gen_logger(args.distance_list)
-        data_path = Path("data")
         self.data = {}
         self.input = {}
         self.middle = {}
@@ -62,15 +65,21 @@ class DataBase:
                     )
                     continue
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-            dir_weight = data_path / "weight/"
-            if not (dir_weight / f"e_ccsd_{name}.npy").exists():
-                print(
-                    f"\rNo file: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
-                    end="",
-                )
-                continue
-            e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
-            energy_nuc = np.load(dir_weight / f"energy_nuc_{name}.npy")
+
+            if args.hdf5:
+                e_cc = hdf5file[f"weight/e_ccsd_{name}"][()]
+                energy_nuc = hdf5file[f"weight/energy_nuc_{name}"][()]
+            else:
+                dir_weight = data_path / "weight/"
+                if not (dir_weight / f"e_ccsd_{name}.npy").exists():
+                    print(
+                        f"\rNo file: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+                        end="",
+                    )
+                    continue
+                e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
+                energy_nuc = np.load(dir_weight / f"energy_nuc_{name}.npy")
+
             self.data[name] = {
                 "e_cc": e_cc,
                 "energy_nuc": energy_nuc,
@@ -81,23 +90,34 @@ class DataBase:
 
             for i, j in product(range(natom), range(natom)):
                 atom_name = molecular[i][0] + molecular[j][0]
-                input_path = data_path / atom_name / "input"
-                output_path = data_path / atom_name / "output"
 
-                input_mat = np.load(input_path / f"input_{name}_{i}_{j}.npy").flatten()
+                if args.hdf5:
+                    input_mat = hdf5file[f"{atom_name}/input/input_{name}_{i}_{j}"][:]
+                    middle_mat = hdf5file[
+                        f"{atom_name}/output/output_dm1_{name}_{i}_{j}"
+                    ][:]
+                    output_mat = hdf5file[
+                        f"{atom_name}/output/output_exc_{name}_{i}_{j}"
+                    ][:]
+                else:
+                    input_path = data_path / atom_name / "input"
+                    output_path = data_path / atom_name / "output"
+                    input_mat = np.load(
+                        input_path / f"input_{name}_{i}_{j}.npy"
+                    ).flatten()
+                    middle_mat = np.load(
+                        output_path / f"output_dm1_{name}_{i}_{j}.npy"
+                    ).flatten()
+                    output_mat = np.load(
+                        output_path / f"output_exc_{name}_{i}_{j}.npy"
+                    ).sum()
+
                 self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
-
-                middle_mat = np.load(
-                    output_path / f"output_dm1_{name}_{i}_{j}.npy"
-                ).flatten()
-                if self.normalize:
-                    middle_mat = middle_mat / (np.cosh(input_mat) - 0.95)
                 self.middle[atom_name][f"{name}_{i}_{j}"] = middle_mat
-
-                output_mat = np.load(
-                    output_path / f"output_exc_{name}_{i}_{j}.npy"
-                ).sum()
                 self.output[atom_name][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
+
+        if args.hdf5:
+            hdf5file.close()
 
     def check(self, model_list=None, if_equilibrium=True):
         """
@@ -153,32 +173,14 @@ class DataBase:
                     input_mat = self.input[atom_name][f"{name}_{i}_{j}"]
                     output_mat_real = self.output[atom_name][f"{name}_{i}_{j}"]
                     middle_mat_real = self.middle[atom_name][f"{name}_{i}_{j}"]
-                    if self.normalize:
-                        middle_mat_real = middle_mat_real * (np.cosh(input_mat) - 0.95)
                     dm1_cc_real[
                         dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                     ] = middle_mat_real.reshape(
                         NAO[molecular[i][0]], NAO[molecular[j][0]]
                     )
-                    # self.weight_h1e[atom_name][f"{name}_{i}_{j}"] = h1e[
-                    #     dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-                    # ].flatten()
-                    # self.weight_eri[atom_name][f"{name}_{i}_{j}"] = eri[
-                    #     dft2cc.atom_info["slice"][i],
-                    #     dft2cc.atom_info["slice"][j],
-                    #     dft2cc.atom_info["slice"][i],
-                    #     dft2cc.atom_info["slice"][j],
-                    # ].reshape(
-                    #     NAO[molecular[i][0]] * NAO[molecular[j][0]],
-                    #     NAO[molecular[i][0]] * NAO[molecular[j][0]],
-                    # )
 
                     if model_list is None:
                         output_mat = output_mat_real.copy()
-                        # exc += (
-                        #     self.weight_h1e[atom_name][f"{name}_{i}_{j}"]
-                        #     @ middle_mat_real
-                        # )
                     else:
                         input_mat = (
                             torch.as_tensor(input_mat.copy())
@@ -191,8 +193,6 @@ class DataBase:
                         input_mat = input_mat.detach().cpu().numpy()
                         middle_mat = middle_mat.detach().cpu().numpy()
                         output_mat = output_mat.detach().cpu().numpy()
-                        if self.normalize:
-                            middle_mat = middle_mat * (np.cosh(input_mat) - 0.95)
                         dm1_cc[
                             dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                         ] = middle_mat.reshape(
@@ -210,8 +210,8 @@ class DataBase:
                     - self.data[name]["e_cc"]
                 )
                 if ene_loss_i > 1e-3:
-                    print("Wrong data!")
-                    print("Wrong data!")
+                    print("")
+                    print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
             else:
                 ene_loss_i = 1000 * (
                     exc
