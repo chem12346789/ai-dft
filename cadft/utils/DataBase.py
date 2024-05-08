@@ -209,6 +209,9 @@ class DataBase:
                     + self.data[name]["energy_nuc"]
                     - self.data[name]["e_cc"]
                 )
+                if ene_loss_i > 1e-4:
+                    print("Wrong data!")
+                    print("Wrong data!")
             else:
                 ene_loss_i = 1000 * (
                     exc
@@ -219,7 +222,10 @@ class DataBase:
                 )
 
             if model_list is None:
-                rho_loss.append(0)
+                rho_loss_i = 0
+                dipole_x_loss_i = 0
+                dipole_y_loss_i = 0
+                dipole_z_loss_i = 0
             else:
                 mdft = pyscf.scf.RKS(dft2cc.mol)
                 mdft.grids.build()
