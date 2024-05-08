@@ -4,6 +4,7 @@ __pycache__
 
 # ignore large files
 data*/
+data
 checkpoint*/
 validate*/
 *.zip
