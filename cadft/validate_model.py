@@ -25,27 +25,38 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     )
     dir_validate.mkdir(parents=True, exist_ok=True)
 
+    if args.load != "":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device("cpu")
+
+    database_train = DataBase(
+        args, ATOM_LIST, TRAIN_STR_DICT, device, normalize=args.normalize
+    )
+    database_eval = DataBase(
+        args, ATOM_LIST, EVAL_STR_DICT, device, normalize=args.normalize
+    )
+
     key_l = []
     model_dict = {}
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
-        atom_name = i_atom + j_atom
-        key_l.append(atom_name)
-
-        model_dict[atom_name + "1"] = FCNet(
-            NAO[i_atom] * NAO[j_atom], args.hidden_size, NAO[i_atom] * NAO[j_atom]
-        ).to(device)
-        model_dict[atom_name + "1"].double()
-
-        model_dict[atom_name + "2"] = FCNet(
-            NAO[i_atom] * NAO[j_atom], args.hidden_size, 1
-        ).to(device)
-        model_dict[atom_name + "2"].double()
-
     if args.load != "":
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
+
+        for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
+            atom_name = i_atom + j_atom
+            key_l.append(atom_name)
+
+            model_dict[atom_name + "1"] = FCNet(
+                NAO[i_atom] * NAO[j_atom], args.hidden_size, NAO[i_atom] * NAO[j_atom]
+            ).to(device)
+            model_dict[atom_name + "1"].double()
+
+            model_dict[atom_name + "2"] = FCNet(
+                NAO[i_atom] * NAO[j_atom], args.hidden_size, 1
+            ).to(device)
+            model_dict[atom_name + "2"].double()
+
         for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
             atom_name = i_atom + j_atom
             list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
@@ -54,15 +65,11 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             model_dict[atom_name + i_str].load_state_dict(state_dict)
             print(f"Model loaded from {load_path}")
 
-    database_train = DataBase(
-        args, ATOM_LIST, TRAIN_STR_DICT, device, normalize=args.normalize
-    )
-    print(database_train.check(if_equilibrium=False))
-    dice_after_train = database_train.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_validate / "train.csv")
+        dice_train = database_train.check(model_dict, if_equilibrium=False)
+        dice_eval = database_eval.check(model_dict, if_equilibrium=False)
+    else:
+        dice_train = database_train.check(if_equilibrium=False)
+        dice_eval = database_eval.check(if_equilibrium=False)
 
-    database_eval = DataBase(
-        args, ATOM_LIST, EVAL_STR_DICT, device, normalize=args.normalize
-    )
-    dice_after_train = database_eval.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_validate / "eval.csv")
+    save_csv_loss(dice_train, dir_validate / "train.csv")
+    save_csv_loss(dice_eval, dir_validate / "eval.csv")

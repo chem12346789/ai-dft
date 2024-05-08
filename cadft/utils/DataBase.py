@@ -209,7 +209,7 @@ class DataBase:
                     + self.data[name]["energy_nuc"]
                     - self.data[name]["e_cc"]
                 )
-                if ene_loss_i > 1e-4:
+                if ene_loss_i > 1e-3:
                     print("Wrong data!")
                     print("Wrong data!")
             else:
