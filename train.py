@@ -15,21 +15,18 @@ TRAIN_STR_DICT = [
     "Cyclopropane",
     "Propylene",
     "Propane",
-    # "Isobutane",
-    # "Butane",
-    # "Butadiene",
-    # "Butyne",
-    # "Bicyclobutane",
-    # "Cyclopropylmethyl",
-    # "Cyclobutane",
-    # "Spiropentane",
-    # "Benzene",
+    "Isobutane",
+    "Butane",
+    "Butadiene",
+    "Butyne",
+    "Bicyclobutane",
+    "Cyclopropylmethyl",
+    "Cyclobutane",
+    "Spiropentane",
+    "Benzene",
 ]
 EVAL_STR_DICT = [
     "Pentane",
-    "Isopentane",
-    "Neopentane",
-    "Cyclopentane",
 ]
 
 train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT)

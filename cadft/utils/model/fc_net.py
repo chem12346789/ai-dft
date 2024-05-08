@@ -19,13 +19,12 @@ class FCNet(nn.Module):
         self.laynorm3 = nn.LayerNorm(hidden_size)
         self.fc4 = nn.Linear(hidden_size, hidden_size)
         self.relu4 = nn.ReLU()
-        self.laynorm4 = nn.LayerNorm(hidden_size)
+        # self.laynorm4 = nn.LayerNorm(hidden_size)
         # self.fc5 = nn.Linear(hidden_size, hidden_size)
         # self.relu5 = nn.ReLU()
         # self.laynorm5 = nn.LayerNorm(hidden_size)
         # self.fc6 = nn.Linear(hidden_size, hidden_size)
         # self.relu6 = nn.ReLU()
-        # self.laynorm6 = nn.LayerNorm(hidden_size)
         self.fc7 = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
