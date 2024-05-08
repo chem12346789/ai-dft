@@ -57,10 +57,11 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     database_train = DataBase(
         args, ATOM_LIST, TRAIN_STR_DICT, device, normalize=args.normalize
     )
+    dice_after_train = database_train.check(model_dict, if_equilibrium=False)
+    save_csv_loss(dice_after_train, dir_validate / "train.csv")
+
     database_eval = DataBase(
         args, ATOM_LIST, EVAL_STR_DICT, device, normalize=args.normalize
     )
-    dice_after_train = database_train.check(model_dict, if_equilibrium=False)
-    save_csv_loss(dice_after_train, dir_validate / "train.csv")
     dice_after_train = database_eval.check(model_dict, if_equilibrium=False)
     save_csv_loss(dice_after_train, dir_validate / "eval.csv")
