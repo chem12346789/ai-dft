@@ -244,13 +244,17 @@ class DataBase:
                 ao = pyscf.dft.numint.eval_ao(dft2cc.mol, mdft.grids.coords)
 
                 if self.args.noise_print:
+                    self.args.noise_print += 1
                     print(
                         np.array2string(
                             np.abs(dm1_cc - dm1_cc_real),
                             formatter={"float_kind": lambda x: f"{x:8.6f}"},
                         )
                     )
-                    print(np.mean(np.abs(dm1_cc - dm1_cc_real)))
+                    print(self.args.noise_print, np.mean(np.abs(dm1_cc - dm1_cc_real)))
+                    if self.args.noise_print > 10:
+                        print("noise_print closed!")
+                        self.args.noise_print = 0
                 dm_cc_r = oe.contract(
                     "uv,gu,gv,g->g",
                     dm1_cc,
