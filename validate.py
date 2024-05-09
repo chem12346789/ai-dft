@@ -30,7 +30,6 @@ EVAL_STR_DICT = [
     "Isopentane",
     "Neopentane",
     "Cyclopentane",
-    "Pentane",
     # "Hexane",
 ]
 
