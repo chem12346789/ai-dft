@@ -50,8 +50,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     key_l = []
     model_dict = {}
-    train_dict = {}
-    eval_dict = {}
     optimizer_dict = {}
     scheduler_dict = {}
 
@@ -76,7 +74,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
             atom_name = i_atom + j_atom
             list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
-            if len(list_of_path) == 0:
+            if len(list(list_of_path)) == 0:
                 print(
                     f"No model found for {atom_name}-{i_str}, use random initialization."
                 )
@@ -97,6 +95,10 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         }
     )
 
+    train_dict = {}
+    ntrain_dict = {}
+    eval_dict = {}
+    neval_dict = {}
     for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
         atom_name = i_atom + j_atom
         dataset = BasicDataset(
@@ -112,6 +114,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             pin_memory=True,
         )
         train_dict[atom_name] = load_to_gpu(train_loader, device)
+        ntrain_dict[atom_name] = len(database_train.input[atom_name])
 
         dataset = BasicDataset(
             database_eval.input[atom_name],
@@ -126,6 +129,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             pin_memory=True,
         )
         eval_dict[atom_name] = load_to_gpu(eval_loader, device)
+        neval_dict[atom_name] = len(eval_dict.input[atom_name])
 
         optimizer_dict[atom_name + "1"] = optim.Adam(
             model_dict[atom_name + "1"].parameters(),
@@ -151,6 +155,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         train_loss1_sum = []
         train_loss2_sum = []
         for key in key_l:
+            model_dict[key + "1"].train(True)
+            model_dict[key + "2"].train(True)
             train_loss1 = []
             train_loss2 = []
             optimizer_dict[key + "1"].zero_grad(set_to_none=True)
@@ -164,24 +170,30 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
                     middle_mat = model_dict[key + "1"](input_mat)
                     loss = loss_fn(middle_mat, middle_mat_real)
-                    train_loss1.append(loss.item())
+                    print(input_mat.shape, input_mat.shape[0])
+                    train_loss1.append(loss.item() * input_mat.shape[0])
                     loss.backward()
                     optimizer_dict[key + "1"].step()
 
                     output_mat = model_dict[key + "2"](middle_mat_real)
                     loss = loss_fn(output_mat, output_mat_real)
-                    train_loss2.append(loss.item())
+                    print(input_mat.shape, input_mat.shape[0])
+                    train_loss2.append(loss.item() * input_mat.shape[0])
                     loss.backward()
                     optimizer_dict[key + "2"].step()
 
             scheduler_dict[key + "1"].step()
             scheduler_dict[key + "2"].step()
 
-            train_loss1_sum.append(np.mean(train_loss1))
-            train_loss2_sum.append(np.mean(train_loss2))
+            train_loss1_sum.append(np.sum(train_loss1) / ntrain_dict[key])
+            train_loss2_sum.append(np.sum(train_loss2) / ntrain_dict[key])
             if epoch % args.eval_step == 0:
-                experiment.log({f"train loss1 {key}": np.mean(train_loss1)})
-                experiment.log({f"train loss2 {key}": np.mean(train_loss2)})
+                experiment.log(
+                    {f"train loss1 {key}": np.sum(train_loss1) / ntrain_dict[key]}
+                )
+                experiment.log(
+                    {f"train loss2 {key}": np.sum(train_loss2) / ntrain_dict[key]}
+                )
 
         if epoch % args.eval_step == 0:
             experiment.log({"epoch": epoch})
@@ -195,20 +207,32 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             for key in key_l:
                 eval_loss1 = []
                 eval_loss2 = []
+                model_dict[key + "1"].eval()
+                model_dict[key + "2"].eval()
                 for batch in eval_dict[key]:
                     input_mat = batch["input"]
                     middle_mat_real = batch["middle"]
                     output_mat_real = batch["output"]
+                    with torch.no_grad():
+                        middle_mat = model_dict[key + "1"](input_mat)
+                        eval_loss1.append(
+                            loss_fn(middle_mat, middle_mat_real).item()
+                            * input_mat.shape[0]
+                        )
+                        output_mat = model_dict[key + "2"](middle_mat_real)
+                        eval_loss2.append(
+                            loss_fn(output_mat, output_mat_real).item()
+                            * input_mat.shape[0]
+                        )
 
-                    middle_mat = model_dict[key + "1"](input_mat)
-                    eval_loss1.append(loss_fn(middle_mat, middle_mat_real).item())
-                    output_mat = model_dict[key + "2"](middle_mat_real)
-                    eval_loss2.append(loss_fn(output_mat, output_mat_real).item())
-
-                experiment.log({f"eval loss1 {key}": np.mean(eval_loss1)})
-                experiment.log({f"eval loss2 {key}": np.mean(eval_loss2)})
-                eval_loss1_sum.append(np.mean(eval_loss1))
-                eval_loss2_sum.append(np.mean(eval_loss2))
+                experiment.log(
+                    {f"eval loss1 {key}": np.sum(eval_loss1) / neval_dict[key]}
+                )
+                experiment.log(
+                    {f"eval loss2 {key}": np.sum(eval_loss2) / neval_dict[key]}
+                )
+                eval_loss1_sum.append(np.mean(eval_loss1) / neval_dict[key])
+                eval_loss2_sum.append(np.mean(eval_loss2) / neval_dict[key])
 
             experiment.log({"eval loss1": np.mean(eval_loss1_sum)})
             experiment.log({"eval loss2": np.mean(eval_loss2_sum)})
