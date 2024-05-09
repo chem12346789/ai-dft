@@ -148,7 +148,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             T_max=250,
         )
 
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.L1Loss()
 
     pbar = trange(1, args.epoch + 1)
     for epoch in pbar:

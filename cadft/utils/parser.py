@@ -142,6 +142,13 @@ def add_args(parser: argparse.ArgumentParser):
         help="Step for evaluation. Default is 100.",
     )
 
+    parser.add_argument(
+        "--noise_print",
+        type=str2bool,
+        default=False,
+        help="Weather to print the noise. Default is False.",
+    )
+
     args = parser.parse_args()
     for i in range(len(args.extend_xyz)):
         args.extend_xyz[i] += 1

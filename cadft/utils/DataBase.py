@@ -64,8 +64,15 @@ class DataBase:
                         end="",
                     )
                     continue
-            name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
 
+            if extend_atom >= len(Mol[name_mol]):
+                print(
+                    f"\rSkip: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+                    end="",
+                )
+                continue
+
+            name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
             if args.hdf5:
                 e_cc = hdf5file[f"weight/e_ccsd_{name}"][()]
                 energy_nuc = hdf5file[f"weight/energy_nuc_{name}"][()]
@@ -141,9 +148,14 @@ class DataBase:
             self.args.extend_xyz,
             self.distance_l,
         ):
+            # skip the equilibrium
             if abs(distance) < 1e-3:
                 if (extend_atom != 0) or extend_xyz != 1:
                     continue
+
+            if extend_atom >= len(Mol[name_mol]):
+                continue
+
             if if_equilibrium:
                 if abs(distance) > 1e-3:
                     continue
@@ -231,6 +243,14 @@ class DataBase:
                 mdft.grids.build()
                 ao = pyscf.dft.numint.eval_ao(dft2cc.mol, mdft.grids.coords)
 
+                if self.args.noise_print:
+                    print(
+                        np.array2string(
+                            np.abs(dm1_cc - dm1_cc_real),
+                            formatter={"float_kind": lambda x: f"{x:8.6f}"},
+                        )
+                    )
+                    print(np.mean(np.abs(dm1_cc - dm1_cc_real)))
                 dm_cc_r = oe.contract(
                     "uv,gu,gv,g->g",
                     dm1_cc,

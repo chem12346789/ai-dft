@@ -176,14 +176,19 @@ The performance of the ML model is shown below,
         Molecule     & Energy (mH) & density (me) \\
         \hline
         training set & 18.02       & 71.45        \\
-        test set     & 16.48       & 143.21       \\
+        test set     & 89.47       & 231.23       \\
         \hline
     \end{tabular}
     \caption{The performance of the ML model}
 \end{table}
 
-Then the self-consistent field (SCF) can be written as
-\begin{equation}
-    F = H^{\sigma} + J + V = \epsilon^{\sigma}_{i} C S^{\sigma} C^{-1},
-\end{equation}
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/energy.pdf}
+    \caption{The energy of the Pentane molecule}
+\end{figure*}
+% Then the self-consistent field (SCF) can be written as
+% \begin{equation}
+%     F = H^{\sigma} + J + V = \epsilon^{\sigma}_{i} C S^{\sigma} C^{-1},
+% \end{equation}
 \end{document}
