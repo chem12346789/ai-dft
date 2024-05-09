@@ -133,7 +133,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         optimizer_dict[atom_name + "1"] = optim.Adam(
             model_dict[atom_name + "1"].parameters(),
-            lr=0.000001,
+            lr=0.0001,
         )
         scheduler_dict[atom_name + "1"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[atom_name + "1"],
@@ -141,7 +141,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         )
         optimizer_dict[atom_name + "2"] = optim.Adam(
             model_dict[atom_name + "2"].parameters(),
-            lr=0.000001,
+            lr=0.00001,
         )
         scheduler_dict[atom_name + "2"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[atom_name + "2"],
