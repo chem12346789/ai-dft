@@ -73,8 +73,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
         for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
             atom_name = i_atom + j_atom
-            list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
-            if len(list(list_of_path)) == 0:
+            list_of_path = list(dir_load.glob(f"{atom_name}-{i_str}*.pth"))
+            if len(list_of_path) == 0:
                 print(
                     f"No model found for {atom_name}-{i_str}, use random initialization."
                 )
@@ -129,7 +129,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             pin_memory=True,
         )
         eval_dict[atom_name] = load_to_gpu(eval_loader, device)
-        neval_dict[atom_name] = len(eval_dict.input[atom_name])
+        neval_dict[atom_name] = len(database_eval.input[atom_name])
 
         optimizer_dict[atom_name + "1"] = optim.Adam(
             model_dict[atom_name + "1"].parameters(),
@@ -170,16 +170,14 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
                     middle_mat = model_dict[key + "1"](input_mat)
                     loss = loss_fn(middle_mat, middle_mat_real)
-                    print(input_mat.shape, input_mat.shape[0])
                     train_loss1.append(loss.item() * input_mat.shape[0])
-                    loss.backward()
+                    # loss.backward()
                     optimizer_dict[key + "1"].step()
 
                     output_mat = model_dict[key + "2"](middle_mat_real)
                     loss = loss_fn(output_mat, output_mat_real)
-                    print(input_mat.shape, input_mat.shape[0])
                     train_loss2.append(loss.item() * input_mat.shape[0])
-                    loss.backward()
+                    # loss.backward()
                     optimizer_dict[key + "2"].step()
 
             scheduler_dict[key + "1"].step()
