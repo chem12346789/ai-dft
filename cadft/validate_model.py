@@ -38,7 +38,7 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     if args.load != "":
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
-
+        print(f"Load model from {dir_load}")
         for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
             atom_name = i_atom + j_atom
             key_l.append(atom_name)
