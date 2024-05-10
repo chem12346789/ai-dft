@@ -110,8 +110,8 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--epoch",
         type=int,
-        default=100000,
-        help="Number of epoch for training. Default is 100000.",
+        default=10000,
+        help="Number of epoch for training. Default is 10000.",
     )
 
     parser.add_argument(

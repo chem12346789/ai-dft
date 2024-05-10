@@ -69,7 +69,7 @@ for mol, basis_set, range_list in itertools.product(
     ],
     ["cc-pvdz"],
     [
-        (-0.5, 0.5, 41),
+        (-0.5, 0.5, 51),
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
