@@ -45,7 +45,7 @@ for (
     checkpoint,
     hidden_size,
 ) in itertools.product(
-    ["NEW"],
+    ["2024-05-09-19-57-06"],
     [400],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
