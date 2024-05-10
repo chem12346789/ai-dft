@@ -183,7 +183,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                 )
                 eval_loss_sum.append(np.mean(eval_loss) / neval_dict[key])
 
-            experiment.log({"eval loss1": np.mean(eval_loss_sum)})
+            experiment.log({"eval loss": np.mean(eval_loss_sum)})
 
         if epoch % 10000 == 0:
             for key in key_l:
