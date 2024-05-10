@@ -9,11 +9,9 @@ class BasicDataset:
     def __init__(
         self,
         input_,
-        middle_,
         output_,
     ):
         self.input = input_
-        self.middle = middle_
         self.output = output_
         self.ids = list(input_.keys())
 
@@ -23,6 +21,5 @@ class BasicDataset:
     def __getitem__(self, idx):
         return {
             "input": self.input[self.ids[idx]],
-            "middle": self.middle[self.ids[idx]],
             "output": self.output[self.ids[idx]],
         }

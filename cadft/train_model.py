@@ -59,29 +59,22 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         atom_name = i_atom + j_atom
         key_l.append(atom_name)
 
-        model_dict[atom_name + "1"] = FCNet(
-            NAO[i_atom] * NAO[j_atom], args.hidden_size, NAO[i_atom] * NAO[j_atom]
-        ).to(device)
-        model_dict[atom_name + "1"].double()
-
-        model_dict[atom_name + "2"] = FCNet(
+        model_dict[atom_name] = FCNet(
             NAO[i_atom] * NAO[j_atom], args.hidden_size, 1
         ).to(device)
-        model_dict[atom_name + "2"].double()
+        model_dict[atom_name].double()
 
     if args.load != "":
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
-        for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
+        for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
             atom_name = i_atom + j_atom
-            list_of_path = list(dir_load.glob(f"{atom_name}-{i_str}*.pth"))
+            list_of_path = list(dir_load.glob(f"{atom_name}*.pth"))
             if len(list_of_path) == 0:
-                print(
-                    f"No model found for {atom_name}-{i_str}, use random initialization."
-                )
+                print(f"No model found for {atom_name}, use random initialization.")
                 continue
             load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
             state_dict = torch.load(load_path, map_location=device)
-            model_dict[atom_name + i_str].load_state_dict(state_dict)
+            model_dict[atom_name].load_state_dict(state_dict)
             print(f"Model loaded from {load_path}")
 
     database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
@@ -103,7 +96,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         atom_name = i_atom + j_atom
         dataset = BasicDataset(
             database_train.input[atom_name],
-            database_train.middle[atom_name],
             database_train.output[atom_name],
         )
         train_loader = DataLoader(
@@ -118,7 +110,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         dataset = BasicDataset(
             database_eval.input[atom_name],
-            database_eval.middle[atom_name],
             database_eval.output[atom_name],
         )
         eval_loader = DataLoader(
@@ -131,20 +122,12 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         eval_dict[atom_name] = load_to_gpu(eval_loader, device)
         neval_dict[atom_name] = len(database_eval.input[atom_name])
 
-        optimizer_dict[atom_name + "1"] = optim.Adam(
-            model_dict[atom_name + "1"].parameters(),
-            lr=0.00001,
+        optimizer_dict[atom_name] = optim.Adam(
+            model_dict[atom_name].parameters(),
+            lr=0.0001,
         )
-        scheduler_dict[atom_name + "1"] = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer_dict[atom_name + "1"],
-            T_max=250,
-        )
-        optimizer_dict[atom_name + "2"] = optim.Adam(
-            model_dict[atom_name + "2"].parameters(),
-            lr=0.000001,
-        )
-        scheduler_dict[atom_name + "2"] = optim.lr_scheduler.CosineAnnealingLR(
-            optimizer_dict[atom_name + "2"],
+        scheduler_dict[atom_name] = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer_dict[atom_name],
             T_max=250,
         )
 
@@ -152,95 +135,61 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     pbar = trange(1, args.epoch + 1)
     for epoch in pbar:
-        train_loss1_sum = []
-        train_loss2_sum = []
+        train_loss_sum = []
         for key in key_l:
-            model_dict[key + "1"].train(True)
-            model_dict[key + "2"].train(True)
-            train_loss1 = []
-            train_loss2 = []
-            optimizer_dict[key + "1"].zero_grad(set_to_none=True)
-            optimizer_dict[key + "2"].zero_grad(set_to_none=True)
+            model_dict[key].train(True)
+            train_loss = []
+            optimizer_dict[key].zero_grad(set_to_none=True)
 
             for batch in train_dict[key]:
                 with torch.autocast(device.type):
                     input_mat = batch["input"]
-                    middle_mat_real = batch["middle"]
                     output_mat_real = batch["output"]
 
-                    middle_mat = model_dict[key + "1"](input_mat)
-                    loss = loss_fn(middle_mat, middle_mat_real)
-                    train_loss1.append(loss.item() * input_mat.shape[0])
-                    loss.backward()
-                    optimizer_dict[key + "1"].step()
-
-                    output_mat = model_dict[key + "2"](middle_mat_real)
+                    output_mat = model_dict[key](input_mat)
                     loss = loss_fn(output_mat, output_mat_real)
-                    train_loss2.append(loss.item() * input_mat.shape[0])
+                    train_loss.append(loss.item() * input_mat.shape[0])
                     loss.backward()
-                    optimizer_dict[key + "2"].step()
+                    optimizer_dict[key].step()
 
-            scheduler_dict[key + "1"].step()
-            scheduler_dict[key + "2"].step()
+            scheduler_dict[key].step()
 
-            train_loss1_sum.append(np.sum(train_loss1) / ntrain_dict[key])
-            train_loss2_sum.append(np.sum(train_loss2) / ntrain_dict[key])
+            train_loss_sum.append(np.sum(train_loss) / ntrain_dict[key])
             if epoch % args.eval_step == 0:
                 experiment.log(
-                    {f"train loss1 {key}": np.sum(train_loss1) / ntrain_dict[key]}
-                )
-                experiment.log(
-                    {f"train loss2 {key}": np.sum(train_loss2) / ntrain_dict[key]}
+                    {f"train loss {key}": np.sum(train_loss) / ntrain_dict[key]}
                 )
 
         if epoch % args.eval_step == 0:
             experiment.log({"epoch": epoch})
-            experiment.log({"train loss1": np.mean(train_loss1_sum)})
-            experiment.log({"train loss2": np.mean(train_loss2_sum)})
-            pbar.set_description(
-                f"train loss: {np.mean(train_loss1_sum):5.3e} {np.mean(train_loss2_sum):5.3e}"
-            )
-            eval_loss1_sum = []
-            eval_loss2_sum = []
+            experiment.log({"train loss": np.mean(train_loss_sum)})
+            pbar.set_description(f"train loss: {np.mean(train_loss_sum):5.3e}")
+            eval_loss_sum = []
             for key in key_l:
-                eval_loss1 = []
-                eval_loss2 = []
-                model_dict[key + "1"].eval()
-                model_dict[key + "2"].eval()
+                eval_loss = []
+                model_dict[key].eval()
                 for batch in eval_dict[key]:
                     input_mat = batch["input"]
-                    middle_mat_real = batch["middle"]
                     output_mat_real = batch["output"]
                     with torch.no_grad():
-                        middle_mat = model_dict[key + "1"](input_mat)
-                        eval_loss1.append(
-                            loss_fn(middle_mat, middle_mat_real).item()
-                            * input_mat.shape[0]
-                        )
-                        output_mat = model_dict[key + "2"](middle_mat_real)
-                        eval_loss2.append(
+                        output_mat = model_dict[key](input_mat)
+                        eval_loss.append(
                             loss_fn(output_mat, output_mat_real).item()
                             * input_mat.shape[0]
                         )
 
                 experiment.log(
-                    {f"eval loss1 {key}": np.sum(eval_loss1) / neval_dict[key]}
+                    {f"eval loss {key}": np.sum(eval_loss) / neval_dict[key]}
                 )
-                experiment.log(
-                    {f"eval loss2 {key}": np.sum(eval_loss2) / neval_dict[key]}
-                )
-                eval_loss1_sum.append(np.mean(eval_loss1) / neval_dict[key])
-                eval_loss2_sum.append(np.mean(eval_loss2) / neval_dict[key])
+                eval_loss_sum.append(np.mean(eval_loss) / neval_dict[key])
 
-            experiment.log({"eval loss1": np.mean(eval_loss1_sum)})
-            experiment.log({"eval loss2": np.mean(eval_loss2_sum)})
+            experiment.log({"eval loss1": np.mean(eval_loss_sum)})
 
         if epoch % 10000 == 0:
             for key in key_l:
-                for i_str in ["1", "2"]:
-                    state_dict_ = model_dict[key + i_str].state_dict()
-                    torch.save(
-                        state_dict_,
-                        dir_checkpoint / f"{key}-{i_str}-{epoch}.pth",
-                    )
+                state_dict_ = model_dict[key].state_dict()
+                torch.save(
+                    state_dict_,
+                    dir_checkpoint / f"{key}-{epoch}.pth",
+                )
     pbar.close()

@@ -43,22 +43,17 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             atom_name = i_atom + j_atom
             key_l.append(atom_name)
 
-            model_dict[atom_name + "1"] = FCNet(
-                NAO[i_atom] * NAO[j_atom], args.hidden_size, NAO[i_atom] * NAO[j_atom]
-            ).to(device)
-            model_dict[atom_name + "1"].double()
-
-            model_dict[atom_name + "2"] = FCNet(
+            model_dict[atom_name] = FCNet(
                 NAO[i_atom] * NAO[j_atom], args.hidden_size, 1
             ).to(device)
-            model_dict[atom_name + "2"].double()
+            model_dict[atom_name].double()
 
-        for i_atom, j_atom, i_str in product(ATOM_LIST, ATOM_LIST, ["1", "2"]):
+        for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
             atom_name = i_atom + j_atom
-            list_of_path = dir_load.glob(f"{atom_name}-{i_str}*.pth")
+            list_of_path = dir_load.glob(f"{atom_name}*.pth")
             load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
             state_dict = torch.load(load_path, map_location=device)
-            model_dict[atom_name + i_str].load_state_dict(state_dict)
+            model_dict[atom_name].load_state_dict(state_dict)
             print(f"Model loaded from {load_path}")
 
         dice_train = database_train.check(model_dict, if_equilibrium=False)

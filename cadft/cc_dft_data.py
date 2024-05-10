@@ -1,9 +1,10 @@
 from pathlib import Path
-import json
+from itertools import product
 
 import numpy as np
-
 import pyscf
+from pyscf import gto, dft, lib
+from pyscf.dft import numint
 
 from cadft.utils import gen_basis
 from cadft.utils import rotate
@@ -38,82 +39,143 @@ class CC_DFT_DATA:
             self.atom_info["atom"][i] = molecular[i][0]
             self.atom_info["nao"][i] = aoslice_by_atom[i][1] - aoslice_by_atom[i][0]
 
-    def save_dm1(self, cc_triple=False, xc_code="b3lyp"):
+    def save_dm1(
+        self,
+        cc_triple=False,
+        xc_code="b3lyp",
+    ):
         """
         Generate 1-RDM.
         """
+        h1e = self.mol.intor("int1e_nuc") + self.mol.intor("int1e_kin")
+        eri = self.mol.intor("int2e")
+
         mf = pyscf.scf.RHF(self.mol)
         mf.kernel()
         mycc = pyscf.cc.CCSD(mf)
         mycc.kernel()
+        dm1_cc = mycc.make_rdm1(ao_repr=True)
+        dm2_cc = mycc.make_rdm2(ao_repr=True)
+        e_cc = mycc.e_tot
+        ej_mat_cc = np.einsum("pqrs,pq,rs->rs", eri, dm1_cc, dm1_cc)
+        ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_cc, dm1_cc)
 
         mdft = pyscf.scf.RKS(self.mol)
         mdft.xc = xc_code
         mdft.kernel()
-
-        dm1_cc = mycc.make_rdm1(ao_repr=True)
-        e_cc = mycc.e_tot
         dm1_dft = mdft.make_rdm1(ao_repr=True)
+        e_dft = mdft.e_tot
+        coords = mdft.grids.coords
+        weights = mdft.grids.weights
+        ao_value = numint.eval_ao(self.mol, coords, deriv=1)
+        ej_mat_dft = np.einsum("pqrs,pq,rs->rs", eri, dm1_dft, dm1_dft)
+        ek_mat_dft = np.einsum("pqrs,pr,qs->qs", eri, dm1_dft, dm1_dft)
 
-        dm2_cc = mycc.make_rdm2(ao_repr=True)
-        eri = self.mol.intor("int2e")
+        np.save(Path("data") / "weight" / f"e_ccsd_{self.name}.npy", e_cc)
+        np.save(Path("data") / "weight" / f"e_dft_{self.name}.npy", e_dft)
+        np.save(
+            Path("data") / "weight" / f"energy_nuc_{self.name}.npy",
+            self.mol.energy_nuc(),
+        )
+
         exc_mat = (
             np.einsum("pqrs,pqrs->rs", eri, dm2_cc)
             - np.einsum("pqrs,pq,rs->rs", eri, dm1_cc, dm1_cc)
         ) / 2
-        h1e = self.mol.intor("int1e_nuc") + self.mol.intor("int1e_kin")
+
+        exc_mat_atom_dft = np.zeros((self.mol.natm, self.mol.natm))
+        delta_exc_cc = np.zeros((self.mol.natm, self.mol.natm))
+        ene_cc_dft_diff = np.zeros((self.mol.natm, self.mol.natm))
+
+        rho = numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
+        exc_dft_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
+        exc_dft = (
+            np.einsum("i,i,i->", exc_dft_grids, rho[0], weights)
+            - np.sum(ek_mat_dft) * 0.05
+        )
+        rho = numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
+        exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
+        exc_cc = (
+            np.einsum("i,i,i->", exc_cc_grids, rho[0], weights)
+            - np.sum(ek_mat_cc) * 0.05
+        )
+
+        for i, j in product(range(self.mol.natm), range(self.mol.natm)):
+            dft_mat = dm1_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]]
+            new_dm_dft = np.zeros_like(dm1_dft)
+            new_dm_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]] = dft_mat
+            rho = numint.eval_rho(self.mol, ao_value[0], new_dm_dft)
+            exc_mat_atom_dft[i, j] = (
+                np.einsum("i,i,i->", exc_dft_grids, rho, weights)
+                - np.sum(
+                    ek_mat_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]]
+                )
+                * 0.05
+            )
+
+            cc_mat = dm1_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]]
+            new_dm_cc = np.zeros_like(dm1_cc)
+            new_dm_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]] = cc_mat
+            rho = numint.eval_rho(self.mol, ao_value[0], new_dm_cc)
+            delta_exc_cc[i, j] = np.sum(
+                exc_mat[self.atom_info["slice"][i], self.atom_info["slice"][j]]
+            )
+            delta_exc_cc[i, j] -= (
+                np.einsum("i,i,i->", exc_cc_grids, rho, weights)
+                - np.sum(
+                    ek_mat_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]]
+                )
+                * 0.05
+            )
+
+            ene_cc_dft_diff[i, j] = (
+                np.sum(exc_mat[self.atom_info["slice"][i], self.atom_info["slice"][j]])
+                - exc_mat_atom_dft[i, j]
+                + np.sum(
+                    (h1e * new_dm_cc)[
+                        self.atom_info["slice"][i], self.atom_info["slice"][j]
+                    ]
+                )
+                - np.sum(
+                    (h1e * new_dm_dft)[
+                        self.atom_info["slice"][i], self.atom_info["slice"][j]
+                    ]
+                )
+                + np.sum(
+                    ej_mat_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]]
+                )
+                / 2
+                - np.sum(
+                    ej_mat_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]]
+                )
+                / 2
+            )
+
+            np.save(
+                Path("data") / "input" / f"input_dft_{self.name}_{i}_{j}.npy",
+                dft_mat,
+            )
+            np.save(
+                Path("data") / "input" / f"input_cc_{self.name}_{i}_{j}.npy",
+                cc_mat,
+            )
+
+        np.save(
+            Path("data") / "output" / f"output_cc_dft_diff_{self.name}.npy",
+            ene_cc_dft_diff,
+        )
+        np.save(
+            Path("data") / "output" / f"output_delta_exc_cc_{self.name}.npy",
+            delta_exc_cc,
+        )
+
         print(
-            e_cc,
-            np.sum(exc_mat)
+            exc_cc
+            + np.sum(delta_exc_cc)
             + np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc) / 2
             + np.sum(h1e * dm1_cc)
-            + self.mol.energy_nuc(),
+            + self.mol.energy_nuc()
+            - e_cc
         )
-        data_path = Path("data")
-        weight_path = data_path / "weight"
-        weight_path.mkdir(parents=True, exist_ok=True)
-
-        np.save(weight_path / f"e_ccsd_{self.name}.npy", e_cc)
-        np.save(weight_path / f"energy_nuc_{self.name}.npy", self.mol.energy_nuc())
-
-        save_json = {}
-        save_json["atom"] = self.mol.atom
-        save_json["basis"] = self.mol.basis
-        with open(
-            weight_path / f"mol_info_{self.name}.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(save_json, f, indent=4)
-
-        for i in range(self.mol.natm):
-            for j in range(self.mol.natm):
-                atom_name = self.atom_info["atom"][i] + self.atom_info["atom"][j]
-                input_path = data_path / atom_name / "input"
-                output_path = data_path / atom_name / "output"
-                input_path.mkdir(parents=True, exist_ok=True)
-                output_path.mkdir(parents=True, exist_ok=True)
-
-                input_mat = dm1_dft[
-                    self.atom_info["slice"][i], self.atom_info["slice"][j]
-                ]
-                output_dm1_mat = dm1_cc[
-                    self.atom_info["slice"][i], self.atom_info["slice"][j]
-                ]
-
-                np.save(
-                    input_path / f"input_{self.name}_{i}_{j}.npy",
-                    input_mat,
-                )
-                np.save(
-                    output_path / f"output_dm1_{self.name}_{i}_{j}.npy",
-                    output_dm1_mat,
-                )
-
-                output_exc_mat = exc_mat[
-                    self.atom_info["slice"][i], self.atom_info["slice"][j]
-                ]
-                np.save(
-                    output_path / f"output_exc_{self.name}_{i}_{j}.npy",
-                    output_exc_mat,
-                )
+        print(exc_dft - np.sum(exc_mat_atom_dft))
+        print(e_cc - e_dft - np.sum(ene_cc_dft_diff))

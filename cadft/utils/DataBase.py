@@ -33,6 +33,8 @@ class DataBase:
             hdf5file = h5py.File(Path("data") / "file.h5", "r")
         else:
             data_path = Path("data")
+            dir_weight = data_path / "weight/"
+            dir_output = data_path / "output/"
 
         self.distance_l = gen_logger(args.distance_list)
         self.data = {}
@@ -77,7 +79,6 @@ class DataBase:
                 e_cc = hdf5file[f"weight/e_ccsd_{name}"][()]
                 energy_nuc = hdf5file[f"weight/energy_nuc_{name}"][()]
             else:
-                dir_weight = data_path / "weight/"
                 if not (dir_weight / f"e_ccsd_{name}.npy").exists():
                     print(
                         f"\rNo file: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
@@ -85,10 +86,13 @@ class DataBase:
                     )
                     continue
                 e_cc = np.load(dir_weight / f"e_ccsd_{name}.npy")
+                e_dft = np.load(dir_weight / f"e_dft_{name}.npy")
                 energy_nuc = np.load(dir_weight / f"energy_nuc_{name}.npy")
+                cc_dft_diff = np.load(dir_output / f"output_cc_dft_diff_{name}.npy")
 
             self.data[name] = {
                 "e_cc": e_cc,
+                "e_dft": e_dft,
                 "energy_nuc": energy_nuc,
             }
 
@@ -100,27 +104,17 @@ class DataBase:
 
                 if args.hdf5:
                     input_mat = hdf5file[f"{atom_name}/input/input_{name}_{i}_{j}"][:]
-                    middle_mat = hdf5file[
-                        f"{atom_name}/output/output_dm1_{name}_{i}_{j}"
-                    ][:]
                     output_mat = hdf5file[
                         f"{atom_name}/output/output_exc_{name}_{i}_{j}"
                     ][:]
                 else:
-                    input_path = data_path / atom_name / "input"
-                    output_path = data_path / atom_name / "output"
+                    input_path = data_path / "input"
                     input_mat = np.load(
-                        input_path / f"input_{name}_{i}_{j}.npy"
+                        input_path / f"input_dft_{name}_{i}_{j}.npy"
                     ).flatten()
-                    middle_mat = np.load(
-                        output_path / f"output_dm1_{name}_{i}_{j}.npy"
-                    ).flatten()
-                    output_mat = np.load(
-                        output_path / f"output_exc_{name}_{i}_{j}.npy"
-                    ).sum()
+                    output_mat = cc_dft_diff[i, j]
 
                 self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
-                self.middle[atom_name][f"{name}_{i}_{j}"] = middle_mat
                 self.output[atom_name][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
 
         if args.hdf5:
@@ -131,8 +125,94 @@ class DataBase:
         Check the input data, if model_list is not none, check loss of the model.
         """
         ene_loss = []
-        rho_loss = []
         name_train = []
+        for (
+            name_mol,
+            extend_atom,
+            extend_xyz,
+            distance,
+        ) in product(
+            self.molecular_list,
+            self.args.extend_atom,
+            self.args.extend_xyz,
+            self.distance_l,
+        ):
+            # skip the equilibrium
+            if abs(distance) < 1e-3:
+                if (extend_atom != 0) or extend_xyz != 1:
+                    continue
+
+            if extend_atom >= len(Mol[name_mol]):
+                continue
+
+            if if_equilibrium:
+                if abs(distance) > 1e-3:
+                    continue
+            name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+            print(f"\rCheck {name:>30}", end="")
+            name_train.append(name)
+
+            molecular = copy.deepcopy(Mol[name_mol])
+            molecular[extend_atom][extend_xyz] += distance
+            dft2cc = cadft.cc_dft_data.CC_DFT_DATA(
+                molecular,
+                name=name,
+                basis=self.args.basis,
+                if_basis_str=self.args.if_basis_str,
+            )
+
+            dm1_dft = np.zeros((dft2cc.mol.nao, dft2cc.mol.nao))
+            exc = 0
+
+            for i in range(dft2cc.mol.natm):
+                for j in range(dft2cc.mol.natm):
+                    atom_name = molecular[i][0] + molecular[j][0]
+                    input_mat = self.input[atom_name][f"{name}_{i}_{j}"]
+                    output_mat_real = self.output[atom_name][f"{name}_{i}_{j}"]
+                    dm1_dft[
+                        dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                    ] = input_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
+
+                    if model_list is None:
+                        output_mat = output_mat_real.copy()
+                    else:
+                        input_mat = (
+                            torch.as_tensor(input_mat.copy())
+                            .to(torch.float64)
+                            .contiguous()
+                            .to(device=self.device)
+                        )
+                        output_mat = model_list[atom_name](input_mat)
+                        output_mat = output_mat.detach().cpu().numpy()
+                    exc += output_mat[0]
+
+            if model_list is None:
+                ene_loss_i = 1000 * (
+                    exc + self.data[name]["e_dft"] - self.data[name]["e_cc"]
+                )
+                if ene_loss_i > 1e-3:
+                    print("")
+                    print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
+            else:
+                ene_loss_i = 1000 * (
+                    exc + self.data[name]["e_dft"] - self.data[name]["e_cc"]
+                )
+
+            print(f"    ene_loss: {ene_loss_i:7.4f}", end="")
+            ene_loss.append(ene_loss_i)
+
+        return (
+            ene_loss,
+            name_train,
+        )
+
+    def check_rho(self, model_list=None, if_equilibrium=True):
+        """
+        Check the input data, if model_list is not none, check loss of the model.
+        """
+        ene_loss = []
+        name_train = []
+        rho_loss = []
         dipole_x_loss = []
         dipole_y_loss = []
         dipole_z_loss = []

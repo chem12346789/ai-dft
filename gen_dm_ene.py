@@ -14,6 +14,13 @@ args = add_args(parser)
 
 distance_l = gen_logger(args.distance_list)
 
+weight_path = Path("data") / "weight"
+weight_path.mkdir(parents=True, exist_ok=True)
+output_path = Path("data") / "output"
+output_path.mkdir(parents=True, exist_ok=True)
+input_path = Path("data") / "input"
+input_path.mkdir(parents=True, exist_ok=True)
+
 for (
     name_mol,
     extend_atom,
