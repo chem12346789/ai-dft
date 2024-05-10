@@ -124,11 +124,11 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         optimizer_dict[atom_name] = optim.Adam(
             model_dict[atom_name].parameters(),
-            lr=0.0001,
+            lr=1e-4,
         )
-        scheduler_dict[atom_name] = optim.lr_scheduler.CosineAnnealingLR(
+        scheduler_dict[atom_name] = optim.lr_scheduler.ExponentialLR(
             optimizer_dict[atom_name],
-            T_max=250,
+            gamma=1 - 1e-4,
         )
 
     loss_fn = nn.L1Loss()

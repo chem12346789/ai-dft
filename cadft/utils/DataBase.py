@@ -112,7 +112,7 @@ class DataBase:
                     input_mat = np.load(
                         input_path / f"input_dft_{name}_{i}_{j}.npy"
                     ).flatten()
-                    output_mat = cc_dft_diff[i, j]
+                    output_mat = cc_dft_diff[i, j] * 1000
 
                 self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
                 self.output[atom_name][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
@@ -187,15 +187,15 @@ class DataBase:
                     exc += output_mat[0]
 
             if model_list is None:
-                ene_loss_i = 1000 * (
-                    exc + self.data[name]["e_dft"] - self.data[name]["e_cc"]
+                ene_loss_i = exc + 1000 * (
+                    self.data[name]["e_dft"] - self.data[name]["e_cc"]
                 )
                 if ene_loss_i > 1e-3:
                     print("")
                     print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
             else:
-                ene_loss_i = 1000 * (
-                    exc + self.data[name]["e_dft"] - self.data[name]["e_cc"]
+                ene_loss_i = exc + 1000 * (
+                    self.data[name]["e_dft"] - self.data[name]["e_cc"]
                 )
 
             print(f"    ene_loss: {ene_loss_i:7.4f}", end="")
