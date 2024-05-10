@@ -251,10 +251,12 @@ class DataBase:
                             formatter={"float_kind": lambda x: f"{x:8.6f}"},
                         )
                     )
-                    print(self.args.noise_print, np.mean(np.abs(dm1_cc - dm1_cc_real)))
+                    print(np.mean(np.abs(dm1_cc - dm1_cc_real)))
+
                     if self.args.noise_print > 10:
                         print("noise_print closed!")
                         self.args.noise_print = 0
+
                 dm_cc_r = oe.contract(
                     "uv,gu,gv,g->g",
                     dm1_cc,
