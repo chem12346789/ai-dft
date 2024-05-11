@@ -45,8 +45,8 @@ for (
     checkpoint,
     hidden_size,
 ) in itertools.product(
-    ["2024-05-09-19-57-06"],
-    [400, 800],
+    ["2024-05-10-19-55-55"],
+    [400, 800, 1600, 3200],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""

@@ -20,12 +20,12 @@ class DataBase:
     def __init__(
         self,
         args,
-        atom_list,
+        keys_l,
         molecular_list,
         device,
     ):
         self.args = args
-        self.atom_list = atom_list
+        self.keys_l = keys_l
         self.molecular_list = molecular_list
         self.device = device
 
@@ -42,8 +42,7 @@ class DataBase:
         self.middle = {}
         self.output = {}
 
-        for i_atom, j_atom in product(self.atom_list, self.atom_list):
-            atom_name = i_atom + j_atom
+        for atom_name in keys_l:
             self.input[atom_name] = {}
             self.middle[atom_name] = {}
             self.output[atom_name] = {}
@@ -101,6 +100,13 @@ class DataBase:
 
             for i, j in product(range(natom), range(natom)):
                 atom_name = molecular[i][0] + molecular[j][0]
+                if molecular[i][0] != molecular[j][0]:
+                    key = f"{molecular[i][0]}-{molecular[j][0]}"
+                else:
+                    if i == j:
+                        key = f"{molecular[i][0]}-{molecular[j][0]}-D"
+                    else:
+                        key = f"{molecular[i][0]}-{molecular[j][0]}-O"
 
                 if args.hdf5:
                     input_mat = hdf5file[f"{atom_name}/input/input_{name}_{i}_{j}"][:]
@@ -114,8 +120,8 @@ class DataBase:
                     ).flatten()
                     output_mat = cc_dft_diff[i, j] * 1000
 
-                self.input[atom_name][f"{name}_{i}_{j}"] = input_mat
-                self.output[atom_name][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
+                self.input[key][f"{name}_{i}_{j}"] = input_mat
+                self.output[key][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
 
         if args.hdf5:
             hdf5file.close()
@@ -164,27 +170,33 @@ class DataBase:
             dm1_dft = np.zeros((dft2cc.mol.nao, dft2cc.mol.nao))
             exc = 0
 
-            for i in range(dft2cc.mol.natm):
-                for j in range(dft2cc.mol.natm):
-                    atom_name = molecular[i][0] + molecular[j][0]
-                    input_mat = self.input[atom_name][f"{name}_{i}_{j}"]
-                    output_mat_real = self.output[atom_name][f"{name}_{i}_{j}"]
-                    dm1_dft[
-                        dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-                    ] = input_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
-
-                    if model_list is None:
-                        output_mat = output_mat_real.copy()
+            for i, j in product(range(dft2cc.mol.natm), range(dft2cc.mol.natm)):
+                if molecular[i][0] != molecular[j][0]:
+                    key = f"{molecular[i][0]}-{molecular[j][0]}"
+                else:
+                    if i == j:
+                        key = f"{molecular[i][0]}-{molecular[j][0]}-D"
                     else:
-                        input_mat = (
-                            torch.as_tensor(input_mat.copy())
-                            .to(torch.float64)
-                            .contiguous()
-                            .to(device=self.device)
-                        )
-                        output_mat = model_list[atom_name](input_mat)
-                        output_mat = output_mat.detach().cpu().numpy()
-                    exc += output_mat[0]
+                        key = f"{molecular[i][0]}-{molecular[j][0]}-O"
+
+                input_mat = self.input[key][f"{name}_{i}_{j}"]
+                output_mat_real = self.output[key][f"{name}_{i}_{j}"]
+                dm1_dft[dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]] = (
+                    input_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
+                )
+
+                if model_list is None:
+                    output_mat = output_mat_real.copy()
+                else:
+                    input_mat = (
+                        torch.as_tensor(input_mat.copy())
+                        .to(torch.float64)
+                        .contiguous()
+                        .to(device=self.device)
+                    )
+                    output_mat = model_list[key](input_mat)
+                    output_mat = output_mat.detach().cpu().numpy()
+                exc += output_mat[0]
 
             if model_list is None:
                 ene_loss_i = exc + 1000 * (

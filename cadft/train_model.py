@@ -48,7 +48,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     dir_checkpoint.mkdir(parents=True, exist_ok=True)
     (dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
-    key_l = []
+    keys_l = []
+    # keys: 1st and 2nd words are atom names, 3rd is if diagonal (H-H-O or H-H-D)
     model_dict = {}
     optimizer_dict = {}
     scheduler_dict = {}
@@ -56,13 +57,20 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
-        atom_name = i_atom + j_atom
-        key_l.append(atom_name)
+        if i_atom != j_atom:
+            atom_name = f"{i_atom}-{j_atom}"
+            keys_l.append(atom_name)
+        else:
+            atom_name = f"{i_atom}-{i_atom}-D"
+            keys_l.append(atom_name)
+            atom_name = f"{i_atom}-{i_atom}-O"
+            keys_l.append(atom_name)
 
-        model_dict[atom_name] = FCNet(
-            NAO[i_atom] * NAO[j_atom], args.hidden_size, 1
-        ).to(device)
-        model_dict[atom_name].double()
+    for key in keys_l:
+        model_dict[key] = FCNet(NAO[key[0]] * NAO[key[1]], args.hidden_size, 1).to(
+            device
+        )
+        model_dict[key].double()
 
     if args.load != "":
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
@@ -92,8 +100,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     ntrain_dict = {}
     eval_dict = {}
     neval_dict = {}
-    for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
-        atom_name = i_atom + j_atom
+    for key in keys_l:
         dataset = BasicDataset(
             database_train.input[atom_name],
             database_train.output[atom_name],
@@ -136,7 +143,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     pbar = trange(1, args.epoch + 1)
     for epoch in pbar:
         train_loss_sum = []
-        for key in key_l:
+        for key in keys_l:
             model_dict[key].train(True)
             train_loss = []
             optimizer_dict[key].zero_grad(set_to_none=True)
@@ -165,7 +172,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             experiment.log({"train loss": np.mean(train_loss_sum)})
             pbar.set_description(f"train loss: {np.mean(train_loss_sum):5.3e}")
             eval_loss_sum = []
-            for key in key_l:
+            for key in keys_l:
                 eval_loss = []
                 model_dict[key].eval()
                 for batch in eval_dict[key]:
@@ -186,7 +193,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             experiment.log({"eval loss": np.mean(eval_loss_sum)})
 
         if epoch % 10000 == 0:
-            for key in key_l:
+            for key in keys_l:
                 state_dict_ = model_dict[key].state_dict()
                 torch.save(
                     state_dict_,
