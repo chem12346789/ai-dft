@@ -133,9 +133,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         "batch_size": args.batch_size,
     }
 
-    for k, v in ntrain_dict:
+    for k, v in ntrain_dict.items():
         update_d[f"n_train_{k}"] = v
-    for k, v in neval_dict:
+    for k, v in neval_dict.items():
         update_d[f"n_val_{k}"] = v
 
     experiment.config.update(update_d)
