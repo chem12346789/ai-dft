@@ -153,7 +153,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                 with torch.autocast(device.type):
                     input_mat = batch["input"]
                     output_mat_real = batch["output"]
-
                     output_mat = model_dict[key](input_mat)
                     loss = loss_fn(output_mat, output_mat_real)
                     train_loss.append(loss.item() * input_mat.shape[0])
@@ -169,6 +168,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             for key in keys_l:
                 eval_loss = []
                 model_dict[key].eval()
+
                 for batch in eval_dict[key]:
                     input_mat = batch["input"]
                     output_mat_real = batch["output"]
