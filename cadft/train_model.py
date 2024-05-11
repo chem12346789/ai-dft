@@ -39,6 +39,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         name=f"run1-{args.hidden_size}",
         dir="/home/chenzihao/workdir/tmp",
     )
+    wandb.define_metric("*", step_metric="global_step")
 
     today = datetime.datetime.today()
     dir_checkpoint = Path(f"./checkpoint-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/")
@@ -122,7 +123,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         optimizer_dict[key] = optim.Adam(
             model_dict[key].parameters(),
-            lr=1e-4,
+            lr=1e-3,
         )
         scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
             optimizer_dict[key],
@@ -132,13 +133,12 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     update_d = {
         "batch_size": args.batch_size,
     }
-
     for k, v in ntrain_dict.items():
         update_d[f"n_train_{k}"] = v
     for k, v in neval_dict.items():
         update_d[f"n_val_{k}"] = v
-
     experiment.config.update(update_d)
+
     loss_fn = nn.L1Loss()
 
     pbar = trange(1, args.epoch + 1)
@@ -161,16 +161,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     optimizer_dict[key].step()
 
             scheduler_dict[key].step()
-
             train_loss_sum.append(np.sum(train_loss) / ntrain_dict[key])
-            if epoch % args.eval_step == 0:
-                experiment.log(
-                    {f"train loss {key}": np.sum(train_loss) / ntrain_dict[key]}
-                )
 
         if epoch % args.eval_step == 0:
-            experiment.log({"epoch": epoch})
-            experiment.log({"train loss": np.mean(train_loss_sum)})
             pbar.set_description(f"train loss: {np.mean(train_loss_sum):5.3e}")
             eval_loss_sum = []
             for key in keys_l:
@@ -191,7 +184,17 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                 )
                 eval_loss_sum.append(np.mean(eval_loss) / neval_dict[key])
 
-            experiment.log({"eval loss": np.mean(eval_loss_sum)})
+            lod_d = {
+                "epoch": epoch,
+                "global_step": epoch,
+                "mean train loss": np.mean(train_loss_sum),
+                "mean eval loss": np.mean(eval_loss_sum),
+            }
+            for k, v in ntrain_dict.items():
+                lod_d[f"train loss/{k}"] = v
+            for k, v in neval_dict.items():
+                lod_d[f"eval loss/{k}"] = v
+            experiment.log(lod_d)
 
         if epoch % 10000 == 0:
             for key in keys_l:
