@@ -67,34 +67,25 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             keys_l.append(atom_name)
 
     for key in keys_l:
-        model_dict[key] = FCNet(NAO[key[0]] * NAO[key[1]], args.hidden_size, 1).to(
-            device
-        )
+        model_dict[key] = FCNet(
+            NAO[key.split("-")[0]] * NAO[key.split("-")[1]], args.hidden_size, 1
+        ).to(device)
         model_dict[key].double()
 
     if args.load != "":
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
-        for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
-            atom_name = i_atom + j_atom
-            list_of_path = list(dir_load.glob(f"{atom_name}*.pth"))
+        for key in keys_l:
+            list_of_path = list(dir_load.glob(f"{key}*.pth"))
             if len(list_of_path) == 0:
-                print(f"No model found for {atom_name}, use random initialization.")
+                print(f"No model found for {key}, use random initialization.")
                 continue
             load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
             state_dict = torch.load(load_path, map_location=device)
-            model_dict[atom_name].load_state_dict(state_dict)
+            model_dict[key].load_state_dict(state_dict)
             print(f"Model loaded from {load_path}")
 
-    database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
-    database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
-
-    experiment.config.update(
-        {
-            "batch_size": args.batch_size,
-            "n_val": len(database_eval.input["HH"]),
-            "n_train": len(database_train.input["HH"]),
-        }
-    )
+    database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
+    database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
 
     train_dict = {}
     ntrain_dict = {}
@@ -102,8 +93,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     neval_dict = {}
     for key in keys_l:
         dataset = BasicDataset(
-            database_train.input[atom_name],
-            database_train.output[atom_name],
+            database_train.input[key],
+            database_train.output[key],
         )
         train_loader = DataLoader(
             dataset,
@@ -112,12 +103,12 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             num_workers=8,
             pin_memory=True,
         )
-        train_dict[atom_name] = load_to_gpu(train_loader, device)
-        ntrain_dict[atom_name] = len(database_train.input[atom_name])
+        train_dict[key] = load_to_gpu(train_loader, device)
+        ntrain_dict[key] = len(database_train.input[key])
 
         dataset = BasicDataset(
-            database_eval.input[atom_name],
-            database_eval.output[atom_name],
+            database_eval.input[key],
+            database_eval.output[key],
         )
         eval_loader = DataLoader(
             dataset,
@@ -126,18 +117,28 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             num_workers=8,
             pin_memory=True,
         )
-        eval_dict[atom_name] = load_to_gpu(eval_loader, device)
-        neval_dict[atom_name] = len(database_eval.input[atom_name])
+        eval_dict[key] = load_to_gpu(eval_loader, device)
+        neval_dict[key] = len(database_eval.input[key])
 
-        optimizer_dict[atom_name] = optim.Adam(
-            model_dict[atom_name].parameters(),
+        optimizer_dict[key] = optim.Adam(
+            model_dict[key].parameters(),
             lr=1e-4,
         )
-        scheduler_dict[atom_name] = optim.lr_scheduler.ExponentialLR(
-            optimizer_dict[atom_name],
+        scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
+            optimizer_dict[key],
             gamma=1 - 1e-4,
         )
 
+    update_d = {
+        "batch_size": args.batch_size,
+    }
+
+    for k, v in ntrain_dict:
+        update_d[f"n_train_{k}"] = v
+    for k, v in neval_dict:
+        update_d[f"n_val_{k}"] = v
+
+    experiment.config.update(update_d)
     loss_fn = nn.L1Loss()
 
     pbar = trange(1, args.epoch + 1)
