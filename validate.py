@@ -6,10 +6,10 @@ ATOM_LIST = [
 ]
 TRAIN_STR_DICT = [
     "Methane",
-    # "Ethane",
-    # "Ethylene",
-    # "Acetylene",
-    # "Allene",
+    "Ethane",
+    "Ethylene",
+    "Acetylene",
+    "Allene",
     # "Cyclopropene",
     # "Propyne",
     # "Cyclopropane",
