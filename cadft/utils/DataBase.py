@@ -6,8 +6,6 @@ import pyscf
 from pyscf import dft
 import torch
 import numpy as np
-import opt_einsum as oe
-import h5py
 
 from cadft.utils.logger import gen_logger
 from cadft.utils.nao import NAO
@@ -30,12 +28,9 @@ class DataBase:
         self.molecular_list = molecular_list
         self.device = device
 
-        if args.hdf5:
-            hdf5file = h5py.File(Path("data") / "file.h5", "r")
-        else:
-            data_path = Path("data")
-            dir_weight = data_path / "weight/"
-            dir_output = data_path / "output/"
+        data_path = Path("data")
+        dir_weight = data_path / "weight/"
+        dir_output = data_path / "output/"
 
         self.distance_l = gen_logger(args.distance_list)
         self.data = {}
@@ -107,15 +102,16 @@ class DataBase:
 
                 input_path = data_path / "input"
                 input_mat = np.load(
+                    input_path / f"input_dft_{name}_{i}_{j}.npy"
+                ).flatten()
+                middle_mat = np.load(
                     input_path / f"input_cc_{name}_{i}_{j}.npy"
                 ).flatten()
                 output_mat = cc_dft_diff[i, j] * 1000
 
                 self.input[key][f"{name}_{i}_{j}"] = input_mat
+                self.middle[key][f"{name}_{i}_{j}"] = middle_mat
                 self.output[key][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
-
-        if args.hdf5:
-            hdf5file.close()
 
     def check(self, model_list=None, if_equilibrium=True):
         """
@@ -158,7 +154,8 @@ class DataBase:
                 if_basis_str=self.args.if_basis_str,
             )
 
-            dm1_dft = np.zeros((dft2cc.mol.nao, dft2cc.mol.nao))
+            dm1_middle = np.zeros((dft2cc.mol.nao, dft2cc.mol.nao))
+            dm1_middle_real = np.zeros((dft2cc.mol.nao, dft2cc.mol.nao))
             exc = 0
 
             for i, j in product(range(dft2cc.mol.natm), range(dft2cc.mol.natm)):
@@ -171,13 +168,19 @@ class DataBase:
                         key = f"{molecular[i][0]}-{molecular[j][0]}-O"
 
                 input_mat = self.input[key][f"{name}_{i}_{j}"]
-                output_mat_real = self.output[key][f"{name}_{i}_{j}"]
-                dm1_dft[dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]] = (
-                    input_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
-                )
+                middle_real = self.middle[key][f"{name}_{i}_{j}"]
+                dm1_middle_real[
+                    dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                ] = middle_real.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
+                output_real = self.output[key][f"{name}_{i}_{j}"]
 
                 if model_list is None:
-                    output_mat = output_mat_real.copy()
+                    output_mat = output_real.copy()
+                    dm1_middle[
+                        dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                    ] = dm1_middle_real[
+                        dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                    ].copy()
                 else:
                     input_mat = (
                         torch.as_tensor(input_mat.copy())
@@ -185,8 +188,13 @@ class DataBase:
                         .contiguous()
                         .to(device=self.device)
                     )
-                    output_mat = model_list[key](input_mat)
+                    middle_mat = model_list[key + "1"](input_mat)
+                    output_mat = model_list[key + "2"](middle_mat)
+                    middle_mat = middle_mat.detach().cpu().numpy()
                     output_mat = output_mat.detach().cpu().numpy()
+                    dm1_middle[
+                        dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                    ] = middle_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
                 exc += output_mat[0]
 
             mdft = pyscf.scf.RKS(dft2cc.mol)
@@ -198,8 +206,8 @@ class DataBase:
             weights = mdft.grids.weights
             ao_value = dft.numint.eval_ao(dft2cc.mol, coords, deriv=1)
 
-            ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_dft, dm1_dft)
-            rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_dft, xctype="GGA")
+            ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_middle, dm1_middle)
+            rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle, xctype="GGA")
             exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
             exc_cc = (
                 np.einsum("i,i,i->", exc_cc_grids, rho[0], weights)
@@ -207,8 +215,8 @@ class DataBase:
             )
             e_dft = (
                 exc_cc
-                + np.einsum("pqrs,pq,rs", eri, dm1_dft, dm1_dft) / 2
-                + np.sum(h1e * dm1_dft)
+                + np.einsum("pqrs,pq,rs", eri, dm1_middle, dm1_middle) / 2
+                + np.sum(h1e * dm1_middle)
                 + dft2cc.mol.energy_nuc()
             )
             if model_list is None:
@@ -216,13 +224,16 @@ class DataBase:
                 if ene_loss_i > 1e-3:
                     print("")
                     print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
+                rho_error = 0
             else:
                 ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
-
+                rho_real = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle_real)
+                rho_error = np.einsum("i,i->", np.abs(rho[0] - rho_real), weights)
             print(f"    ene_loss: {ene_loss_i:7.4f}", end="")
             ene_loss.append(ene_loss_i)
 
         return (
             ene_loss,
+            rho_error,
             name_train,
         )

@@ -27,6 +27,7 @@ class CC_DFT_DATA:
         self.mol = pyscf.M(
             atom=molecular,
             basis=gen_basis(molecular, self.basis, self.if_basis_str),
+            verbose=0,
         )
 
         aoslice_by_atom = self.mol.aoslice_by_atom()[:, 2:]

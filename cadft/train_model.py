@@ -55,12 +55,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     keys_l = []
     # keys: 1st and 2nd words are atom names, 3rd is if diagonal (H-H-O or H-H-D)
-    model_dict = {}
-    optimizer_dict = {}
-    scheduler_dict = {}
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
     for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
         if i_atom != j_atom:
             atom_name = f"{i_atom}-{j_atom}"
@@ -71,14 +65,42 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             atom_name = f"{i_atom}-{i_atom}-O"
             keys_l.append(atom_name)
 
+    model_dict = {}
+    optimizer_dict = {}
+    scheduler_dict = {}
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     for key in keys_l:
         model_dict[key + "1"] = Model(
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]], args.hidden_size, 1
+            NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
+            args.hidden_size,
+            NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
         ).to(device)
+        model_dict[key + "1"].double()
+        optimizer_dict[key + "1"] = optim.Adam(
+            model_dict[key + "1"].parameters(),
+            lr=1e-4,
+        )
+        scheduler_dict[key + "1"] = optim.lr_scheduler.ExponentialLR(
+            optimizer_dict[key + "1"],
+            gamma=1 - 1e-4,
+        )
+
         model_dict[key + "2"] = Model(
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]], args.hidden_size, 1
+            NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
+            args.hidden_size,
+            1,
         ).to(device)
-        # model_dict[key].double()
+        model_dict[key + "2"].double()
+        optimizer_dict[key + "2"] = optim.Adam(
+            model_dict[key + "2"].parameters(),
+            lr=1e-4,
+        )
+        scheduler_dict[key + "2"] = optim.lr_scheduler.ExponentialLR(
+            optimizer_dict[key + "2"],
+            gamma=1 - 1e-4,
+        )
 
     if args.load != "":
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
@@ -102,6 +124,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     for key in keys_l:
         dataset = BasicDataset(
             database_train.input[key],
+            database_train.middle[key],
             database_train.output[key],
         )
         train_loader = DataLoader(
@@ -116,6 +139,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         dataset = BasicDataset(
             database_eval.input[key],
+            database_eval.middle[key],
             database_eval.output[key],
         )
         eval_loader = DataLoader(
@@ -127,15 +151,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         )
         eval_dict[key] = load_to_gpu(eval_loader, device)
         neval_dict[key] = len(database_eval.input[key])
-
-        optimizer_dict[key] = optim.Adam(
-            model_dict[key].parameters(),
-            lr=1e-4,
-        )
-        scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
-            optimizer_dict[key],
-            gamma=1 - 1e-4,
-        )
 
     update_d = {
         "batch_size": args.batch_size,
@@ -150,60 +165,97 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     pbar = trange(1, args.epoch + 1)
     for epoch in pbar:
-        train_loss_sum = {}
+        train_loss_sum_1 = {}
+        train_loss_sum_2 = {}
         for key in keys_l:
-            model_dict[key].train(True)
-            train_loss = []
-            optimizer_dict[key].zero_grad(set_to_none=True)
+            model_dict[key + "1"].train(True)
+            model_dict[key + "2"].train(True)
+            train_loss_1 = []
+            train_loss_2 = []
+            optimizer_dict[key + "1"].zero_grad(set_to_none=True)
+            optimizer_dict[key + "2"].zero_grad(set_to_none=True)
 
             for batch in train_dict[key]:
                 with torch.autocast(device.type):
                     input_mat = batch["input"]
-                    output_mat_real = batch["output"]
-                    output_mat = model_dict[key](input_mat)
-                    loss = loss_fn(output_mat, output_mat_real)
-                    loss.backward()
-                    train_loss.append(
-                        loss.item() * input_mat.shape[0] / ntrain_dict[key]
-                    )
-                    optimizer_dict[key].step()
+                    middle_mat_real = batch["middle"]
 
-            scheduler_dict[key].step()
-            train_loss_sum[key] = np.sum(train_loss)
+                    middle_mat = model_dict[key + "1"](input_mat)
+                    loss_1 = loss_fn(middle_mat, middle_mat_real)
+                    loss_1.backward()
+                    train_loss_1.append(
+                        loss_1.item() * input_mat.shape[0] / ntrain_dict[key]
+                    )
+                    optimizer_dict[key + "1"].step()
+
+                    output_mat_real = batch["output"]
+                    output_mat = model_dict[key + "2"](middle_mat_real)
+                    loss_2 = loss_fn(output_mat, output_mat_real)
+                    loss_2.backward()
+                    train_loss_2.append(
+                        loss_2.item() * input_mat.shape[0] / ntrain_dict[key]
+                    )
+                    optimizer_dict[key + "2"].step()
+
+            scheduler_dict[key + "1"].step()
+            scheduler_dict[key + "2"].step()
+            train_loss_sum_1[key] = np.sum(train_loss_1)
+            train_loss_sum_2[key] = np.sum(train_loss_2)
 
         if epoch % args.eval_step == 0:
-            eval_loss_sum = {}
+            eval_loss_sum_1 = {}
+            eval_loss_sum_2 = {}
             for key in keys_l:
-                eval_loss = []
-                model_dict[key].eval()
+                eval_loss_1 = []
+                eval_loss_2 = []
+                model_dict[key + "1"].eval()
+                model_dict[key + "2"].eval()
 
                 for batch in eval_dict[key]:
                     input_mat = batch["input"]
+                    middle_mat_real = batch["middle"]
                     output_mat_real = batch["output"]
                     with torch.no_grad():
-                        output_mat = model_dict[key](input_mat)
-                        eval_loss.append(
+                        middle_mat = model_dict[key + "1"](input_mat)
+                        eval_loss_1.append(
+                            loss_fn(middle_mat, middle_mat_real).item()
+                            * input_mat.shape[0]
+                            / neval_dict[key]
+                        )
+
+                        output_mat = model_dict[key + "2"](middle_mat_real)
+                        eval_loss_2.append(
                             loss_fn(output_mat, output_mat_real).item()
                             * input_mat.shape[0]
                             / neval_dict[key]
                         )
 
-                experiment.log({f"eval loss {key}": np.sum(eval_loss)})
-                eval_loss_sum[key] = np.sum(eval_loss)
+                eval_loss_sum_1[key] = np.sum(eval_loss_1)
+                eval_loss_sum_2[key] = np.sum(eval_loss_2)
 
             lod_d = {
                 "epoch": epoch,
                 "global_step": epoch,
-                "mean train loss": np.mean(list(train_loss_sum.values())),
-                "mean eval loss": np.mean(list(eval_loss_sum.values())),
+                "mean train1 loss": np.mean(list(train_loss_sum_1.values())),
+                "mean train2 loss": np.mean(list(train_loss_sum_2.values())),
+                "mean eval1 loss": np.mean(list(eval_loss_sum_1.values())),
+                "mean eval2 loss": np.mean(list(eval_loss_sum_2.values())),
             }
-            for k, v in train_loss_sum.items():
-                lod_d[f"train loss/{k}"] = v
-            for k, v in eval_loss_sum.items():
-                lod_d[f"eval loss/{k}"] = v
+            for k, v in train_loss_sum_1.items():
+                lod_d[f"train1 loss/ {k}"] = v
+            for k, v in train_loss_sum_2.items():
+                lod_d[f"train2 loss/ {k}"] = v
+            for k, v in eval_loss_sum_1.items():
+                lod_d[f"eval1 loss/ {k}"] = v
+            for k, v in eval_loss_sum_2.items():
+                lod_d[f"eval2 loss/ {k}"] = v
             experiment.log(lod_d)
             pbar.set_description(
-                f"train loss: {np.mean(list(train_loss_sum.values())):5.3e}"
+                f"epoch: {epoch}, "
+                f"train1: {np.mean(list(train_loss_sum_1.values())):.4f}, "
+                f"train2: {np.mean(list(train_loss_sum_2.values())):.4f}, "
+                f"eval1: {np.mean(list(eval_loss_sum_1.values())):.4f}, "
+                f"eval2: {np.mean(list(eval_loss_sum_2.values())):.4f}"
             )
 
         if epoch % 10000 == 0:

@@ -29,9 +29,11 @@ def load_to_gpu(dataloader, device):
         # move images and labels to correct device and type
         (
             batch_gpu["input"],
+            batch_gpu["middle"],
             batch_gpu["output"],
         ) = (
             process(batch["input"], device),
+            process(batch["middle"], device),
             process(batch["output"], device),
         )
         dataloader_gpu.append(batch_gpu)
