@@ -115,10 +115,10 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--hdf5",
+        "--only_2",
         type=str2bool,
         default=False,
-        help="Weather to use the hdf5 file. Default is False.",
+        help="Weather to use only the 2nd models. Default is False.",
     )
 
     parser.add_argument(
