@@ -116,8 +116,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
-    print(database_train.input[key].keys())
-    print(database_eval.input[key].keys())
+    # print(database_train.input[key].keys())
+    # print(database_eval.input[key].keys())
 
     train_dict = {}
     ntrain_dict = {}
