@@ -116,6 +116,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
+    print(database_train.input[key].keys())
+    print(database_eval.input[key].keys())
 
     train_dict = {}
     ntrain_dict = {}
@@ -253,16 +255,17 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             pbar.set_description(
                 f"epoch: {epoch}, "
                 f"train1: {np.mean(list(train_loss_sum_1.values())):.4f}, "
-                f"train2: {np.mean(list(train_loss_sum_2.values())):.4f}, "
                 f"eval1: {np.mean(list(eval_loss_sum_1.values())):.4f}, "
+                f"train2: {np.mean(list(train_loss_sum_2.values())):.4f}, "
                 f"eval2: {np.mean(list(eval_loss_sum_2.values())):.4f}"
             )
 
         if epoch % 10000 == 0:
             for key in keys_l:
-                state_dict_ = model_dict[key].state_dict()
-                torch.save(
-                    state_dict_,
-                    dir_checkpoint / f"{key}-{epoch}.pth",
-                )
+                for i_str in ["1", "2"]:
+                    state_dict_ = model_dict[key + i_str].state_dict()
+                    torch.save(
+                        state_dict_,
+                        dir_checkpoint / f"{key}-{i_str}-{epoch}.pth",
+                    )
     pbar.close()
