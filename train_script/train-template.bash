@@ -5,7 +5,7 @@
 #SBATCH -J train-CHECKPOINT-HIDDEN_SIZE
 #SBATCH -o log/%j.log
 #SBATCH --gres=gpu:1
-#SBATCH --exclude=gpu[004-007]
+#SBATCH --exclude=gpu[004-006]
 
 ## user's own commands below
 export OMP_NUM_THREADS=12

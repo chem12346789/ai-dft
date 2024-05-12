@@ -30,30 +30,38 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     else:
         device = torch.device("cpu")
 
-    database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
-    database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
-
-    key_l = []
+    keys_l = []
     model_dict = {}
+
+    for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
+        if i_atom != j_atom:
+            atom_name = f"{i_atom}-{j_atom}"
+            keys_l.append(atom_name)
+        else:
+            atom_name = f"{i_atom}-{i_atom}-D"
+            keys_l.append(atom_name)
+            atom_name = f"{i_atom}-{i_atom}-O"
+            keys_l.append(atom_name)
+
+    for key in keys_l:
+        model_dict[key] = FCNet(
+            NAO[key.split("-")[0]] * NAO[key.split("-")[1]], args.hidden_size, 1
+        ).to(device)
+        model_dict[key].double()
+
+    database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
+    database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
 
     if args.load != "":
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
-        print(f"Load model from {dir_load}")
-        for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
-            atom_name = i_atom + j_atom
-            key_l.append(atom_name)
-
-            model_dict[atom_name] = FCNet(
-                NAO[i_atom] * NAO[j_atom], args.hidden_size, 1
-            ).to(device)
-            model_dict[atom_name].double()
-
-        for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
-            atom_name = i_atom + j_atom
-            list_of_path = dir_load.glob(f"{atom_name}*.pth")
+        for key in keys_l:
+            list_of_path = list(dir_load.glob(f"{key}*.pth"))
+            if len(list_of_path) == 0:
+                print(f"No model found for {key}, use random initialization.")
+                continue
             load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
             state_dict = torch.load(load_path, map_location=device)
-            model_dict[atom_name].load_state_dict(state_dict)
+            model_dict[key].load_state_dict(state_dict)
             print(f"Model loaded from {load_path}")
 
         dice_train = database_train.check(model_dict, if_equilibrium=False)
