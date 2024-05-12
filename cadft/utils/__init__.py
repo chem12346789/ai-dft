@@ -9,6 +9,7 @@ from cadft.utils.run_model import gen_dm1, gen_f_mat
 from cadft.utils.BasicDataset import BasicDataset
 from cadft.utils.DataBase import DataBase
 from cadft.utils.model.fc_net import FCNet
+from cadft.utils.model.transformer import Transformer
 
 from cadft.utils.mass import MASS
 from cadft.utils.mol import Mol

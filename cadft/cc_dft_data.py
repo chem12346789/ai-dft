@@ -93,6 +93,7 @@ class CC_DFT_DATA:
             np.einsum("i,i,i->", exc_dft_grids, rho[0], weights)
             - np.sum(ek_mat_dft) * 0.05
         )
+
         rho = numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
         exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
         exc_cc = (

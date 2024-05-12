@@ -16,7 +16,11 @@ import numpy as np
 import wandb
 
 from cadft.utils import load_to_gpu, NAO
-from cadft.utils import add_args, save_csv_loss, FCNet, DataBase, BasicDataset
+from cadft.utils import add_args, DataBase, BasicDataset
+
+from cadft.utils import FCNet as Model
+
+# from cadft.utils import Transformer as Model
 
 
 def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
@@ -68,10 +72,13 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             keys_l.append(atom_name)
 
     for key in keys_l:
-        model_dict[key] = FCNet(
+        model_dict[key + "1"] = Model(
             NAO[key.split("-")[0]] * NAO[key.split("-")[1]], args.hidden_size, 1
         ).to(device)
-        model_dict[key].double()
+        model_dict[key + "2"] = Model(
+            NAO[key.split("-")[0]] * NAO[key.split("-")[1]], args.hidden_size, 1
+        ).to(device)
+        # model_dict[key].double()
 
     if args.load != "":
         dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
@@ -123,7 +130,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         optimizer_dict[key] = optim.Adam(
             model_dict[key].parameters(),
-            lr=1e-3,
+            lr=1e-4,
         )
         scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
             optimizer_dict[key],
@@ -143,7 +150,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     pbar = trange(1, args.epoch + 1)
     for epoch in pbar:
-        train_loss_sum = []
+        train_loss_sum = {}
         for key in keys_l:
             model_dict[key].train(True)
             train_loss = []
@@ -155,16 +162,17 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     output_mat_real = batch["output"]
                     output_mat = model_dict[key](input_mat)
                     loss = loss_fn(output_mat, output_mat_real)
-                    train_loss.append(loss.item() * input_mat.shape[0])
                     loss.backward()
+                    train_loss.append(
+                        loss.item() * input_mat.shape[0] / ntrain_dict[key]
+                    )
                     optimizer_dict[key].step()
 
             scheduler_dict[key].step()
-            train_loss_sum.append(np.sum(train_loss) / ntrain_dict[key])
+            train_loss_sum[key] = np.sum(train_loss)
 
         if epoch % args.eval_step == 0:
-            pbar.set_description(f"train loss: {np.mean(train_loss_sum):5.3e}")
-            eval_loss_sum = []
+            eval_loss_sum = {}
             for key in keys_l:
                 eval_loss = []
                 model_dict[key].eval()
@@ -177,24 +185,26 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                         eval_loss.append(
                             loss_fn(output_mat, output_mat_real).item()
                             * input_mat.shape[0]
+                            / neval_dict[key]
                         )
 
-                experiment.log(
-                    {f"eval loss {key}": np.sum(eval_loss) / neval_dict[key]}
-                )
-                eval_loss_sum.append(np.mean(eval_loss) / neval_dict[key])
+                experiment.log({f"eval loss {key}": np.sum(eval_loss)})
+                eval_loss_sum[key] = np.sum(eval_loss)
 
             lod_d = {
                 "epoch": epoch,
                 "global_step": epoch,
-                "mean train loss": np.mean(train_loss_sum),
-                "mean eval loss": np.mean(eval_loss_sum),
+                "mean train loss": np.mean(list(train_loss_sum.values())),
+                "mean eval loss": np.mean(list(eval_loss_sum.values())),
             }
-            for k, v in ntrain_dict.items():
+            for k, v in train_loss_sum.items():
                 lod_d[f"train loss/{k}"] = v
-            for k, v in neval_dict.items():
+            for k, v in eval_loss_sum.items():
                 lod_d[f"eval loss/{k}"] = v
             experiment.log(lod_d)
+            pbar.set_description(
+                f"train loss: {np.mean(list(train_loss_sum.values())):5.3e}"
+            )
 
         if epoch % 10000 == 0:
             for key in keys_l:
