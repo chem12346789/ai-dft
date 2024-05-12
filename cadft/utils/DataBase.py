@@ -118,6 +118,7 @@ class DataBase:
         Check the input data, if model_list is not none, check loss of the model.
         """
         ene_loss = []
+        rho_loss = []
         name_train = []
         for (
             name_mol,
@@ -182,19 +183,37 @@ class DataBase:
                         dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                     ].copy()
                 else:
-                    input_mat = (
-                        torch.as_tensor(input_mat.copy())
-                        .to(torch.float64)
-                        .contiguous()
-                        .to(device=self.device)
-                    )
-                    middle_mat = model_list[key + "1"](input_mat)
-                    output_mat = model_list[key + "2"](middle_mat)
-                    middle_mat = middle_mat.detach().cpu().numpy()
-                    output_mat = output_mat.detach().cpu().numpy()
-                    dm1_middle[
-                        dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-                    ] = middle_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
+                    if self.args.only_2:
+                        input_mat = (
+                            torch.as_tensor(input_mat.copy())
+                            .to(torch.float64)
+                            .contiguous()
+                            .to(device=self.device)
+                        )
+                        middle_mat = model_list[key + "1"](input_mat)
+                        output_mat = model_list[key + "2"](middle_mat)
+                        middle_mat = middle_mat.detach().cpu().numpy()
+                        output_mat = output_mat.detach().cpu().numpy()
+                        dm1_middle[
+                            dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                        ] = middle_mat.reshape(
+                            NAO[molecular[i][0]], NAO[molecular[j][0]]
+                        )
+                    else:
+                        dm1_middle[
+                            dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                        ] = dm1_middle_real[
+                            dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+                        ].copy()
+                        middle_mat = (
+                            torch.as_tensor(middle_real.copy())
+                            .to(torch.float64)
+                            .contiguous()
+                            .to(device=self.device)
+                        )
+                        output_mat = model_list[key + "2"](middle_mat)
+                        output_mat = output_mat.detach().cpu().numpy()
+
                 exc += output_mat[0]
 
             mdft = pyscf.scf.RKS(dft2cc.mol)
@@ -224,16 +243,21 @@ class DataBase:
                 if ene_loss_i > 1e-3:
                     print("")
                     print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
-                rho_error = 0
+                rho_loss_i = 0
             else:
                 ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
-                rho_real = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle_real)
-                rho_error = np.einsum("i,i->", np.abs(rho[0] - rho_real), weights)
-            print(f"    ene_loss: {ene_loss_i:7.4f}", end="")
+
+                rho_real = dft.numint.eval_rho(dft2cc.mol, ao_value[0], dm1_middle_real)
+                rho_loss_i = np.einsum("i,i->", np.abs(rho[0] - rho_real), weights)
+            print(
+                f"    ene_loss: {ene_loss_i:7.4f} rho_loss:  {rho_loss_i:7.4f}",
+                end="",
+            )
             ene_loss.append(ene_loss_i)
+            rho_loss.append(rho_loss_i)
 
         return (
             ene_loss,
-            rho_error,
+            rho_loss,
             name_train,
         )

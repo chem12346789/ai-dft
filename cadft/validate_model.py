@@ -6,7 +6,17 @@ from itertools import product
 import torch
 
 from cadft.utils import NAO
-from cadft.utils import add_args, save_csv_loss, FCNet, DataBase
+from cadft.utils import (
+    add_args,
+    gen_keys_l,
+    gen_model_dict,
+    load_model,
+)
+from cadft.utils import add_args, save_csv_loss, DataBase
+
+from cadft.utils import FCNet as Model
+
+# from cadft.utils import Transformer as Model
 
 
 def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
@@ -30,40 +40,14 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     else:
         device = torch.device("cpu")
 
-    keys_l = []
-    model_dict = {}
-
-    for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
-        if i_atom != j_atom:
-            atom_name = f"{i_atom}-{j_atom}"
-            keys_l.append(atom_name)
-        else:
-            atom_name = f"{i_atom}-{i_atom}-D"
-            keys_l.append(atom_name)
-            atom_name = f"{i_atom}-{i_atom}-O"
-            keys_l.append(atom_name)
-
-    for key in keys_l:
-        model_dict[key] = FCNet(
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]], args.hidden_size, 1
-        ).to(device)
-        model_dict[key].double()
+    keys_l = gen_keys_l(ATOM_LIST)
+    model_dict = gen_model_dict(keys_l, args, device)
 
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
 
     if args.load != "":
-        dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
-        for key in keys_l:
-            list_of_path = list(dir_load.glob(f"{key}*.pth"))
-            if len(list_of_path) == 0:
-                print(f"No model found for {key}, use random initialization.")
-                continue
-            load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
-            state_dict = torch.load(load_path, map_location=device)
-            model_dict[key].load_state_dict(state_dict)
-            print(f"Model loaded from {load_path}")
-
+        load_model(model_dict, keys_l, args, device)
         dice_train = database_train.check(model_dict, if_equilibrium=False)
         dice_eval = database_eval.check(model_dict, if_equilibrium=False)
     else:

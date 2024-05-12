@@ -15,12 +15,14 @@ import torch.nn as nn
 import numpy as np
 import wandb
 
-from cadft.utils import load_to_gpu, NAO
-from cadft.utils import add_args, DataBase, BasicDataset
-
-from cadft.utils import FCNet as Model
-
-# from cadft.utils import Transformer as Model
+from cadft.utils import (
+    add_args,
+    load_to_gpu,
+    gen_keys_l,
+    gen_model_dict,
+    load_model,
+)
+from cadft.utils import DataBase, BasicDataset
 
 
 def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
@@ -53,31 +55,14 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     dir_checkpoint.mkdir(parents=True, exist_ok=True)
     (dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
-    keys_l = []
-    # keys: 1st and 2nd words are atom names, 3rd is if diagonal (H-H-O or H-H-D)
-    for i_atom, j_atom in product(ATOM_LIST, ATOM_LIST):
-        if i_atom != j_atom:
-            atom_name = f"{i_atom}-{j_atom}"
-            keys_l.append(atom_name)
-        else:
-            atom_name = f"{i_atom}-{i_atom}-D"
-            keys_l.append(atom_name)
-            atom_name = f"{i_atom}-{i_atom}-O"
-            keys_l.append(atom_name)
-
-    model_dict = {}
-    optimizer_dict = {}
-    scheduler_dict = {}
+    keys_l = gen_keys_l(ATOM_LIST)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model_dict = gen_model_dict(keys_l, args, device)
 
+    optimizer_dict = {}
+    scheduler_dict = {}
     for key in keys_l:
-        model_dict[key + "1"] = Model(
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
-            args.hidden_size,
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
-        ).to(device)
-        model_dict[key + "1"].double()
         optimizer_dict[key + "1"] = optim.Adam(
             model_dict[key + "1"].parameters(),
             lr=1e-4,
@@ -87,12 +72,6 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             gamma=1 - 1e-4,
         )
 
-        model_dict[key + "2"] = Model(
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
-            args.hidden_size,
-            1,
-        ).to(device)
-        model_dict[key + "2"].double()
         optimizer_dict[key + "2"] = optim.Adam(
             model_dict[key + "2"].parameters(),
             lr=1e-4,
@@ -101,23 +80,10 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             optimizer_dict[key + "2"],
             gamma=1 - 1e-4,
         )
-
-    if args.load != "":
-        dir_load = Path(f"./checkpoint-{args.load}-{args.hidden_size}/")
-        for key in keys_l:
-            list_of_path = list(dir_load.glob(f"{key}*.pth"))
-            if len(list_of_path) == 0:
-                print(f"No model found for {key}, use random initialization.")
-                continue
-            load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
-            state_dict = torch.load(load_path, map_location=device)
-            model_dict[key].load_state_dict(state_dict)
-            print(f"Model loaded from {load_path}")
+    load_model(model_dict, keys_l, args, device)
 
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
-    # print(database_train.input[key].keys())
-    # print(database_eval.input[key].keys())
 
     train_dict = {}
     ntrain_dict = {}
@@ -243,6 +209,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                 "mean eval1 loss": np.mean(list(eval_loss_sum_1.values())),
                 "mean eval2 loss": np.mean(list(eval_loss_sum_2.values())),
             }
+
             for k, v in train_loss_sum_1.items():
                 lod_d[f"train1 loss/ {k}"] = v
             for k, v in train_loss_sum_2.items():
@@ -251,7 +218,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                 lod_d[f"eval1 loss/ {k}"] = v
             for k, v in eval_loss_sum_2.items():
                 lod_d[f"eval2 loss/ {k}"] = v
+
             experiment.log(lod_d)
+
             pbar.set_description(
                 f"epoch: {epoch}, "
                 f"train1: {np.mean(list(train_loss_sum_1.values())):.4f}, "
