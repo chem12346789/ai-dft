@@ -3,8 +3,7 @@ from itertools import product
 
 import numpy as np
 import pyscf
-from pyscf import gto, dft, lib
-from pyscf.dft import numint
+from pyscf import dft
 
 from cadft.utils import gen_basis
 from cadft.utils import rotate
@@ -67,7 +66,7 @@ class CC_DFT_DATA:
         e_dft = mdft.e_tot
         coords = mdft.grids.coords
         weights = mdft.grids.weights
-        ao_value = numint.eval_ao(self.mol, coords, deriv=1)
+        ao_value = dft.numint.eval_ao(self.mol, coords, deriv=1)
         ej_mat_dft = np.einsum("pqrs,pq,rs->rs", eri, dm1_dft, dm1_dft)
         ek_mat_dft = np.einsum("pqrs,pr,qs->qs", eri, dm1_dft, dm1_dft)
 
@@ -87,14 +86,14 @@ class CC_DFT_DATA:
         delta_exc_cc = np.zeros((self.mol.natm, self.mol.natm))
         ene_cc_dft_diff = np.zeros((self.mol.natm, self.mol.natm))
 
-        rho = numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
+        rho = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
         exc_dft_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
         exc_dft = (
             np.einsum("i,i,i->", exc_dft_grids, rho[0], weights)
             - np.sum(ek_mat_dft) * 0.05
         )
 
-        rho = numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
+        rho = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
         exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
         exc_cc = (
             np.einsum("i,i,i->", exc_cc_grids, rho[0], weights)
@@ -105,7 +104,7 @@ class CC_DFT_DATA:
             dft_mat = dm1_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]]
             new_dm_dft = np.zeros_like(dm1_dft)
             new_dm_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]] = dft_mat
-            rho = numint.eval_rho(self.mol, ao_value[0], new_dm_dft)
+            rho = dft.numint.eval_rho(self.mol, ao_value[0], new_dm_dft)
             exc_mat_atom_dft[i, j] = (
                 np.einsum("i,i,i->", exc_dft_grids, rho, weights)
                 - np.sum(
@@ -117,7 +116,7 @@ class CC_DFT_DATA:
             cc_mat = dm1_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]]
             new_dm_cc = np.zeros_like(dm1_cc)
             new_dm_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]] = cc_mat
-            rho = numint.eval_rho(self.mol, ao_value[0], new_dm_cc)
+            rho = dft.numint.eval_rho(self.mol, ao_value[0], new_dm_cc)
             delta_exc_cc[i, j] = np.sum(
                 exc_mat[self.atom_info["slice"][i], self.atom_info["slice"][j]]
             )
