@@ -229,7 +229,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                 f"eval2: {np.mean(list(eval_loss_sum_2.values())):.4f}"
             )
 
-        if epoch % 10000 == 0:
+        if epoch % 5000 == 0:
             for key in keys_l:
                 for i_str in ["1", "2"]:
                     state_dict_ = model_dict[key + i_str].state_dict()
