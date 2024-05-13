@@ -183,7 +183,7 @@ class DataBase:
                         dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
                     ].copy()
                 else:
-                    if self.args.only_2:
+                    if not self.args.only_2:
                         input_mat = (
                             torch.as_tensor(input_mat.copy())
                             .to(torch.float64)
