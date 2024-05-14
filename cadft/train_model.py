@@ -48,7 +48,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     wandb.define_metric("*", step_metric="global_step")
 
     today = datetime.datetime.today()
-    dir_checkpoint = Path(f"./checkpoint-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/")
+    dir_checkpoint = Path(
+        f"checkpoints/checkpoint-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
+    )
     print(
         f"Start training at {today:%Y-%m-%d-%H-%M-%S} with hidden size as {args.hidden_size}"
     )

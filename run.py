@@ -43,7 +43,7 @@ mdft.xc = "b3lyp"
 mdft.kernel()
 dm1_dft = mdft.make_rdm1(ao_repr=True)
 
-dir_checkpoint = Path("./checkpoint-2024-05-08-21-00-34-400/")
+dir_checkpoint = Path("checkpoints/checkpoint-2024-05-08-21-00-34-400/")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

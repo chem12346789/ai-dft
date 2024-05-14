@@ -29,7 +29,9 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     args = add_args(parser)
 
     today = datetime.datetime.today()
-    dir_validate = Path(f"./validate-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/")
+    dir_validate = Path(
+        f"validate/validate-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
+    )
     print(
         f"Start training at {today:%Y-%m-%d-%H-%M-%S} with hidden size as {args.hidden_size}"
     )
@@ -46,13 +48,18 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
 
-    if args.load != "":
-        load_model(model_dict, keys_l, args, device)
-        dice_train = database_train.check(model_dict, if_equilibrium=False)
-        dice_eval = database_eval.check(model_dict, if_equilibrium=False)
-    else:
-        dice_train = database_train.check(if_equilibrium=False)
-        dice_eval = database_eval.check(if_equilibrium=False)
+    # if args.load != "":
+    #     load_model(model_dict, keys_l, args, device)
+    #     ai_train = database_train.check(model_dict, if_equilibrium=False)
+    #     ai_eval = database_eval.check(model_dict, if_equilibrium=False)
+    # else:
+    #     ai_train = database_train.check(if_equilibrium=False)
+    #     ai_eval = database_eval.check(if_equilibrium=False)
 
-    save_csv_loss(dice_train, dir_validate / "train.csv")
-    save_csv_loss(dice_eval, dir_validate / "eval.csv")
+    # save_csv_loss(ai_train, dir_validate / "train.csv")
+    # save_csv_loss(ai_eval, dir_validate / "eval.csv")
+
+    dft_train = database_train.check_dft(if_equilibrium=False)
+    dft_eval = database_eval.check_dft(if_equilibrium=False)
+    save_csv_loss(dft_train, dir_validate / "train_dft.csv")
+    save_csv_loss(dft_eval, dir_validate / "eval_dft.csv")
