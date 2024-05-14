@@ -27,9 +27,9 @@ TRAIN_STR_DICT = [
 ]
 EVAL_STR_DICT = [
     "Pentane",
-    # "Isopentane",
-    # "Neopentane",
-    # "Cyclopentane",
+    "Isopentane",
+    "Neopentane",
+    "Cyclopentane",
 ]
 
 train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT)
