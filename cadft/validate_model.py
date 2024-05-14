@@ -48,18 +48,18 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
 
-    # if args.load != "":
-    #     load_model(model_dict, keys_l, args, device)
-    #     ai_train = database_train.check(model_dict, if_equilibrium=False)
-    #     ai_eval = database_eval.check(model_dict, if_equilibrium=False)
-    # else:
-    #     ai_train = database_train.check(if_equilibrium=False)
-    #     ai_eval = database_eval.check(if_equilibrium=False)
+    if args.load != "":
+        load_model(model_dict, keys_l, args, device)
+        ai_train = database_train.check(model_dict, if_equilibrium=False)
+        ai_eval = database_eval.check(model_dict, if_equilibrium=False)
+    else:
+        ai_train = database_train.check(if_equilibrium=False)
+        ai_eval = database_eval.check(if_equilibrium=False)
 
-    # save_csv_loss(ai_train, dir_validate / "train.csv")
-    # save_csv_loss(ai_eval, dir_validate / "eval.csv")
+    save_csv_loss(ai_train, dir_validate / "train.csv")
+    save_csv_loss(ai_eval, dir_validate / "eval.csv")
 
-    dft_train = database_train.check_dft(if_equilibrium=False)
-    dft_eval = database_eval.check_dft(if_equilibrium=False)
-    save_csv_loss(dft_train, dir_validate / "train_dft.csv")
-    save_csv_loss(dft_eval, dir_validate / "eval_dft.csv")
+    # dft_train = database_train.check_dft(if_equilibrium=False)
+    # dft_eval = database_eval.check_dft(if_equilibrium=False)
+    # save_csv_loss(dft_train, dir_validate / "train_dft.csv")
+    # save_csv_loss(dft_eval, dir_validate / "eval_dft.csv")
