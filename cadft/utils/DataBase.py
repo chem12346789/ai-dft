@@ -226,7 +226,7 @@ class DataBase:
                     model_list[key + "2"].eval()
                     with torch.no_grad():
                         middle_mat = model_list[key + "1"](input_mat)
-                        output_mat = model_list[key + "2"](middle_mat)
+                        output_mat = model_list[key + "2"](input_mat)
                     middle_mat = middle_mat.detach().cpu().numpy()
                     output_mat = output_mat.detach().cpu().numpy()
                     dm1_middle[
@@ -252,35 +252,40 @@ class DataBase:
         mdft = pyscf.scf.RKS(dft2cc.mol)
         mdft.xc = "b3lyp"
         mdft.grids.kernel()
-        eri = dft2cc.mol.intor("int2e")
-        h1e = dft2cc.mol.intor("int1e_nuc") + dft2cc.mol.intor("int1e_kin")
         coords = mdft.grids.coords
         weights = mdft.grids.weights
         ao_value = dft.numint.eval_ao(dft2cc.mol, coords, deriv=1)
 
-        ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_middle, dm1_middle)
         rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle, xctype="GGA")
-        exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
-        exc_cc = (
-            np.einsum("i,i,i->", exc_cc_grids, rho[0], weights)
-            - np.sum(ek_mat_cc) * 0.05
-        )
-        e_dft = (
-            exc_cc
-            + np.einsum("pqrs,pq,rs", eri, dm1_middle, dm1_middle) / 2
-            + np.sum(h1e * dm1_middle)
-            + dft2cc.mol.energy_nuc()
-        )
+        # exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
+
+        # eri = dft2cc.mol.intor("int2e")
+        # h1e = dft2cc.mol.intor("int1e_nuc") + dft2cc.mol.intor("int1e_kin")
+        # ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_middle, dm1_middle)
+        # exc_cc = (
+        #     np.einsum("i,i,i->", exc_cc_grids, rho[0], weights)
+        #     - np.sum(ek_mat_cc) * 0.05
+        # )
+        # e_dft = (
+        #     exc_cc
+        #     + np.einsum("pqrs,pq,rs", eri, dm1_middle, dm1_middle) / 2
+        #     + np.sum(h1e * dm1_middle)
+        #     + dft2cc.mol.energy_nuc()
+        # )
 
         if model_list is None:
-            ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
+            ene_loss_i = exc + 1000 * (
+                self.data[name]["e_dft"] - self.data[name]["e_cc"]
+            )
             if ene_loss_i > 1e-3:
                 print("")
                 print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
 
             rho_loss_i = 0
         else:
-            ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
+            ene_loss_i = exc + 1000 * (
+                self.data[name]["e_dft"] - self.data[name]["e_cc"]
+            )
 
             rho_real = dft.numint.eval_rho(dft2cc.mol, ao_value[0], dm1_middle_real)
             rho_loss_i = np.einsum("i,i->", np.abs(rho[0] - rho_real), weights)
