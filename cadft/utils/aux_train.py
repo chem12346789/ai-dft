@@ -52,7 +52,7 @@ def gen_model_dict(keys_l, args, device):
         model_dict[key + "1"].double()
 
         model_dict[key + "2"] = Model(
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
+            2 * NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
             args.hidden_size,
             1,
         ).to(device)
