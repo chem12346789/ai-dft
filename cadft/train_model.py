@@ -124,6 +124,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     update_d = {
         "batch_size": args.batch_size,
+        "n_train": np.min(list(ntrain_dict.values())),
+        "n_val": np.min(list(ntrain_dict.values())),
     }
     for k, v in ntrain_dict.items():
         update_d[f"n_train_{k}"] = v
