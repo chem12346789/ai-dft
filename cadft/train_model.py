@@ -152,13 +152,13 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     input_mat = batch["input"]
                     middle_mat_real = batch["middle"]
 
-                    # middle_mat = model_dict[key + "1"](input_mat)
-                    # loss_1 = loss_fn(middle_mat, middle_mat_real)
-                    # loss_1.backward()
-                    # train_loss_1.append(
-                    #     loss_1.item() * input_mat.shape[0] / ntrain_dict[key]
-                    # )
-                    # optimizer_dict[key + "1"].step()
+                    middle_mat = model_dict[key + "1"](input_mat)
+                    loss_1 = loss_fn(middle_mat, middle_mat_real)
+                    loss_1.backward()
+                    train_loss_1.append(
+                        loss_1.item() * input_mat.shape[0] / ntrain_dict[key]
+                    )
+                    optimizer_dict[key + "1"].step()
 
                     output_mat_real = batch["output"]
                     output_mat = model_dict[key + "2"](input_mat)
@@ -188,12 +188,12 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     middle_mat_real = batch["middle"]
                     output_mat_real = batch["output"]
                     with torch.no_grad():
-                        # middle_mat = model_dict[key + "1"](input_mat)
-                        # eval_loss_1.append(
-                        #     loss_fn(middle_mat, middle_mat_real).item()
-                        #     * input_mat.shape[0]
-                        #     / neval_dict[key]
-                        # )
+                        middle_mat = model_dict[key + "1"](input_mat)
+                        eval_loss_1.append(
+                            loss_fn(middle_mat, middle_mat_real).item()
+                            * input_mat.shape[0]
+                            / neval_dict[key]
+                        )
 
                         output_mat = model_dict[key + "2"](input_mat)
                         eval_loss_2.append(
