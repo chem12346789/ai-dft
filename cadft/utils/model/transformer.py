@@ -9,13 +9,13 @@ class Transformer(torch.nn.Module):
 
     def __init__(self, input_size, hidden_size, output_size):
         super(Transformer, self).__init__()
-        head_list = list(primefac.primefac(input_size))
-        nhead = head_list[0]
-        if nhead < 4:
-            nhead = head_list[0] * head_list[1]
+        # head_list = list(primefac.primefac(input_size))
+        # nhead = head_list[0]
+        # if nhead < 4:
+        #     nhead = head_list[0] * head_list[1]
 
         encoder_layer = torch.nn.TransformerEncoderLayer(
-            d_model=input_size, nhead=nhead, batch_first=True
+            d_model=input_size, nhead=1, batch_first=True
         )
         self.transformer_encoder = torch.nn.TransformerEncoder(
             encoder_layer, num_layers=3

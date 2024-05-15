@@ -87,7 +87,8 @@ class DataBase:
         e_cc = np.load(self.dir_weight / f"e_ccsd_{name}.npy")
         e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
         energy_nuc = np.load(self.dir_weight / f"energy_nuc_{name}.npy")
-        cc_dft_diff = np.load(self.dir_output / f"output_delta_exc_cc_{name}.npy")
+        # delta_exc_cc = np.load(self.dir_output / f"output_delta_exc_cc_{name}.npy")
+        cc_dft_diff = np.load(self.dir_output / f"output_cc_dft_diff_{name}.npy")
 
         self.data[name] = {
             "e_cc": e_cc,
