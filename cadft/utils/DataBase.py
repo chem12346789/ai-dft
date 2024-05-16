@@ -87,8 +87,14 @@ class DataBase:
         e_cc = np.load(self.dir_weight / f"e_ccsd_{name}.npy")
         e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
         energy_nuc = np.load(self.dir_weight / f"energy_nuc_{name}.npy")
-        # delta_exc_cc = np.load(self.dir_output / f"output_delta_exc_cc_{name}.npy")
-        cc_dft_diff = np.load(self.dir_output / f"output_cc_dft_diff_{name}.npy")
+        aoslice_by_atom = np.load(self.dir_weight / f"aoslice_by_atom_{name}.npy")
+
+        input_mat = np.load(self.dir_input / f"input_dft_{name}.npy")
+        middle_mat = np.load(self.dir_input / f"input_cc_{name}.npy")
+        # output_mat = np.load(
+        #     self.dir_output / f"output_delta_exc_cc_{name}_{i}_{j}.npy"
+        # )
+        output_mat = np.load(self.dir_output / f"output_cc_dft_diff_{name}.npy")
 
         self.data[name] = {
             "e_cc": e_cc,
@@ -100,6 +106,9 @@ class DataBase:
         natom = len(molecular)
 
         for i, j in product(range(natom), range(natom)):
+            slice_i = slice(aoslice_by_atom[i][0], aoslice_by_atom[i][1])
+            slice_j = slice(aoslice_by_atom[j][0], aoslice_by_atom[j][1])
+            slice_ = (slice_i, slice_j)
             if molecular[i][0] != molecular[j][0]:
                 key = f"{molecular[i][0]}-{molecular[j][0]}"
             else:
@@ -108,17 +117,9 @@ class DataBase:
                 else:
                     key = f"{molecular[i][0]}-{molecular[j][0]}-O"
 
-            input_mat = np.load(
-                self.dir_input / f"input_dft_{name}_{i}_{j}.npy"
-            ).flatten()
-            middle_mat = np.load(
-                self.dir_input / f"input_cc_{name}_{i}_{j}.npy"
-            ).flatten()
-            output_mat = cc_dft_diff[i, j] * 1000
-
-            self.input[key][f"{name}_{i}_{j}"] = input_mat
-            self.middle[key][f"{name}_{i}_{j}"] = middle_mat
-            self.output[key][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
+            self.input[key][f"{name}_{i}_{j}"] = input_mat[slice_]
+            self.middle[key][f"{name}_{i}_{j}"] = middle_mat[slice_]
+            self.output[key][f"{name}_{i}_{j}"] = output_mat[slice_] * 1000
 
     def check(self, model_list=None, if_equilibrium=True):
         """
@@ -249,7 +250,7 @@ class DataBase:
                     output_mat = model_list[key + "2"](middle_mat)
                     output_mat = output_mat.detach().cpu().numpy()
 
-            exc += output_mat[0]
+            exc += np.sum(output_mat)
 
         mdft = pyscf.scf.RKS(dft2cc.mol)
         mdft.xc = "b3lyp"
@@ -259,21 +260,6 @@ class DataBase:
         ao_value = dft.numint.eval_ao(dft2cc.mol, coords, deriv=1)
 
         rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle, xctype="GGA")
-        # exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
-
-        # eri = dft2cc.mol.intor("int2e")
-        # h1e = dft2cc.mol.intor("int1e_nuc") + dft2cc.mol.intor("int1e_kin")
-        # ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_middle, dm1_middle)
-        # exc_cc = (
-        #     np.einsum("i,i,i->", exc_cc_grids, rho[0], weights)
-        #     - np.sum(ek_mat_cc) * 0.05
-        # )
-        # e_dft = (
-        #     exc_cc
-        #     + np.einsum("pqrs,pq,rs", eri, dm1_middle, dm1_middle) / 2
-        #     + np.sum(h1e * dm1_middle)
-        #     + dft2cc.mol.energy_nuc()
-        # )
 
         if model_list is None:
             ene_loss_i = exc + 1000 * (
