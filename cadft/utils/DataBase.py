@@ -11,6 +11,7 @@ from cadft.utils.logger import gen_logger
 from cadft.utils.nao import NAO
 from cadft.utils.mol import Mol
 from cadft.utils.aux_function import sign_sqrt, sign_square
+from cadft.utils.aux_function_torch import sign_square as sign_square_torch
 import cadft
 
 
@@ -189,7 +190,7 @@ class DataBase:
         Check the input data, if model_list is not none, check loss of the model.
         """
         name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-        print(f"\rCheck {name:>30}", end="")
+        print(f"\rCheck {name:>20}", end="")
 
         molecular = copy.deepcopy(Mol[name_mol])
         molecular[extend_atom][extend_xyz] += distance
@@ -204,6 +205,7 @@ class DataBase:
         dm1_middle_real = np.zeros((dft2cc.mol.nao, dft2cc.mol.nao))
         exc = 0
         exc_real = 0
+        delta_exc = 0
 
         for i, j in product(range(dft2cc.mol.natm), range(dft2cc.mol.natm)):
             if molecular[i][0] != molecular[j][0]:
@@ -218,6 +220,13 @@ class DataBase:
             middle_real = self.middle[key][f"{name}_{i}_{j}"]
             output_real = self.output[key][f"{name}_{i}_{j}"]
 
+            dm1_middle_real[
+                dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
+            ] = (sign_square(middle_real) + input_mat).reshape(
+                NAO[molecular[i][0]], NAO[molecular[j][0]]
+            )
+            exc_real += output_real.copy()[0]
+
             if not (model_list is None):
                 input_mat = (
                     torch.as_tensor(input_mat.copy())
@@ -229,7 +238,7 @@ class DataBase:
                 model_list[key + "2"].eval()
                 with torch.no_grad():
                     middle_mat = model_list[key + "1"](input_mat)
-                    middle_mat = sign_square(middle_mat)
+                    middle_mat = sign_square_torch(middle_mat)
                     middle_mat += input_mat
                     output_mat = model_list[key + "2"](middle_mat)
 
@@ -241,17 +250,11 @@ class DataBase:
                 middle_mat += input_mat
                 output_mat = output_real.copy()
 
-            dm1_middle_real[
-                dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-            ] = (sign_square(middle_real) + input_mat).reshape(
-                NAO[molecular[i][0]], NAO[molecular[j][0]]
-            )
-
             dm1_middle[dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]] = (
                 middle_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
             )
             exc += output_mat[0]
-            exc_real += output_real.copy()[0]
+            delta_exc += np.abs(output_mat[0] - output_real.copy()[0])
 
         mdft = pyscf.scf.RKS(dft2cc.mol)
         mdft.xc = "b3lyp"
@@ -329,7 +332,7 @@ class DataBase:
             rho_loss_i = np.einsum("i,i->", np.abs(rho[0] - rho_real), weights)
 
         print(
-            f"    ene_loss: {ene_loss_i:7.4f}, rho_loss: {rho_loss_i:7.4f}, ene_loss_i_1: {ene_loss_i_1:7.4f}, ene_loss_i_2: {ene_loss_i_2:7.4f}.",
+            f"    ene_loss: {ene_loss_i:7.4f}, {ene_loss_i_1:7.4f}, {ene_loss_i_2:7.4f}, {delta_exc:7.4f}, rho_loss: {rho_loss_i:7.4f}.",
             end="",
         )
 
