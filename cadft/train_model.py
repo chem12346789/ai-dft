@@ -2,18 +2,17 @@
 
 import argparse
 from pathlib import Path
-import copy
 import datetime
-from itertools import product
 
 from tqdm import trange
+import wandb
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.nn as nn
 
-import numpy as np
-import wandb
+from cadft.utils.aux_function_torch import sign_square
 
 from cadft.utils import (
     add_args,
@@ -162,7 +161,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     optimizer_dict[key + "1"].step()
 
                     output_mat_real = batch["output"]
-                    output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
+                    output_mat = model_dict[key + "2"](
+                        input_mat + sign_square(middle_mat_real)
+                    )
                     loss_2 = loss_fn(output_mat, output_mat_real)
                     loss_2.backward()
                     train_loss_2.append(
@@ -196,7 +197,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                             / neval_dict[key]
                         )
 
-                        output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
+                        output_mat = model_dict[key + "2"](
+                            input_mat + sign_square(middle_mat_real)
+                        )
                         eval_loss_2.append(
                             loss_fn(output_mat, output_mat_real).item()
                             * input_mat.shape[0]

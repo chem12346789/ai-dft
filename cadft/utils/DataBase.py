@@ -10,6 +10,7 @@ import numpy as np
 from cadft.utils.logger import gen_logger
 from cadft.utils.nao import NAO
 from cadft.utils.mol import Mol
+from cadft.utils.aux_function import sign_sqrt, sign_square
 import cadft
 
 
@@ -114,10 +115,12 @@ class DataBase:
             middle_mat = np.load(
                 self.dir_input / f"input_cc_{name}_{i}_{j}.npy"
             ).flatten()
+            middle_mat -= input_mat
+            middle_mat = sign_sqrt(middle_mat)
             output_mat = delta_exc_cc[i, j] * 1000
 
             self.input[key][f"{name}_{i}_{j}"] = input_mat
-            self.middle[key][f"{name}_{i}_{j}"] = middle_mat - input_mat
+            self.middle[key][f"{name}_{i}_{j}"] = middle_mat
             self.output[key][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
 
     def check(self, model_list=None, if_equilibrium=True):
@@ -226,6 +229,7 @@ class DataBase:
                 model_list[key + "2"].eval()
                 with torch.no_grad():
                     middle_mat = model_list[key + "1"](input_mat)
+                    middle_mat = sign_square(middle_mat)
                     middle_mat += input_mat
                     output_mat = model_list[key + "2"](middle_mat)
 
@@ -233,12 +237,13 @@ class DataBase:
                 output_mat = output_mat.detach().cpu().numpy()
             else:
                 middle_mat = middle_real.copy()
+                middle_mat = sign_square(middle_mat)
                 middle_mat += input_mat
                 output_mat = output_real.copy()
 
             dm1_middle_real[
                 dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-            ] = (middle_real + input_mat).reshape(
+            ] = (sign_square(middle_real) + input_mat).reshape(
                 NAO[molecular[i][0]], NAO[molecular[j][0]]
             )
 
@@ -343,9 +348,7 @@ class DataBase:
                 name = f"{name_mol}_{0}_{1}_{0:.4f}"
                 self.load_data(name_mol, name)
 
-                ene_loss_i, rho_loss_i, name = self.check_dft_iter(
-                    name_mol, 0, 1, 0, model_list
-                )
+                ene_loss_i, rho_loss_i, name = self.check_dft_iter(name_mol, 0, 1, 0)
 
                 ene_loss.append(ene_loss_i)
                 rho_loss.append(rho_loss_i)
@@ -379,7 +382,6 @@ class DataBase:
                 extend_atom,
                 extend_xyz,
                 distance,
-                model_list,
             )
 
             ene_loss.append(ene_loss_i)
@@ -394,7 +396,6 @@ class DataBase:
         extend_atom,
         extend_xyz,
         distance,
-        model_list=None,
     ):
         """
         Check the input data, if model_list is not none, check loss of the model.
