@@ -226,7 +226,9 @@ class DataBase:
                     model_list[key + "2"].eval()
                     with torch.no_grad():
                         middle_mat = model_list[key + "1"](input_mat)
-                        output_mat = model_list[key + "2"](input_mat)
+                        output_mat = model_list[key + "2"](
+                            torch.cat((input_mat, middle_mat), dim=-1)
+                        )
                     middle_mat = middle_mat.detach().cpu().numpy()
                     output_mat = output_mat.detach().cpu().numpy()
                     dm1_middle[
