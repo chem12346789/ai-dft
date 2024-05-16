@@ -128,6 +128,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         "n_val": np.min(list(neval_dict.values())),
     }
 
+    print(f"n_train: {ntrain_dict}, n_val: {neval_dict}")
+
     for k, v in ntrain_dict.items():
         update_d[f"n_train_{k}"] = v
     for k, v in neval_dict.items():
@@ -136,7 +138,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     loss_fn = nn.L1Loss()
 
-    pbar = trange(1, args.epoch + 1)
+    pbar = trange(0, args.epoch)
     for epoch in pbar:
         train_loss_sum_1 = {}
         train_loss_sum_2 = {}
@@ -162,9 +164,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     optimizer_dict[key + "1"].step()
 
                     output_mat_real = batch["output"]
-                    output_mat = model_dict[key + "2"](
-                        torch.cat((input_mat, middle_mat_real), dim=-1)
-                    )
+                    output_mat = model_dict[key + "2"](input_mat)
                     loss_2 = loss_fn(output_mat, output_mat_real)
                     loss_2.backward()
                     train_loss_2.append(
@@ -198,9 +198,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                             / neval_dict[key]
                         )
 
-                        output_mat = model_dict[key + "2"](
-                            torch.cat((input_mat, middle_mat_real), dim=-1)
-                        )
+                        output_mat = model_dict[key + "2"](input_mat)
                         eval_loss_2.append(
                             loss_fn(output_mat, output_mat_real).item()
                             * input_mat.shape[0]

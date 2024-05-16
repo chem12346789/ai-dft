@@ -73,17 +73,6 @@ class CC_DFT_DATA:
         ej_mat_dft = np.einsum("pqrs,pq,rs->rs", eri, dm1_dft, dm1_dft)
         ek_mat_dft = np.einsum("pqrs,pr,qs->qs", eri, dm1_dft, dm1_dft)
 
-        np.save(Path("data") / "weight" / f"e_ccsd_{self.name}.npy", e_cc)
-        np.save(Path("data") / "weight" / f"e_dft_{self.name}.npy", e_dft)
-        np.save(
-            Path("data") / "weight" / f"energy_nuc_{self.name}.npy",
-            self.mol.energy_nuc(),
-        )
-        np.save(
-            Path("data") / "weight" / f"aoslice_by_atom_{self.name}.npy",
-            self.aoslice_by_atom,
-        )
-
         exc_mat = (
             np.einsum("pqrs,pqrs->rs", eri, dm2_cc)
             - np.einsum("pqrs,pq,rs->rs", eri, dm1_cc, dm1_cc)
@@ -145,11 +134,11 @@ class CC_DFT_DATA:
 
         np.save(
             Path("data") / "input" / f"input_dft_{self.name}.npy",
-            dft_mat,
+            dm1_dft,
         )
         np.save(
             Path("data") / "input" / f"input_cc_{self.name}.npy",
-            cc_mat,
+            dm1_cc,
         )
 
         np.save(
@@ -159,6 +148,17 @@ class CC_DFT_DATA:
         np.save(
             Path("data") / "output" / f"output_delta_exc_cc_{self.name}.npy",
             delta_exc_cc,
+        )
+
+        np.save(Path("data") / "weight" / f"e_ccsd_{self.name}.npy", e_cc)
+        np.save(Path("data") / "weight" / f"e_dft_{self.name}.npy", e_dft)
+        np.save(
+            Path("data") / "weight" / f"energy_nuc_{self.name}.npy",
+            self.mol.energy_nuc(),
+        )
+        np.save(
+            Path("data") / "weight" / f"aoslice_by_atom_{self.name}.npy",
+            self.aoslice_by_atom,
         )
 
         print(
