@@ -162,9 +162,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     optimizer_dict[key + "1"].step()
 
                     output_mat_real = batch["output"]
-                    output_mat = model_dict[key + "2"](
-                        torch.cat((input_mat, middle_mat_real), dim=-1)
-                    )
+                    output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
                     loss_2 = loss_fn(output_mat, output_mat_real)
                     loss_2.backward()
                     train_loss_2.append(
@@ -198,9 +196,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                             / neval_dict[key]
                         )
 
-                        output_mat = model_dict[key + "2"](
-                            torch.cat((input_mat, middle_mat_real), dim=-1)
-                        )
+                        output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
                         eval_loss_2.append(
                             loss_fn(output_mat, output_mat_real).item()
                             * input_mat.shape[0]
