@@ -83,10 +83,6 @@ class CC_DFT_DATA:
             - np.einsum("pqrs,pq,rs->rs", eri, dm1_cc, dm1_cc)
         ) / 2
 
-        exc_mat_atom_dft = np.zeros((self.mol.natm, self.mol.natm))
-        delta_exc_cc = np.zeros((self.mol.natm, self.mol.natm))
-        ene_cc_dft_diff = np.zeros((self.mol.natm, self.mol.natm))
-
         rho = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
         exc_dft_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
         exc_dft = (
@@ -101,74 +97,78 @@ class CC_DFT_DATA:
             - np.sum(ek_mat_cc) * 0.05
         )
 
-        for i, j in product(range(self.mol.natm), range(self.mol.natm)):
-            dft_mat = dm1_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]]
-            new_dm_dft = np.zeros_like(dm1_dft)
-            new_dm_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]] = dft_mat
-            rho = dft.numint.eval_rho(self.mol, ao_value[0], new_dm_dft)
-            exc_mat_atom_dft[i, j] = (
-                np.einsum("i,i,i->", exc_dft_grids, rho, weights)
-                - np.sum(
-                    ek_mat_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]]
+        for i_atom, j_atom in product(range(self.mol.natm), range(self.mol.natm)):
+            slice_ = (self.atom_info["slice"][i_atom], self.atom_info["slice"][j_atom])
+            dft_mat = dm1_dft[slice_]
+            cc_mat = dm1_cc[slice_]
+
+            exc_mat_dft = np.zeros(
+                (
+                    self.atom_info["nao"][i_atom],
+                    self.atom_info["nao"][j_atom],
                 )
-                * 0.05
+            )
+            delta_exc_cc = np.zeros(
+                (
+                    self.atom_info["nao"][i_atom],
+                    self.atom_info["nao"][j_atom],
+                )
+            )
+            ene_cc_dft_diff = np.zeros(
+                (
+                    self.atom_info["nao"][i_atom],
+                    self.atom_info["nao"][j_atom],
+                )
             )
 
-            cc_mat = dm1_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]]
-            new_dm_cc = np.zeros_like(dm1_cc)
-            new_dm_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]] = cc_mat
-            rho = dft.numint.eval_rho(self.mol, ao_value[0], new_dm_cc)
-            delta_exc_cc[i, j] = np.sum(
-                exc_mat[self.atom_info["slice"][i], self.atom_info["slice"][j]]
-            )
-            delta_exc_cc[i, j] -= (
-                np.einsum("i,i,i->", exc_cc_grids, rho, weights)
-                - np.sum(
-                    ek_mat_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]]
-                )
-                * 0.05
-            )
+            for i, j in product(
+                range(self.atom_info["nao"][i_atom]),
+                range(self.atom_info["nao"][j_atom]),
+            ):
+                new_dm_dft = np.zeros_like(dm1_dft)
+                new_dm_dft[i, j] = dm1_dft[slice_][i, j]
+                rho = dft.numint.eval_rho(self.mol, ao_value[0], new_dm_dft)
+                exc_mat_dft[i, j] = np.einsum("i,i,i->", exc_dft_grids, rho, weights)
 
-            ene_cc_dft_diff[i, j] = (
-                np.sum(exc_mat[self.atom_info["slice"][i], self.atom_info["slice"][j]])
-                - exc_mat_atom_dft[i, j]
-                + np.sum(
-                    (h1e * new_dm_cc)[
-                        self.atom_info["slice"][i], self.atom_info["slice"][j]
-                    ]
-                )
-                - np.sum(
-                    (h1e * new_dm_dft)[
-                        self.atom_info["slice"][i], self.atom_info["slice"][j]
-                    ]
-                )
-                + np.sum(
-                    ej_mat_cc[self.atom_info["slice"][i], self.atom_info["slice"][j]]
-                )
-                / 2
-                - np.sum(
-                    ej_mat_dft[self.atom_info["slice"][i], self.atom_info["slice"][j]]
-                )
-                / 2
+                new_dm_cc = np.zeros_like(dm1_cc)
+                new_dm_cc[i, j] = cc_mat[i, j]
+                rho = dft.numint.eval_rho(self.mol, ao_value[0], new_dm_cc)
+                delta_exc_cc[i, j] = -np.einsum("i,i,i->", exc_cc_grids, rho, weights)
+
+            delta_exc_cc += exc_mat[slice_]
+            delta_exc_cc += ek_mat_dft[slice_] * 0.05
+            exc_mat_dft -= ek_mat_dft[slice_] * 0.05
+
+            ene_cc_dft_diff = (
+                exc_mat[slice_]
+                - exc_mat_dft
+                + (h1e * new_dm_cc)[slice_]
+                - (h1e * new_dm_dft)[slice_]
+                + ej_mat_cc[slice_] * 0.5
+                - ej_mat_dft[slice_] * 0.5
             )
 
             np.save(
-                Path("data") / "input" / f"input_dft_{self.name}_{i}_{j}.npy",
+                Path("data") / "input" / f"input_dft_{self.name}_{i_atom}_{j_atom}.npy",
                 dft_mat,
             )
             np.save(
-                Path("data") / "input" / f"input_cc_{self.name}_{i}_{j}.npy",
+                Path("data") / "input" / f"input_cc_{self.name}_{i_atom}_{j_atom}.npy",
                 cc_mat,
             )
 
-        np.save(
-            Path("data") / "output" / f"output_cc_dft_diff_{self.name}.npy",
-            ene_cc_dft_diff,
-        )
-        np.save(
-            Path("data") / "output" / f"output_delta_exc_cc_{self.name}.npy",
-            delta_exc_cc,
-        )
+            np.save(
+                Path("data")
+                / "output"
+                / f"output_cc_dft_diff_{self.name}_{i_atom}_{j_atom}.npy",
+                ene_cc_dft_diff,
+            )
+            np.save(
+                Path("data")
+                / "output"
+                / f"output_delta_exc_cc_{self.name}_{i_atom}_{j_atom}.npy",
+                delta_exc_cc,
+            )
 
         print(
             exc_cc
@@ -178,5 +178,5 @@ class CC_DFT_DATA:
             + self.mol.energy_nuc()
             - e_cc
         )
-        print(exc_dft - np.sum(exc_mat_atom_dft))
+        print(exc_dft - np.sum(exc_mat_dft))
         print(e_cc - e_dft - np.sum(ene_cc_dft_diff))
