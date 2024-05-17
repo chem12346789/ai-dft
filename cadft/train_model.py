@@ -42,14 +42,14 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     experiment = wandb.init(
         project="DFT2CC",
         resume="allow",
-        name=f"run1-{args.hidden_size}",
+        name=f"cc_dft_diff-{args.hidden_size}",
         dir="/home/chenzihao/workdir/tmp",
     )
     wandb.define_metric("*", step_metric="global_step")
 
     today = datetime.datetime.today()
     dir_checkpoint = Path(
-        f"checkpoints/checkpoint-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
+        f"checkpoints/cc_dft_diff-checkpoint-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
     )
     print(
         f"Start training at {today:%Y-%m-%d-%H-%M-%S} with hidden size as {args.hidden_size}"
