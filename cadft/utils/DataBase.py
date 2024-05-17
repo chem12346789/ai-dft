@@ -218,7 +218,7 @@ class DataBase:
             dm1_middle_real[
                 dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
             ] = middle_real.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
-            exc_real += output_real.copy()[0]
+            exc_real += np.sum(output_real)
 
             if not (model_list is None):
                 input_mat = (
@@ -244,8 +244,8 @@ class DataBase:
             dm1_middle[dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]] = (
                 middle_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
             )
-            exc += output_mat[0]
-            delta_exc += np.abs(output_mat[0] - output_real.copy()[0])
+            exc += np.sum(output_mat)
+            delta_exc += np.sum(np.abs(output_mat - output_real))
 
         mdft = pyscf.scf.RKS(dft2cc.mol)
         mdft.xc = "b3lyp"
