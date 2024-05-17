@@ -66,7 +66,7 @@ def load_model(model_dict, keys_l, args, device):
     Load the model from the checkpoint.
     """
     if args.load != "":
-        dir_load = Path(f"checkpoints/checkpoint-{args.load}-{args.hidden_size}/")
+        dir_load = Path(f"checkpoints/checkpoint-ccdft-{args.load}-{args.hidden_size}/")
         for key in keys_l:
             for i_str in ["1", "2"]:
                 key_i_str = key + i_str
