@@ -6,15 +6,15 @@ ATOM_LIST = [
 ]
 TRAIN_STR_DICT = [
     "Methane",
-    # "Ethane",
-    # "Ethylene",
-    # "Acetylene",
-    # "Allene",
-    # "Propane",
-    # "Propyne",
-    # "Cyclopropene",
-    # "Cyclopropane",
-    # "Propylene",
+    "Ethane",
+    "Ethylene",
+    "Acetylene",
+    "Allene",
+    "Propane",
+    "Propyne",
+    "Cyclopropene",
+    "Cyclopropane",
+    "Propylene",
     # "Isobutane",
     # "Butane",
     # "Butadiene",
@@ -28,7 +28,7 @@ TRAIN_STR_DICT = [
     # "Benzene",
 ]
 EVAL_STR_DICT = [
-    "Ethane",
+    "Isobutane",
     # "Pentane",
     # "Isopentane",
 ]
