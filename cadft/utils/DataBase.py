@@ -73,7 +73,7 @@ class DataBase:
                 continue
 
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-            if not (self.dir_weight / f"e_ccsd_{name}.npy").exists():
+            if not (self.dir_output / f"output_cc_dft_diff_{name}.npy").exists():
                 print(
                     f"\rNo file: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
                     end="",
@@ -89,8 +89,12 @@ class DataBase:
         e_cc = np.load(self.dir_weight / f"e_ccsd_{name}.npy")
         e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
         energy_nuc = np.load(self.dir_weight / f"energy_nuc_{name}.npy")
-        delta_exc_cc = np.load(self.dir_output / f"output_delta_exc_cc_{name}.npy")
-        # cc_dft_diff = np.load(self.dir_output / f"output_cc_dft_diff_{name}.npy")
+        aoslice_by_atom = np.load(self.dir_weight / f"aoslice_by_atom_{name}.npy")
+
+        input_mat = np.load(self.dir_input / f"input_dft_{name}.npy")
+        middle_mat = np.load(self.dir_input / f"input_cc_{name}.npy")
+        output_mat = np.load(self.dir_output / f"output_delta_exc_cc_{name}.npy")
+        # output_mat = np.load(self.dir_output / f"output_cc_dft_diff_{name}.npy")
 
         self.data[name] = {
             "e_cc": e_cc,
@@ -102,6 +106,9 @@ class DataBase:
         natom = len(molecular)
 
         for i, j in product(range(natom), range(natom)):
+            slice_i = slice(aoslice_by_atom[i][0], aoslice_by_atom[i][1])
+            slice_j = slice(aoslice_by_atom[j][0], aoslice_by_atom[j][1])
+            slice_ = (slice_i, slice_j)
             if molecular[i][0] != molecular[j][0]:
                 key = f"{molecular[i][0]}-{molecular[j][0]}"
             else:
@@ -110,19 +117,11 @@ class DataBase:
                 else:
                     key = f"{molecular[i][0]}-{molecular[j][0]}-O"
 
-            input_mat = np.load(
-                self.dir_input / f"input_dft_{name}_{i}_{j}.npy"
+            self.input[key][f"{name}_{i}_{j}"] = input_mat[slice_].flatten()
+            self.middle[key][f"{name}_{i}_{j}"] = sign_sqrt(
+                middle_mat[slice_] - input_mat[slice_]
             ).flatten()
-            middle_mat = np.load(
-                self.dir_input / f"input_cc_{name}_{i}_{j}.npy"
-            ).flatten()
-            middle_mat -= input_mat
-            middle_mat = sign_sqrt(middle_mat)
-            output_mat = delta_exc_cc[i, j] * 1000
-
-            self.input[key][f"{name}_{i}_{j}"] = input_mat
-            self.middle[key][f"{name}_{i}_{j}"] = middle_mat
-            self.output[key][f"{name}_{i}_{j}"] = output_mat[np.newaxis]
+            self.output[key][f"{name}_{i}_{j}"] = output_mat[slice_].flatten() * 1000
 
     def check(self, model_list=None, if_equilibrium=True):
         """
@@ -190,7 +189,7 @@ class DataBase:
         Check the input data, if model_list is not none, check loss of the model.
         """
         name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-        print(f"\rCheck {name:>20}", end="")
+        print(f"\rCheck {name:>30}", end="")
 
         molecular = copy.deepcopy(Mol[name_mol])
         molecular[extend_atom][extend_xyz] += distance
@@ -222,10 +221,10 @@ class DataBase:
 
             dm1_middle_real[
                 dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-            ] = (sign_square(middle_real) + input_mat).reshape(
+            ] = (input_mat + sign_square(middle_real)).reshape(
                 NAO[molecular[i][0]], NAO[molecular[j][0]]
             )
-            exc_real += output_real.copy()[0]
+            exc_real += np.sum(output_real)
 
             if not (model_list is None):
                 input_mat = (
@@ -253,8 +252,8 @@ class DataBase:
             dm1_middle[dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]] = (
                 middle_mat.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
             )
-            exc += output_mat[0]
-            delta_exc += np.abs(output_mat[0] - output_real.copy()[0])
+            exc += np.sum(output_mat)
+            delta_exc += np.sum(np.abs(output_mat - output_real))
 
         mdft = pyscf.scf.RKS(dft2cc.mol)
         mdft.xc = "b3lyp"
@@ -265,20 +264,6 @@ class DataBase:
 
         rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle, xctype="GGA")
         exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
-
-        eri = dft2cc.mol.intor("int2e")
-        h1e = dft2cc.mol.intor("int1e_nuc") + dft2cc.mol.intor("int1e_kin")
-        ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_middle, dm1_middle)
-        exc_cc = (
-            np.einsum("i,i,i->", exc_cc_grids, rho[0], weights)
-            - np.sum(ek_mat_cc) * 0.05
-        )
-        e_dft = (
-            exc_cc
-            + np.einsum("pqrs,pq,rs", eri, dm1_middle, dm1_middle) / 2
-            + np.sum(h1e * dm1_middle)
-            + dft2cc.mol.energy_nuc()
-        )
 
         h1e = dft2cc.mol.intor("int1e_nuc") + dft2cc.mol.intor("int1e_kin")
         eri = dft2cc.mol.intor("int2e")
@@ -318,9 +303,9 @@ class DataBase:
             ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
             ene_loss_i_1 = exc - exc_real
             ene_loss_i_2 = 1000 * (e_dft - e_dft_real)
-            if ene_loss_i > 1e-3:
-                print("")
-                print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
+            # if ene_loss_i > 1e-3:
+            #     print("")
+            #     print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
 
             rho_loss_i = 0
         else:
@@ -332,7 +317,7 @@ class DataBase:
             rho_loss_i = np.einsum("i,i->", np.abs(rho[0] - rho_real), weights)
 
         print(
-            f"    ene_loss: {ene_loss_i:7.4f}, {ene_loss_i_1:7.4f}, {ene_loss_i_2:7.4f}, {delta_exc:7.4f}, rho_loss: {rho_loss_i:7.4f}.",
+            f"    ene_loss: {ene_loss_i:7.4f}, {ene_loss_i_1:7.4f}, {ene_loss_i_2:7.4f}, rho_loss: {rho_loss_i:7.4f},  delta_exc: {delta_exc:7.4f}.",
             end="",
         )
 
@@ -351,7 +336,9 @@ class DataBase:
                 name = f"{name_mol}_{0}_{1}_{0:.4f}"
                 self.load_data(name_mol, name)
 
-                ene_loss_i, rho_loss_i, name = self.check_dft_iter(name_mol, 0, 1, 0)
+                ene_loss_i, rho_loss_i, name = self.check_dft_iter(
+                    name_mol, 0, 1, 0, model_list
+                )
 
                 ene_loss.append(ene_loss_i)
                 rho_loss.append(rho_loss_i)
@@ -385,6 +372,7 @@ class DataBase:
                 extend_atom,
                 extend_xyz,
                 distance,
+                model_list,
             )
 
             ene_loss.append(ene_loss_i)
@@ -399,6 +387,7 @@ class DataBase:
         extend_atom,
         extend_xyz,
         distance,
+        model_list=None,
     ):
         """
         Check the input data, if model_list is not none, check loss of the model.
