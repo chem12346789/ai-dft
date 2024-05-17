@@ -240,6 +240,7 @@ class DataBase:
                 output_mat = output_mat.detach().cpu().numpy()
             else:
                 middle_mat = middle_real.copy()
+                middle_mat += input_mat
                 output_mat = output_real.copy()
 
             dm1_middle[dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]] = (
