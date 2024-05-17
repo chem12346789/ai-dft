@@ -2,7 +2,7 @@
 
 #slurm options
 #SBATCH -p gpu
-#SBATCH -J train-CHECKPOINT-HIDDEN_SIZE
+#SBATCH -J train-ccdft-CHECKPOINT-HIDDEN_SIZE
 #SBATCH -o log/%j.log
 #SBATCH --gres=gpu:1
 #SBATCH --exclude=gpu[004-006]
