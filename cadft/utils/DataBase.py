@@ -238,14 +238,6 @@ class DataBase:
             exc += np.sum(output_mat)
             delta_exc += np.sum(np.abs(output_mat - output_real))
 
-        mdft = pyscf.scf.RKS(dft2cc.mol)
-        mdft.xc = "b3lyp"
-        mdft.grids.kernel()
-        coords = mdft.grids.coords
-        weights = mdft.grids.weights
-        ao_value = dft.numint.eval_ao(dft2cc.mol, coords)
-        rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle)
-
         if model_list is None:
             ene_loss_i = exc + 1000 * (
                 self.data[name]["e_dft"] - self.data[name]["e_cc"]
@@ -260,11 +252,18 @@ class DataBase:
                 self.data[name]["e_dft"] - self.data[name]["e_cc"]
             )
 
+            mdft = pyscf.scf.RKS(dft2cc.mol)
+            mdft.xc = "b3lyp"
+            mdft.grids.kernel()
+            coords = mdft.grids.coords
+            weights = mdft.grids.weights
+            ao_value = dft.numint.eval_ao(dft2cc.mol, coords)
+            rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle)
             rho_real = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle_real)
             rho_loss_i = np.einsum("i,i->", np.abs(rho - rho_real), weights)
 
         print(
-            f"    ene_loss: {ene_loss_i:7.4f} rho_loss:  {rho_loss_i:7.4f}",
+            f"    ene_loss: {ene_loss_i:7.4f}, {delta_exc:7.4f}, rho_loss:  {rho_loss_i:7.4f}",
             end="",
         )
 
