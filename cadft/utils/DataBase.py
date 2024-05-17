@@ -116,7 +116,9 @@ class DataBase:
                     key = f"{molecular[i][0]}-{molecular[j][0]}-O"
 
             self.input[key][f"{name}_{i}_{j}"] = input_mat[slice_].flatten()
-            self.middle[key][f"{name}_{i}_{j}"] = middle_mat[slice_].flatten()
+            self.middle[key][f"{name}_{i}_{j}"] = (
+                middle_mat[slice_].flatten() - input_mat[slice_].flatten()
+            )
             self.output[key][f"{name}_{i}_{j}"] = output_mat[slice_].flatten() * 1000
 
     def check(self, model_list=None, if_equilibrium=True):
@@ -217,7 +219,7 @@ class DataBase:
 
             dm1_middle_real[
                 dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-            ] = middle_real.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
+            ] = (input_mat + middle_real).reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
             exc_real += np.sum(output_real)
 
             if not (model_list is None):
@@ -231,14 +233,13 @@ class DataBase:
                 model_list[key + "2"].eval()
                 with torch.no_grad():
                     middle_mat = model_list[key + "1"](input_mat)
-                    # middle_mat += input_mat
+                    middle_mat += input_mat
                     output_mat = model_list[key + "2"](middle_mat)
 
                 middle_mat = middle_mat.detach().cpu().numpy()
                 output_mat = output_mat.detach().cpu().numpy()
             else:
                 middle_mat = middle_real.copy()
-                # middle_mat += input_mat
                 output_mat = output_real.copy()
 
             dm1_middle[dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]] = (
