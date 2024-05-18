@@ -155,9 +155,9 @@ class DataBase:
 
             (
                 ene_loss_i,
+                rho_loss_i,
                 ene_loss_i_1,
                 ene_loss_i_2,
-                rho_loss_i,
                 name,
             ) = self.check_iter(
                 name_mol,
@@ -168,12 +168,12 @@ class DataBase:
             )
 
             ene_loss.append(ene_loss_i)
+            rho_loss.append(rho_loss_i)
             ene_loss_1.append(ene_loss_i_1)
             ene_loss_2.append(ene_loss_i_2)
-            rho_loss.append(rho_loss_i)
             name_train.append(name)
 
-        return ene_loss, ene_loss_1, ene_loss_2, rho_loss, name_train
+        return ene_loss, rho_loss, ene_loss_1, ene_loss_2, name_train
 
     def check_iter(
         self,
@@ -315,7 +315,7 @@ class DataBase:
             end="",
         )
 
-        return ene_loss_i, ene_loss_i_1, ene_loss_i_2, rho_loss_i, name
+        return ene_loss_i, rho_loss_i, ene_loss_i_1, ene_loss_i_2, name
 
     def check_dft(self, model_list=None, if_equilibrium=True):
         """
