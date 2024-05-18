@@ -30,7 +30,7 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     today = datetime.datetime.today()
     dir_validate = Path(
-        f"validate/validate-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
+        f"validate/validate-cc_dft_diff-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
     )
     print(
         f"Start training at {today:%Y-%m-%d-%H-%M-%S} with hidden size as {args.hidden_size}"
@@ -50,13 +50,12 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     if args.load != "":
         load_model(model_dict, keys_l, args, device)
-        ai_train = database_train.check(model_dict, if_equilibrium=False)
-        ai_eval = database_eval.check(model_dict, if_equilibrium=False)
     else:
-        ai_train = database_train.check(if_equilibrium=False)
-        ai_eval = database_eval.check(if_equilibrium=False)
+        model_dict = None
 
+    ai_train = database_train.check(model_dict, if_equilibrium=False)
     save_csv_loss(ai_train, dir_validate / "train.csv")
+    ai_eval = database_eval.check(model_dict, if_equilibrium=False)
     save_csv_loss(ai_eval, dir_validate / "eval.csv")
 
     # dft_train = database_train.check_dft(if_equilibrium=False)
