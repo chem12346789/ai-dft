@@ -29,7 +29,7 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     args = add_args(parser)
 
     today = datetime.datetime.today()
-    dir_validate = Path(f"validate/validate-{args.load}-{args.hidden_size}/")
+    dir_validate = Path(f"validate/validate-ccdft-{args.load}-{args.hidden_size}/")
     print(f"Start training at {args.load} with hidden size as {args.hidden_size}")
     dir_validate.mkdir(parents=True, exist_ok=True)
 
