@@ -136,7 +136,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     loss_fn = nn.L1Loss()
 
-    pbar = trange(args.epoch)
+    pbar = trange(args.epoch + 1)
     for epoch in pbar:
         train_loss_sum_1 = {}
         train_loss_sum_2 = {}
