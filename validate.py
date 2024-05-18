@@ -6,15 +6,15 @@ ATOM_LIST = [
 ]
 TRAIN_STR_DICT = [
     "Methane",
-    # "Ethane",
-    # "Ethylene",
-    # "Acetylene",
-    # "Allene",
-    # "Propane",
-    # "Propyne",
-    # "Cyclopropene",
-    # "Cyclopropane",
-    # "Propylene",
+    "Ethane",
+    "Ethylene",
+    "Acetylene",
+    "Allene",
+    "Propane",
+    "Propyne",
+    "Cyclopropene",
+    "Cyclopropane",
+    "Propylene",
     # "Isobutane",
     # "Butane",
     # "Butadiene",
@@ -23,13 +23,14 @@ TRAIN_STR_DICT = [
     # "Cyclobutane",
     # "Spiropentane",
     # "Cyclopropylmethyl",
+    # "Neopentane",
+    # "Cyclopentane",
     # "Benzene",
 ]
 EVAL_STR_DICT = [
-    "Pentane",
+    "Butane",
+    # "Pentane",
     # "Isopentane",
-    # "Neopentane",
-    # "Cyclopentane",
 ]
 
 validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT)

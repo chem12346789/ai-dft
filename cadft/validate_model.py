@@ -46,13 +46,12 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     if args.load != "":
         load_model(model_dict, keys_l, args, device)
-        ai_train = database_train.check(model_dict, if_equilibrium=False)
-        ai_eval = database_eval.check(model_dict, if_equilibrium=False)
     else:
-        ai_train = database_train.check(if_equilibrium=False)
-        ai_eval = database_eval.check(if_equilibrium=False)
+        model_dict = None
 
+    ai_train = database_train.check(model_dict, if_equilibrium=False)
     save_csv_loss(ai_train, dir_validate / "train.csv")
+    ai_eval = database_eval.check(model_dict, if_equilibrium=False)
     save_csv_loss(ai_eval, dir_validate / "eval.csv")
 
     # dft_train = database_train.check_dft(if_equilibrium=False)
