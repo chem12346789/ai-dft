@@ -30,8 +30,7 @@ TRAIN_STR_DICT = [
     "Isopentane",
 ]
 EVAL_STR_DICT = [
-    "Butane",
-    # "Pentane",
+    "Pentane",
     # "Isopentane",
 ]
 

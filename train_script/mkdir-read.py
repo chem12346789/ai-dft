@@ -46,7 +46,7 @@ for (
     hidden_size,
 ) in itertools.product(
     # ["2024-05-12-19-10-08"],
-    ["NEW"],
+    ["2024-05-17-22-35-29"],
     [800],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
