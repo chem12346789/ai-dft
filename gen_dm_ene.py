@@ -35,10 +35,19 @@ for (
     molecular = copy.deepcopy(Mol[name_mol])
     print(f"Generate {name_mol}_{distance:.4f}")
     print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}")
+
     if abs(distance) < 1e-3:
         if (extend_atom != 0) or extend_xyz != 1:
             print(f"Skip {name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}")
             continue
+
+    if extend_atom >= len(Mol[name_mol]):
+        print(
+            f"\rSkip: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+            end="",
+        )
+        continue
+
     molecular[extend_atom][extend_xyz] += distance
 
     dft2cc = CC_DFT_DATA(
