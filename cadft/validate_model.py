@@ -30,7 +30,7 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     today = datetime.datetime.today()
     dir_validate = Path(
-        f"validate/validate-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
+        f"validate/validate-ccdft-sqrt-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
     )
     print(f"Validate the model with the following hyperparameters: {args}.\n")
     dir_validate.mkdir(parents=True, exist_ok=True)
