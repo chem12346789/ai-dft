@@ -28,7 +28,6 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     )
     args = add_args(parser)
 
-    today = datetime.datetime.today()
     dir_validate = Path(f"validate/validate-ccdft-{args.load}-{args.hidden_size}/")
     print(f"Start training at {args.load} with hidden size as {args.hidden_size}")
     dir_validate.mkdir(parents=True, exist_ok=True)
@@ -39,13 +38,13 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         device = torch.device("cpu")
 
     keys_l = gen_keys_l(ATOM_LIST)
-    model_dict = gen_model_dict(keys_l, args, device)
+    model_dict = gen_model_dict(keys_l, args.hidden_size, device)
 
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
 
     if args.load != "":
-        load_model(model_dict, keys_l, args, device)
+        load_model(model_dict, keys_l, args.load, args.hidden_size, device)
     else:
         model_dict = None
 

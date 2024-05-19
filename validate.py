@@ -29,7 +29,7 @@ TRAIN_STR_DICT = [
 ]
 EVAL_STR_DICT = [
     "Pentane",
-    # "Isopentane",
+    "Isopentane",
 ]
 
 validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT)

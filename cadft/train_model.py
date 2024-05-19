@@ -60,7 +60,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     keys_l = gen_keys_l(ATOM_LIST)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_dict = gen_model_dict(keys_l, args, device)
+    model_dict = gen_model_dict(keys_l, args.hidden_size, device)
 
     optimizer_dict = {}
     scheduler_dict = {}
@@ -82,7 +82,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             optimizer_dict[key + "2"],
             gamma=1 - 1e-4,
         )
-    load_model(model_dict, keys_l, args, device)
+    load_model(model_dict, keys_l, args.load, args.hidden_size, device)
 
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)

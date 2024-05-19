@@ -48,13 +48,13 @@ class FCNet(nn.Module):
         out = self.laynorm3(out)
         out = self.relu3(out)
 
-        out = self.fc4(out)
-        out = self.laynorm4(out)
-        out = self.relu4(out)
+        # out = self.fc4(out)
+        # out = self.laynorm4(out)
+        # out = self.relu4(out)
 
-        out = self.fc5(out)
-        out = self.laynorm5(out)
-        out = self.relu5(out)
+        # out = self.fc5(out)
+        # out = self.laynorm5(out)
+        # out = self.relu5(out)
 
         out = self.fcout1(out)
         out = self.reluout(out)
