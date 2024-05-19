@@ -49,12 +49,12 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     else:
         model_dict = None
 
-    # ai_train = database_train.check(model_dict, if_equilibrium=False)
-    # save_csv_loss(ai_train, dir_validate / "train.csv")
-    # ai_eval = database_eval.check(model_dict, if_equilibrium=False)
-    # save_csv_loss(ai_eval, dir_validate / "eval.csv")
+    ai_train = database_train.check(model_dict, if_equilibrium=False)
+    save_csv_loss(ai_train, dir_validate / "train.csv")
+    ai_eval = database_eval.check(model_dict, if_equilibrium=False)
+    save_csv_loss(ai_eval, dir_validate / "eval.csv")
 
-    dft_train = database_train.check_dft(if_equilibrium=False)
-    dft_eval = database_eval.check_dft(if_equilibrium=False)
-    save_csv_loss(dft_train, dir_validate / "train_dft.csv")
-    save_csv_loss(dft_eval, dir_validate / "eval_dft.csv")
+    # dft_train = database_train.check_dft(if_equilibrium=False)
+    # dft_eval = database_eval.check_dft(if_equilibrium=False)
+    # save_csv_loss(dft_train, dir_validate / "train_dft.csv")
+    # save_csv_loss(dft_eval, dir_validate / "eval_dft.csv")

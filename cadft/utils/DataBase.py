@@ -129,6 +129,9 @@ class DataBase:
         ene_loss_1 = []
         ene_loss_2 = []
         rho_loss = []
+        dip_x_loss = []
+        dip_y_loss = []
+        dip_z_loss = []
         name_train = []
         for (
             name_mol,
@@ -155,9 +158,12 @@ class DataBase:
 
             (
                 ene_loss_i,
-                rho_loss_i,
                 ene_loss_i_1,
                 ene_loss_i_2,
+                rho_loss_i,
+                dip_x_loss_i,
+                dip_y_loss_i,
+                dip_z_loss_i,
                 name,
             ) = self.check_iter(
                 name_mol,
@@ -168,12 +174,24 @@ class DataBase:
             )
 
             ene_loss.append(ene_loss_i)
-            rho_loss.append(rho_loss_i)
             ene_loss_1.append(ene_loss_i_1)
             ene_loss_2.append(ene_loss_i_2)
+            rho_loss.append(rho_loss_i)
+            dip_x_loss.append(dip_x_loss_i)
+            dip_y_loss.append(dip_y_loss_i)
+            dip_z_loss.append(dip_z_loss_i)
             name_train.append(name)
 
-        return ene_loss, rho_loss, ene_loss_1, ene_loss_2, name_train
+        return (
+            ene_loss,
+            ene_loss_1,
+            ene_loss_2,
+            rho_loss,
+            dip_x_loss,
+            dip_y_loss,
+            dip_z_loss,
+            name_train,
+        )
 
     def check_iter(
         self,
@@ -219,7 +237,9 @@ class DataBase:
 
             dm1_middle_real[
                 dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-            ] = (input_mat + middle_real).reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
+            ] = (input_mat + middle_real).reshape(
+                NAO[molecular[i][0]], NAO[molecular[j][0]]
+            )
             exc_real += np.sum(output_real)
 
             if not (model_list is None):
@@ -297,11 +317,14 @@ class DataBase:
             ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
             ene_loss_i_1 = exc - exc_real
             ene_loss_i_2 = 1000 * (e_dft - e_dft_real)
-            # if ene_loss_i > 1e-3:
-            #     print("")
-            #     print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
+            if ene_loss_i > 1e-3:
+                print("")
+                print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
 
             rho_loss_i = 0
+            dip_x_loss_i = 0
+            dip_y_loss_i = 0
+            dip_z_loss_i = 0
         else:
             ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
             ene_loss_i_1 = exc - exc_real
@@ -309,20 +332,43 @@ class DataBase:
 
             rho_real = dft.numint.eval_rho(dft2cc.mol, ao_value[0], dm1_middle_real)
             rho_loss_i = np.einsum("i,i->", np.abs(rho[0] - rho_real), weights)
+            dip_x_loss_i = np.sum(
+                np.einsum("i,i,i->i", rho[0] - rho_real, coords[:, 0], weights)
+            )
+            dip_y_loss_i = np.sum(
+                np.einsum("i,i,i->i", rho[0] - rho_real, coords[:, 1], weights)
+            )
+            dip_z_loss_i = np.sum(
+                np.einsum("i,i,i->i", rho[0] - rho_real, coords[:, 2], weights)
+            )
 
         print(
             f"    ene_loss: {ene_loss_i:7.4f}, {ene_loss_i_1:7.4f}, {ene_loss_i_2:7.4f}, rho_loss: {rho_loss_i:7.4f},  delta_exc: {delta_exc:7.4f}.",
             end="",
         )
 
-        return ene_loss_i, rho_loss_i, ene_loss_i_1, ene_loss_i_2, name
+        return (
+            ene_loss_i,
+            ene_loss_i_1,
+            ene_loss_i_2,
+            rho_loss_i,
+            dip_x_loss_i,
+            dip_y_loss_i,
+            dip_z_loss_i,
+            name,
+        )
 
     def check_dft(self, model_list=None, if_equilibrium=True):
         """
         Check the input data, if model_list is not none, check loss of the model.
         """
         ene_loss = []
+        ene_loss_1 = []
+        ene_loss_2 = []
         rho_loss = []
+        dip_x_loss = []
+        dip_y_loss = []
+        dip_z_loss = []
         name_train = []
 
         if not (np.abs(self.distance_l) < 1e-4).any():
@@ -330,12 +376,24 @@ class DataBase:
                 name = f"{name_mol}_{0}_{1}_{0:.4f}"
                 self.load_data(name_mol, name)
 
-                ene_loss_i, rho_loss_i, name = self.check_dft_iter(
-                    name_mol, 0, 1, 0, model_list
-                )
+                (
+                    ene_loss_i,
+                    ene_loss_i_1,
+                    ene_loss_i_2,
+                    rho_loss_i,
+                    dip_x_loss_i,
+                    dip_y_loss_i,
+                    dip_z_loss_i,
+                    name,
+                ) = self.check_dft_iter(name_mol, 0, 1, 0, model_list)
 
                 ene_loss.append(ene_loss_i)
+                ene_loss_1.append(ene_loss_i_1)
+                ene_loss_2.append(ene_loss_i_2)
                 rho_loss.append(rho_loss_i)
+                dip_x_loss.append(dip_x_loss_i)
+                dip_y_loss.append(dip_y_loss_i)
+                dip_z_loss.append(dip_z_loss_i)
                 name_train.append(name)
 
         for (
@@ -361,7 +419,16 @@ class DataBase:
                 if abs(distance) > 1e-3:
                     continue
 
-            ene_loss_i, rho_loss_i, name = self.check_dft_iter(
+            (
+                ene_loss_i,
+                ene_loss_i_1,
+                ene_loss_i_2,
+                rho_loss_i,
+                dip_x_loss_i,
+                dip_y_loss_i,
+                dip_z_loss_i,
+                name,
+            ) = self.check_dft_iter(
                 name_mol,
                 extend_atom,
                 extend_xyz,
@@ -370,10 +437,24 @@ class DataBase:
             )
 
             ene_loss.append(ene_loss_i)
+            ene_loss_1.append(ene_loss_i_1)
+            ene_loss_2.append(ene_loss_i_2)
             rho_loss.append(rho_loss_i)
+            dip_x_loss.append(dip_x_loss_i)
+            dip_y_loss.append(dip_y_loss_i)
+            dip_z_loss.append(dip_z_loss_i)
             name_train.append(name)
 
-        return ene_loss, rho_loss, name_train
+        return (
+            ene_loss,
+            ene_loss_1,
+            ene_loss_2,
+            rho_loss,
+            dip_x_loss,
+            dip_y_loss,
+            dip_z_loss,
+            name_train,
+        )
 
     def check_dft_iter(
         self,
@@ -431,9 +512,27 @@ class DataBase:
         rho_real = dft.numint.eval_rho(dft2cc.mol, ao_value[0], dm1_middle_real)
         rho = dft.numint.eval_rho(dft2cc.mol, ao_value[0], dm1_middle)
         rho_loss_i = np.einsum("i,i->", np.abs(rho - rho_real), weights)
+        dip_x_loss_i = np.sum(
+            np.einsum("i,i,i->i", rho - rho_real, coords[:, 0], weights)
+        )
+        dip_y_loss_i = np.sum(
+            np.einsum("i,i,i->i", rho - rho_real, coords[:, 1], weights)
+        )
+        dip_z_loss_i = np.sum(
+            np.einsum("i,i,i->i", rho - rho_real, coords[:, 2], weights)
+        )
         ene_loss_i = 1000 * (self.data[name]["e_dft"] - self.data[name]["e_cc"])
         print(
             f"    ene_loss: {ene_loss_i:7.4f} rho_loss:  {rho_loss_i:7.4f}",
             end="",
         )
-        return ene_loss_i, rho_loss_i, name
+        return (
+            ene_loss_i,
+            0,
+            0,
+            rho_loss_i,
+            dip_x_loss_i,
+            dip_y_loss_i,
+            dip_z_loss_i,
+            name,
+        )
