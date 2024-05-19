@@ -26,8 +26,6 @@ TRAIN_STR_DICT = [
     "Neopentane",
     "Cyclopentane",
     "Benzene",
-    "Pentane",
-    "Isopentane",
 ]
 EVAL_STR_DICT = [
     "Pentane",
