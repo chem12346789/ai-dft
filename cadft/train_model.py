@@ -134,7 +134,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         update_d[f"n_val_{k}"] = v
     experiment.config.update(update_d)
 
-    loss_fn = nn.L1Loss()
+    loss_fn = nn.L1Loss(reduction="sum")
 
     pbar = trange(args.epoch + 1)
     for epoch in pbar:
@@ -143,10 +143,10 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         for key in keys_l:
             model_dict[key + "1"].train(True)
             model_dict[key + "2"].train(True)
-            train_loss_1 = []
-            train_loss_2 = []
             optimizer_dict[key + "1"].zero_grad(set_to_none=True)
             optimizer_dict[key + "2"].zero_grad(set_to_none=True)
+            train_loss_sum_1[key] = []
+            train_loss_sum_2[key] = []
 
             for batch in train_dict[key]:
                 with torch.autocast(device.type):
@@ -156,31 +156,25 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     middle_mat = model_dict[key + "1"](input_mat)
                     loss_1 = loss_fn(middle_mat, middle_mat_real)
                     loss_1.backward()
-                    train_loss_1.append(
-                        loss_1.item() * input_mat.shape[0] / ntrain_dict[key]
-                    )
+                    train_loss_sum_1[key] += loss_1.item()
                     optimizer_dict[key + "1"].step()
 
                     output_mat_real = batch["output"]
                     output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
                     loss_2 = loss_fn(output_mat, output_mat_real)
                     loss_2.backward()
-                    train_loss_2.append(
-                        loss_2.item() * input_mat.shape[0] / ntrain_dict[key]
-                    )
+                    train_loss_sum_2[key] += loss_2.item()
                     optimizer_dict[key + "2"].step()
 
             scheduler_dict[key + "1"].step()
             scheduler_dict[key + "2"].step()
-            train_loss_sum_1[key] = np.sum(train_loss_1)
-            train_loss_sum_2[key] = np.sum(train_loss_2)
 
         if epoch % args.eval_step == 0:
             eval_loss_sum_1 = {}
             eval_loss_sum_2 = {}
             for key in keys_l:
-                eval_loss_1 = []
-                eval_loss_2 = []
+                eval_loss_sum_1[key] = 0
+                eval_loss_sum_2[key] = 0
                 model_dict[key + "1"].eval()
                 model_dict[key + "2"].eval()
 
@@ -190,21 +184,14 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     output_mat_real = batch["output"]
                     with torch.no_grad():
                         middle_mat = model_dict[key + "1"](input_mat)
-                        eval_loss_1.append(
-                            loss_fn(middle_mat, middle_mat_real).item()
-                            * input_mat.shape[0]
-                            / neval_dict[key]
-                        )
+                        eval_loss_sum_1[key] += loss_fn(
+                            middle_mat, middle_mat_real
+                        ).item()
 
                         output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
-                        eval_loss_2.append(
-                            loss_fn(output_mat, output_mat_real).item()
-                            * input_mat.shape[0]
-                            / neval_dict[key]
-                        )
-
-                eval_loss_sum_1[key] = np.sum(eval_loss_1)
-                eval_loss_sum_2[key] = np.sum(eval_loss_2)
+                        eval_loss_sum_2[key] += loss_fn(
+                            output_mat, output_mat_real
+                        ).item()
 
             lod_d = {
                 "epoch": epoch,
