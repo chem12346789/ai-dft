@@ -276,12 +276,10 @@ class DataBase:
         weights = mdft.grids.weights
         ao_value = dft.numint.eval_ao(dft2cc.mol, coords, deriv=1)
 
-        rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle, xctype="GGA")
-        exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
-
         h1e = dft2cc.mol.intor("int1e_nuc") + dft2cc.mol.intor("int1e_kin")
         eri = dft2cc.mol.intor("int2e")
 
+        rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle, xctype="GGA")
         exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
         ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_middle, dm1_middle)
         exc_cc = (
