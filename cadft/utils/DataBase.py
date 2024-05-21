@@ -19,10 +19,12 @@ class DataBase:
     def __init__(
         self,
         args,
+        atom_list,
         molecular_list,
         device,
     ):
         self.args = args
+        self.atom_list = atom_list
         self.molecular_list = molecular_list
         self.device = device
 
@@ -35,6 +37,11 @@ class DataBase:
         self.input = {}
         self.middle = {}
         self.output = {}
+
+        for atom in atom_list:
+            self.input[atom] = {}
+            self.middle[atom] = {}
+            self.output[atom] = {}
 
         for (
             name_mol,
@@ -58,6 +65,7 @@ class DataBase:
                 print(f"Skip: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}")
                 continue
 
+            molecular_list = copy.deepcopy(Mol[name_mol])
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
             if not (self.dir_grids / f"data_{name}.npz").exists():
                 print(
@@ -65,14 +73,13 @@ class DataBase:
                 )
                 continue
 
-            self.load_data(name)
+            self.load_data(name, molecular_list)
 
-    def load_data(self, name):
+    def load_data(self, name, molecular_list):
         """
         Load the data.
         """
         data = np.load(self.dir_grids / f"data_{name}.npz")
-
         e_cc = np.load(self.dir_weight / f"e_ccsd_{name}.npy")
         e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
 
@@ -85,10 +92,14 @@ class DataBase:
             "e_dft": e_dft,
         }
 
-        for i in range(input_mat.shape[1]):
-            self.input[f"{name}_{i}"] = input_mat[:, i]
-            self.middle[f"{name}_{i}"] = middle_mat[:, i] - input_mat[:, i]
-            self.output[f"{name}_{i}"] = output_mat[i, np.newaxis]
+        for i_atom in range(input_mat.shape[0]):
+            atom_name = molecular_list[i_atom][0]
+            for i in range(input_mat.shape[1]):
+                self.input[atom_name][f"{name}_{i}"] = input_mat[i_atom, i, :]
+                self.middle[atom_name][f"{name}_{i}"] = (
+                    middle_mat[i_atom, i, :] - input_mat[i_atom, i, :]
+                )
+                self.output[atom_name][f"{name}_{i}"] = output_mat[i_atom, i, :]
 
     def check(self, model_list=None, if_equilibrium=True):
         """

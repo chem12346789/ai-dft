@@ -24,11 +24,12 @@ from cadft.utils import (
 from cadft.utils import DataBase, BasicDataset
 
 
-def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
+def train_model(atom_list, train_str_dict, eval_str_dict):
     """
     Train the model.
-    TRAIN_STR_DICT: list of training molecules
-    EVAL_STR_DICT: list of evaluation molecules
+    atom_list: list of atoms
+    train_str_dict: list of training molecules
+    eval_str_dict: list of evaluation molecules
     Other parameter are from the argparse.
     """
     # 0. Init the criterion and the model
@@ -56,7 +57,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
     (dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_dict = gen_model_dict(args.hidden_size, device)
+    model_dict = gen_model_dict(atom_list, args.hidden_size, device)
 
     optimizer_dict = {}
     scheduler_dict = {}
@@ -77,45 +78,51 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         optimizer_dict["2"],
         gamma=1 - 1e-4,
     )
-    load_model(model_dict, args.load, args.hidden_size, device)
+    load_model(model_dict, atom_list, args.load, args.hidden_size, device)
 
-    database_train = DataBase(args, TRAIN_STR_DICT, device)
-    database_eval = DataBase(args, EVAL_STR_DICT, device)
+    database_train = DataBase(args, atom_list, train_str_dict, device)
+    database_eval = DataBase(args, atom_list, eval_str_dict, device)
 
-    dataset = BasicDataset(
-        database_train.input,
-        database_train.middle,
-        database_train.output,
-    )
-    train_loader = DataLoader(
-        dataset,
-        shuffle=False,
-        batch_size=args.batch_size,
-        num_workers=8,
-        pin_memory=True,
-    )
-    train_set = load_to_gpu(train_loader, device)
-    ntrain_set = len(database_train.input)
+    train_set = {}
+    ntrain_set = {}
+    eval_set = {}
+    neval_set = {}
 
-    dataset = BasicDataset(
-        database_eval.input,
-        database_eval.middle,
-        database_eval.output,
-    )
-    eval_loader = DataLoader(
-        dataset,
-        shuffle=False,
-        batch_size=args.batch_size,
-        num_workers=8,
-        pin_memory=True,
-    )
-    eval_set = load_to_gpu(eval_loader, device)
-    neval_set = len(database_eval.input)
+    for atom in atom_list:
+        dataset = BasicDataset(
+            database_train.input[atom],
+            database_train.middle[atom],
+            database_train.output[atom],
+        )
+        train_loader = DataLoader(
+            dataset,
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=8,
+            pin_memory=True,
+        )
+        train_set[atom] = load_to_gpu(train_loader, device)
+        ntrain_set[atom] = len(database_train.input[atom])
+
+        dataset = BasicDataset(
+            database_eval.input[atom],
+            database_eval.middle[atom],
+            database_eval.output[atom],
+        )
+        eval_loader = DataLoader(
+            dataset,
+            shuffle=False,
+            batch_size=args.batch_size,
+            num_workers=8,
+            pin_memory=True,
+        )
+        eval_set[atom] = load_to_gpu(eval_loader, device)
+        neval_set[atom] = len(database_eval.input[atom])
 
     update_d = {
         "batch_size": args.batch_size,
-        "n_train": ntrain_set,
-        "n_val": neval_set,
+        "n_train": np.sum(ntrain_set.values()),
+        "n_val": np.sum(neval_set.values()),
     }
     print(update_d)
     experiment.config.update(update_d)
@@ -124,33 +131,34 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
 
     pbar = trange(args.epoch + 1)
     for epoch in pbar:
-        model_dict["1"].train(True)
-        model_dict["2"].train(True)
-        optimizer_dict["1"].zero_grad(set_to_none=True)
-        optimizer_dict["2"].zero_grad(set_to_none=True)
-        train_loss_1 = 0
-        train_loss_2 = 0
+        for atom in atom_list:
+            train_loss_1 = 0
+            train_loss_2 = 0
+            model_dict[atom + "1"].train(True)
+            model_dict[atom + "2"].train(True)
+            optimizer_dict[atom + "1"].zero_grad(set_to_none=True)
+            optimizer_dict[atom + "2"].zero_grad(set_to_none=True)
 
-        for batch in train_set:
-            with torch.autocast(device.type):
-                input_mat = batch["input"]
-                middle_mat_real = batch["middle"]
+            for batch in train_set:
+                with torch.autocast(device.type):
+                    input_mat = batch["input"]
+                    middle_mat_real = batch["middle"]
 
-                middle_mat = model_dict["1"](input_mat)
-                loss_1 = loss_fn(middle_mat, middle_mat_real)
-                loss_1.backward()
-                train_loss_1 += loss_1.item() * input_mat.shape[0] / ntrain_set
-                optimizer_dict["1"].step()
+                    middle_mat = model_dict["1"](input_mat)
+                    loss_1 = loss_fn(middle_mat, middle_mat_real)
+                    loss_1.backward()
+                    train_loss_1 += loss_1.item() * input_mat.shape[0] / ntrain_set
+                    optimizer_dict["1"].step()
 
-                output_mat_real = batch["output"]
-                output_mat = model_dict["2"](input_mat + middle_mat_real)
-                loss_2 = loss_fn(output_mat, output_mat_real)
-                loss_2.backward()
-                train_loss_2 += loss_2.item() * input_mat.shape[0] / ntrain_set
-                optimizer_dict["2"].step()
+                    output_mat_real = batch["output"]
+                    output_mat = model_dict["2"](input_mat + middle_mat_real)
+                    loss_2 = loss_fn(output_mat, output_mat_real)
+                    loss_2.backward()
+                    train_loss_2 += loss_2.item() * input_mat.shape[0] / ntrain_set
+                    optimizer_dict["2"].step()
 
-        scheduler_dict["1"].step()
-        scheduler_dict["2"].step()
+            scheduler_dict["1"].step()
+            scheduler_dict["2"].step()
 
         if epoch % args.eval_step == 0:
             model_dict["1"].eval()

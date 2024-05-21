@@ -11,6 +11,7 @@ from cadft.utils.BasicDataset import BasicDataset
 from cadft.utils.DataBase import DataBase
 from cadft.utils.model.fc_net import FCNet
 from cadft.utils.model.transformer import Transformer
+from cadft.utils.Grids import Grid
 
 from cadft.utils.mass import MASS
 from cadft.utils.mol import Mol

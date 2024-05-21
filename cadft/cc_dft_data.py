@@ -10,6 +10,7 @@ import opt_einsum as oe
 from cadft.utils import gen_basis
 from cadft.utils import rotate
 from cadft.utils import Mol
+from cadft.utils import Grid
 
 
 class CC_DFT_DATA:
@@ -67,10 +68,10 @@ class CC_DFT_DATA:
         dm2_cc = mycc.make_rdm2(ao_repr=True)
         e_cc = mycc.e_tot
 
-        coords = mdft.grids.coords
-        weights = mdft.grids.weights
+        grids = Grid(self.mol)
+        coords = grids.coords
+        weights = grids.weights
         ao_value = dft.numint.eval_ao(self.mol, coords, deriv=1)
-        ao_value_2 = dft.numint.eval_ao(self.mol, coords, deriv=2)[4:]
 
         mf = pyscf.scf.RHF(self.mol)
         mf.kernel()
@@ -82,38 +83,6 @@ class CC_DFT_DATA:
 
         rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
         rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
-
-        rho_cc_2 = 2 * np.einsum("uv, rgu, gv -> rg", dm1_cc, ao_value_2, ao_value[0])
-        # in xx, xy, xz, yy, yz, zz
-        rho_cc_3_3 = 2 * np.einsum(
-            "uv, rgu, wgv -> rwg", dm1_cc, ao_value[1:], ao_value[1:]
-        )
-        # in xx, xy, xz,
-        #    yx, yy, yz,
-        #    zx, zy, zz,
-        rho_cc_2[0, :] += rho_cc_3_3[0, 0]
-        rho_cc_2[1, :] += rho_cc_3_3[0, 1]
-        rho_cc_2[2, :] += rho_cc_3_3[0, 2]
-        rho_cc_2[3, :] += rho_cc_3_3[1, 1]
-        rho_cc_2[4, :] += rho_cc_3_3[1, 2]
-        rho_cc_2[5, :] += rho_cc_3_3[2, 2]
-        rho_cc_2 = np.append(rho_cc, rho_cc_2, axis=0)
-
-        rho_dft_2 = 2 * np.einsum("uv, rgu, gv -> rg", dm1_dft, ao_value_2, ao_value[0])
-        # in xx, xy, xz, yy, yz, zz
-        rho_dft_3_3 = 2 * np.einsum(
-            "uv, rgu, wgv -> rwg", dm1_dft, ao_value[1:], ao_value[1:]
-        )
-        # in xx, xy, xz,
-        #    yx, yy, yz,
-        #    zx, zy, zz,
-        rho_dft_2[0, :] += rho_dft_3_3[0, 0]
-        rho_dft_2[1, :] += rho_dft_3_3[0, 1]
-        rho_dft_2[2, :] += rho_dft_3_3[0, 2]
-        rho_dft_2[3, :] += rho_dft_3_3[1, 1]
-        rho_dft_2[4, :] += rho_dft_3_3[1, 2]
-        rho_dft_2[5, :] += rho_dft_3_3[2, 2]
-        rho_dft_2 = np.append(rho_dft, rho_dft_2, axis=0)
 
         exc_over_dm_cc_grids = -dft.libxc.eval_xc("b3lyp", rho_cc)[0]
         cc_dft_ene = (
@@ -155,9 +124,10 @@ class CC_DFT_DATA:
 
         np.savez_compressed(
             Path("data") / "grids" / (f"data_{self.name}.npz"),
-            rho_dft=rho_dft_2,
-            rho_cc=rho_cc_2,
-            exc_over_dm_cc_grids=exc_over_dm_cc_grids,
+            rho_dft=grids.vector_to_matrix(rho_dft[0]),
+            rho_cc=grids.vector_to_matrix(rho_cc[0]),
+            exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
+            weights=grids.vector_to_matrix(weights),
         )
 
         # rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
