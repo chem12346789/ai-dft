@@ -8,7 +8,6 @@ import torch
 from cadft.utils import NAO
 from cadft.utils import (
     add_args,
-    gen_keys_l,
     gen_model_dict,
     load_model,
 )
@@ -37,14 +36,13 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     else:
         device = torch.device("cpu")
 
-    keys_l = gen_keys_l(ATOM_LIST)
-    model_dict = gen_model_dict(keys_l, args.hidden_size, device)
+    model_dict = gen_model_dict(args.hidden_size, device)
 
-    database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
-    database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
+    database_train = DataBase(args, TRAIN_STR_DICT, device)
+    database_eval = DataBase(args, EVAL_STR_DICT, device)
 
     if args.load != "":
-        load_model(model_dict, keys_l, args.load, args.hidden_size, device)
+        load_model(model_dict, args.load, args.hidden_size, device)
     else:
         model_dict = None
 

@@ -20,6 +20,8 @@ output_path = Path("data") / "output"
 output_path.mkdir(parents=True, exist_ok=True)
 input_path = Path("data") / "input"
 input_path.mkdir(parents=True, exist_ok=True)
+grids_path = Path("data") / "grids"
+grids_path.mkdir(parents=True, exist_ok=True)
 
 for (
     name_mol,
