@@ -83,9 +83,10 @@ class DataBase:
         e_cc = np.load(self.dir_weight / f"e_ccsd_{name}.npy")
         e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
 
-        input_mat = data["rho_dft"]
-        middle_mat = data["rho_cc"]
-        output_mat = data["exc_over_dm_cc_grids"]
+        weight = data["weights"]
+        input_mat = data["rho_dft"] * weight
+        middle_mat = data["rho_cc"] * weight
+        output_mat = data["exc_over_dm_cc_grids"] * weight
 
         self.data[name] = {
             "e_cc": e_cc,
@@ -95,11 +96,13 @@ class DataBase:
         for i_atom in range(input_mat.shape[0]):
             atom_name = molecular_list[i_atom][0]
             for i in range(input_mat.shape[1]):
+                if np.linalg.norm(input_mat[i_atom, i, :]) < 1e-10:
+                    continue
                 self.input[atom_name][f"{name}_{i}"] = input_mat[i_atom, i, :]
                 self.middle[atom_name][f"{name}_{i}"] = (
                     middle_mat[i_atom, i, :] - input_mat[i_atom, i, :]
                 )
-                self.output[atom_name][f"{name}_{i}"] = output_mat[i_atom, i, :]
+                self.output[atom_name][f"{name}_{i}"] = output_mat[i_atom, i, :] * 1000
 
     def check(self, model_list=None, if_equilibrium=True):
         """
@@ -113,3 +116,15 @@ class DataBase:
         dip_y_loss = []
         dip_z_loss = []
         name_train = []
+
+        for (
+            name_mol,
+            extend_atom,
+            extend_xyz,
+            distance,
+        ) in product(
+            self.molecular_list,
+            self.args.extend_atom,
+            self.args.extend_xyz,
+            self.distance_l,
+        ):

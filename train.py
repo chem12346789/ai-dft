@@ -1,5 +1,9 @@
 from cadft import train_model
 
+ATOM_LIST = [
+    "C",
+    "H",
+]
 TRAIN_STR_DICT = [
     "Methane",
     "Ethane",
@@ -29,4 +33,4 @@ EVAL_STR_DICT = [
     # "Isopentane",
 ]
 
-train_model(TRAIN_STR_DICT, EVAL_STR_DICT)
+train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT)
