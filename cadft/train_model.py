@@ -145,8 +145,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             model_dict[key + "2"].train(True)
             optimizer_dict[key + "1"].zero_grad(set_to_none=True)
             optimizer_dict[key + "2"].zero_grad(set_to_none=True)
-            train_loss_sum_1[key] = []
-            train_loss_sum_2[key] = []
+            train_loss_sum_1[key] = 0
+            train_loss_sum_2[key] = 0
 
             for batch in train_dict[key]:
                 with torch.autocast(device.type):
