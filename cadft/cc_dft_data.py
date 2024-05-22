@@ -77,7 +77,8 @@ class CC_DFT_DATA:
         ej_mat_dft = np.einsum("pqrs,pq,rs->rs", eri, dm1_dft, dm1_dft)
         ek_mat_dft = np.einsum("pqrs,pr,qs->qs", eri, dm1_dft, dm1_dft)
 
-        exc_mat_dft = np.zeros((self.mol.nao, self.mol.nao))
+        dft_mat_dft = np.zeros((self.mol.nao, self.mol.nao))
+        dft_mat_cc = np.zeros((self.mol.nao, self.mol.nao))
         delta_exc_cc = np.zeros((self.mol.nao, self.mol.nao))
         cc_dft_diff = np.zeros((self.mol.nao, self.mol.nao))
 
@@ -88,19 +89,19 @@ class CC_DFT_DATA:
         exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
 
         for i, j in product(range(self.mol.nao), range(self.mol.nao)):
-            ao_ij = np.einsum("i,i->i", ao_value[0][:, i], ao_value[0][:, j])
+            ao_ij = np.einsum("i,i,i->i", ao_value[0][:, i], ao_value[0][:, j], weights)
             rho = dm1_dft[i, j] * ao_ij
-            exc_mat_dft[i, j] = np.einsum("i,i,i->", exc_dft_grids, rho, weights)
+            dft_mat_dft[i, j] = np.einsum("i,i->", exc_dft_grids, rho)
             rho = dm1_cc[i, j] * ao_ij
-            delta_exc_cc[i, j] = -np.einsum("i,i,i->", exc_cc_grids, rho, weights)
+            dft_mat_cc[i, j] = np.einsum("i,i->", exc_cc_grids, rho)
 
-        delta_exc_cc += exc_mat
-        delta_exc_cc += ek_mat_cc * 0.05
-        exc_mat_dft -= ek_mat_dft * 0.05
+        dft_mat_cc -= ek_mat_cc * 0.05
+        dft_mat_dft -= ek_mat_dft * 0.05
+        delta_exc_cc = exc_mat - dft_mat_dft
 
         cc_dft_diff = (
             exc_mat
-            - exc_mat_dft
+            - dft_mat_dft
             + (h1e * dm1_cc)
             - (h1e * dm1_dft)
             + ej_mat_cc * 0.5
@@ -123,6 +124,18 @@ class CC_DFT_DATA:
         np.save(
             Path("data") / "output" / f"output_delta_exc_cc_{self.name}.npy",
             delta_exc_cc,
+        )
+        np.save(
+            Path("data") / "output" / f"exc_mat_{self.name}.npy",
+            exc_mat,
+        )
+        np.save(
+            Path("data") / "output" / f"exc_mat_dft_{self.name}.npy",
+            dft_mat_dft,
+        )
+        np.save(
+            Path("data") / "output" / f"exc_mat_cc_{self.name}.npy",
+            dft_mat_cc,
         )
 
         np.save(Path("data") / "weight" / f"e_ccsd_{self.name}.npy", e_cc)
