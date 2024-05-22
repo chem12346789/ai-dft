@@ -149,4 +149,13 @@ class CC_DFT_DATA:
             self.aoslice_by_atom,
         )
 
+        print(e_dft - mdft.energy_tot(dm=dm1_dft))
+        print(
+            np.sum(dft_mat_dft + (h1e * dm1_dft) + ej_mat_dft * 0.5)
+            - mdft.energy_elec(dm=dm1_dft)[0]
+        )
+        print(
+            np.sum(dft_mat_cc + (h1e * dm1_cc) + ej_mat_cc * 0.5)
+            - mdft.energy_elec(dm=dm1_cc)[0]
+        )
         print(e_cc - e_dft - np.sum(cc_dft_diff))
