@@ -131,7 +131,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         update_d[f"n_val_{k}"] = v
     experiment.config.update(update_d)
 
-    loss_fn = nn.L1Loss(reduce=sum)
+    loss_fn = nn.L1Loss(reduction="sum")
 
     pbar = trange(args.epoch + 1)
     for epoch in pbar:

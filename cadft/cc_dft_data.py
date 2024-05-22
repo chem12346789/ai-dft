@@ -6,11 +6,19 @@ import numpy as np
 import pyscf
 from pyscf import dft
 import opt_einsum as oe
+import torch
 
 from cadft.utils import gen_basis
 from cadft.utils import rotate
 from cadft.utils import Mol
 from cadft.utils import Grid
+
+
+def process(data, device="cuda"):
+    """
+    Load the whole data to the device.
+    """
+    return torch.as_tensor(data).to(torch.float64).contiguous().to(device=device)
 
 
 class CC_DFT_DATA:
@@ -59,6 +67,7 @@ class CC_DFT_DATA:
         mdft.xc = xc_code
         mdft.kernel()
         dm1_dft = mdft.make_rdm1(ao_repr=True)
+        print(np.shape(dm1_dft))
 
         mf = pyscf.scf.RHF(self.mol)
         mf.kernel()
@@ -108,7 +117,13 @@ class CC_DFT_DATA:
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
                 exc_over_dm_cc_grids[i] += (
-                    expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv) / rho_cc[0][i]
+                    expr_rinv_dm2_r(
+                        process(ao_0_i),
+                        process(ao_0_i),
+                        process(rinv),
+                        backend="torch",
+                    )
+                    / rho_cc[0][i]
                 )
 
         ene_vc = np.sum(exc_over_dm_cc_grids * rho_cc[0] * weights)

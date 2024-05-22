@@ -12,7 +12,6 @@ from cadft.utils import (
     load_model,
 )
 from cadft.utils import add_args, save_csv_loss, DataBase
-
 from cadft.utils import FCNet as Model
 
 # from cadft.utils import Transformer as Model
@@ -36,13 +35,13 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     else:
         device = torch.device("cpu")
 
-    model_dict = gen_model_dict(args.hidden_size, device)
+    model_dict = gen_model_dict(ATOM_LIST, args.hidden_size, device)
 
-    database_train = DataBase(args, TRAIN_STR_DICT, device)
-    database_eval = DataBase(args, EVAL_STR_DICT, device)
+    database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
+    database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
 
     if args.load != "":
-        load_model(model_dict, args.load, args.hidden_size, device)
+        load_model(model_dict, ATOM_LIST, args.load, args.hidden_size, device)
     else:
         model_dict = None
 
