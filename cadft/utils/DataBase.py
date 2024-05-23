@@ -35,14 +35,17 @@ class DataBase:
 
         self.distance_l = gen_logger(args.distance_list)
         self.data = {}
+
         self.input = {}
         self.middle = {}
         self.output = {}
+        self.weight = {}
 
         for atom in atom_list:
             self.input[atom] = {}
             self.middle[atom] = {}
             self.output[atom] = {}
+            self.weight[atom] = {}
 
         for (
             name_mol,
@@ -85,25 +88,29 @@ class DataBase:
         e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
 
         weight = data["weights"]
-        input_mat = data["rho_dft"] * weight
-        middle_mat = data["rho_cc"] * weight
+        input_mat = data["rho_dft"]
+        middle_mat = data["rho_cc"]
         output_mat = data["exc_over_dm_cc_grids"]
 
         self.data[name] = {
             "e_cc": e_cc,
             "e_dft": e_dft,
+            "ene_vc": data["ene_vc"],
         }
 
         for i_atom in range(input_mat.shape[0]):
             atom_name = molecular_list[i_atom][0]
-            for i in range(input_mat.shape[1]):
+            for i in range(input_mat.shape[2]):
                 # if np.linalg.norm(input_mat[i_atom, i, :]) < 1e-10:
                 #     continue
-                self.input[atom_name][f"{name}_{i}"] = input_mat[i_atom, i, :]
-                self.middle[atom_name][f"{name}_{i}"] = (
-                    middle_mat[i_atom, i, :] - input_mat[i_atom, i, :]
+                self.input[atom_name][f"{name}_{i_atom}_{i}"] = input_mat[i_atom, :, i]
+                self.middle[atom_name][f"{name}_{i_atom}_{i}"] = (
+                    middle_mat[i_atom, :, i] - input_mat[i_atom, :, i]
                 )
-                self.output[atom_name][f"{name}_{i}"] = output_mat[i_atom, i, :] * 1000
+                self.output[atom_name][f"{name}_{i_atom}_{i}"] = output_mat[
+                    i_atom, :, i
+                ]
+                self.weight[atom_name][f"{name}_{i_atom}_{i}"] = weight[i_atom, :, i]
 
     def check(self, model_list=None, if_equilibrium=True):
         """
@@ -212,17 +219,19 @@ class DataBase:
         exc_real = np.zeros(weights_shape)
         rho_pred = np.zeros(weights_shape)
         exc_pred = np.zeros(weights_shape)
+        weight = np.zeros(weights_shape)
 
         for i_atom in range(weights_shape[0]):
             atom_name = molecular[i_atom][0]
-            for i in range(weights_shape[1]):
-                input_mat = self.input[atom_name][f"{name}_{i}"]
-                middle_mat_real = self.middle[atom_name][f"{name}_{i}"]
+            for i in range(weights_shape[2]):
+                input_mat = self.input[atom_name][f"{name}_{i_atom}_{i}"]
+                middle_mat_real = self.middle[atom_name][f"{name}_{i_atom}_{i}"]
                 middle_mat_real += input_mat
-                output_mat_real = self.output[atom_name][f"{name}_{i}"]
+                output_mat_real = self.output[atom_name][f"{name}_{i_atom}_{i}"]
 
-                rho_real[i_atom, i, :] = middle_mat_real
-                exc_real[i_atom, i, :] = output_mat_real
+                rho_real[i_atom, :, i] = middle_mat_real
+                exc_real[i_atom, :, i] = output_mat_real
+                weight[i_atom, :, i] = self.weight[atom_name][f"{name}_{i_atom}_{i}"]
 
                 if not (model_list is None):
                     input_mat = (
@@ -247,15 +256,20 @@ class DataBase:
                     middle_mat = middle_mat.detach().cpu().numpy()
                     output_mat = output_mat.detach().cpu().numpy()
 
-                    rho_pred[i_atom, i, :] = middle_mat
-                    exc_pred[i_atom, i, :] = output_mat
+                    rho_pred[i_atom, :, i] = middle_mat
+                    exc_pred[i_atom, :, i] = output_mat
+                    print(output_mat, output_mat_real)
                 else:
-                    rho_pred[i_atom, i, :] = middle_mat_real
-                    exc_pred[i_atom, i, :] = output_mat_real
+                    rho_pred[i_atom, :, i] = middle_mat_real
+                    exc_pred[i_atom, :, i] = output_mat_real
 
         if model_list is None:
-            ene_loss_i = np.sum(exc_pred * rho_pred - exc_real * rho_real)
-            ene_loss_i_1 = np.sum(np.abs(exc_pred * rho_pred - exc_real * rho_real))
+            ene_loss_i = np.abs(
+                np.sum(exc_pred * rho_pred * weight) - self.data[name]["ene_vc"]
+            )
+            ene_loss_i_1 = np.sum(
+                np.abs(exc_pred * rho_pred * weight - exc_real * rho_real * weight)
+            )
             ene_loss_i_2 = 0
             if ene_loss_i > 1e-3:
                 print("")
@@ -266,18 +280,23 @@ class DataBase:
             dip_y_loss_i = 0
             dip_z_loss_i = 0
         else:
-            ene_loss_i = np.sum(exc_pred * rho_pred - exc_real * rho_real)
-            ene_loss_i_1 = np.sum(np.abs(exc_pred * rho_pred - exc_real * rho_real))
+            ene_loss_i = (
+                np.sum(exc_pred * rho_pred * weight) - self.data[name]["ene_vc"]
+            )
+            ene_loss_i_1 = np.sum(
+                np.abs(exc_pred * rho_pred * weight - exc_real * rho_real * weight)
+            )
             ene_loss_i_2 = 0
 
             rho_real = grids.matrix_to_vector(rho_real)
             rho_pred = grids.matrix_to_vector(rho_pred)
-            rho_loss_i = np.sum(np.abs(rho_pred - rho_real))
-            dip_x_loss_i = np.sum((rho_pred - rho_real) * coords[:, 0])
-            dip_y_loss_i = np.sum((rho_pred - rho_real) * coords[:, 1])
-            dip_z_loss_i = np.sum((rho_pred - rho_real) * coords[:, 2])
+            weight = grids.matrix_to_vector(weight)
+            rho_loss_i = np.sum(np.abs(rho_pred * weight - rho_real * weight))
+            dip_x_loss_i = np.sum((rho_pred - rho_real) * weight  * coords[:, 0])
+            dip_y_loss_i = np.sum((rho_pred - rho_real) * weight  * coords[:, 1])
+            dip_z_loss_i = np.sum((rho_pred - rho_real) * weight  * coords[:, 2])
         print(
-            f"    ene_loss: {ene_loss_i:7.4f}, {ene_loss_i_1:7.4f}, {ene_loss_i_2:7.4f}, rho_loss: {rho_loss_i:7.4f}.",
+            f"    ene_loss: {ene_loss_i:7.4f}, rho_loss: {rho_loss_i:7.4f}, total rho {np.sum(rho_pred * weight):7.4f}, total rho {np.sum(rho_real * weight):7.4f}.",
             end="",
         )
 

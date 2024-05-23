@@ -23,9 +23,9 @@ def gen_model_dict(atom_list, hidden_size, device):
     model_dict = {}
 
     for atom in atom_list:
-        model_dict[atom + "1"] = Model(302, hidden_size, 302).to(device)
+        model_dict[atom + "1"] = Model(75, hidden_size, 75).to(device)
         model_dict[atom + "1"].double()
-        model_dict[atom + "2"] = Model(302, hidden_size, 302).to(device)
+        model_dict[atom + "2"] = Model(75, hidden_size, 75).to(device)
         model_dict[atom + "2"].double()
 
     return model_dict

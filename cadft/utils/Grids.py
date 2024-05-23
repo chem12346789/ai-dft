@@ -167,28 +167,10 @@ class Grid(dft.gen_grid.Grids):
         self.radi_method = dft.radi.gauss_chebyshev
         modified_build(self)
 
-        self.x_2d = self.coords[:, 0].reshape(self.mol.natm, self.n_ang, self.n_rad)
-        self.y_2d = self.coords[:, 1].reshape(self.mol.natm, self.n_ang, self.n_rad)
-        self.z_2d = self.coords[:, 2].reshape(self.mol.natm, self.n_ang, self.n_rad)
         self.index_2d = np.arange(len(self.coords)).reshape(
             self.mol.natm, self.n_ang, self.n_rad
         )
-        self.w_2d = self.weights.reshape(self.mol.natm, self.n_ang, self.n_rad)
-
         self.index_2d = np.transpose(self.index_2d, axes=[0, 2, 1])
-        self.w_2d = np.transpose(self.w_2d, axes=[0, 2, 1])
-        self.x_2d = np.transpose(self.x_2d, axes=[0, 2, 1])
-        self.y_2d = np.transpose(self.y_2d, axes=[0, 2, 1])
-        self.z_2d = np.transpose(self.z_2d, axes=[0, 2, 1])
-
-        for i in range((self.x_2d).shape[0]):
-            for j in range((self.x_2d).shape[1]):
-                x_arg = np.lexsort((self.z_2d[i][j], self.y_2d[i][j], self.x_2d[i][j]))
-                self.x_2d[i][j] = self.x_2d[i][j][x_arg]
-                self.y_2d[i][j] = self.y_2d[i][j][x_arg]
-                self.z_2d[i][j] = self.z_2d[i][j][x_arg]
-                # self.index_2d[i][j] = self.index_2d[i][j][x_arg]
-                self.w_2d[i][j] = self.w_2d[i][j][x_arg]
 
     def vector_to_matrix(self, vector: np.ndarray):
         """
