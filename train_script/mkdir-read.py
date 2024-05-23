@@ -47,7 +47,7 @@ for (
 ) in itertools.product(
     ["NEW"],
     # ["2024-05-18-19-14-05"],
-    [800],
+    [1200],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
