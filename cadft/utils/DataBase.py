@@ -88,9 +88,9 @@ class DataBase:
         e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
 
         weight = data["weights"]
-        input_mat = data["rho_dft"]
-        middle_mat = data["rho_cc"]
-        output_mat = data["exc_over_dm_cc_grids"]
+        input_mat = data["rho_dft"] * weight
+        middle_mat = data["rho_cc"] * weight
+        output_mat = data["exc_over_dm_cc_grids"] * middle_mat
 
         self.data[name] = {
             "e_cc": e_cc,
@@ -251,25 +251,22 @@ class DataBase:
                     with torch.no_grad():
                         middle_mat = model_list[atom_name + "1"](input_mat)
                         middle_mat += input_mat
-                        output_mat = model_list[atom_name + "2"](middle_mat_real)
+                        output_mat = model_list[atom_name + "2"](middle_mat)
 
                     middle_mat = middle_mat.detach().cpu().numpy()
                     output_mat = output_mat.detach().cpu().numpy()
+                    print(output_mat)
+                    print(output_mat_real)
 
                     rho_pred[i_atom, :, i] = middle_mat
                     exc_pred[i_atom, :, i] = output_mat
-                    print(output_mat, output_mat_real)
                 else:
                     rho_pred[i_atom, :, i] = middle_mat_real
                     exc_pred[i_atom, :, i] = output_mat_real
 
         if model_list is None:
-            ene_loss_i = np.abs(
-                np.sum(exc_pred * rho_pred * weight) - self.data[name]["ene_vc"]
-            )
-            ene_loss_i_1 = np.sum(
-                np.abs(exc_pred * rho_pred * weight - exc_real * rho_real * weight)
-            )
+            ene_loss_i = np.abs(np.sum(exc_pred) - self.data[name]["ene_vc"])
+            ene_loss_i_1 = np.sum(np.abs(exc_pred - exc_real))
             ene_loss_i_2 = 0
             if ene_loss_i > 1e-3:
                 print("")
@@ -280,23 +277,19 @@ class DataBase:
             dip_y_loss_i = 0
             dip_z_loss_i = 0
         else:
-            ene_loss_i = (
-                np.sum(exc_pred * rho_pred * weight) - self.data[name]["ene_vc"]
-            )
-            ene_loss_i_1 = np.sum(
-                np.abs(exc_pred * rho_pred * weight - exc_real * rho_real * weight)
-            )
+            ene_loss_i = np.abs(np.sum(exc_pred) - self.data[name]["ene_vc"])
+            ene_loss_i_1 = np.sum(np.abs(exc_pred - exc_real))
             ene_loss_i_2 = 0
 
             rho_real = grids.matrix_to_vector(rho_real)
             rho_pred = grids.matrix_to_vector(rho_pred)
             weight = grids.matrix_to_vector(weight)
-            rho_loss_i = np.sum(np.abs(rho_pred * weight - rho_real * weight))
-            dip_x_loss_i = np.sum((rho_pred - rho_real) * weight  * coords[:, 0])
-            dip_y_loss_i = np.sum((rho_pred - rho_real) * weight  * coords[:, 1])
-            dip_z_loss_i = np.sum((rho_pred - rho_real) * weight  * coords[:, 2])
+            rho_loss_i = np.sum(np.abs(rho_pred - rho_real))
+            dip_x_loss_i = np.sum((rho_pred - rho_real) * coords[:, 0])
+            dip_y_loss_i = np.sum((rho_pred - rho_real) * coords[:, 1])
+            dip_z_loss_i = np.sum((rho_pred - rho_real) * coords[:, 2])
         print(
-            f"    ene_loss: {ene_loss_i:7.4f}, rho_loss: {rho_loss_i:7.4f}, total rho {np.sum(rho_pred * weight):7.4f}, total rho {np.sum(rho_real * weight):7.4f}.",
+            f"    ene_loss: {ene_loss_i:7.4f}, rho_loss: {rho_loss_i:7.4f}, total rho {np.sum(rho_pred):7.4f}, total rho {np.sum(rho_real):7.4f}.",
             end="",
         )
 

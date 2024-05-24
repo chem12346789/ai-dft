@@ -87,6 +87,25 @@ class CC_DFT_DATA:
         dm2_cc = mycc.make_rdm2(ao_repr=True)
         e_cc = mycc.e_tot
 
+        coords_x = grids.vector_to_matrix(coords[:, 0])
+        coords_y = grids.vector_to_matrix(coords[:, 1])
+        coords_z = grids.vector_to_matrix(coords[:, 2])
+
+        atom_coords = self.mol.atom_coords()[0]
+        coords_r = np.sqrt(
+            (coords_x[0, :, 0] - atom_coords[0]) ** 2
+            + (coords_y[0, :, 0] - atom_coords[1]) ** 2
+            + (coords_z[0, :, 0] - atom_coords[2]) ** 2
+        )
+        print(coords_r)
+        atom_coords = self.mol.atom_coords()[1]
+        coords_r = np.sqrt(
+            (coords_x[1, :, 0] - atom_coords[0]) ** 2
+            + (coords_y[1, :, 0] - atom_coords[1]) ** 2
+            + (coords_z[1, :, 0] - atom_coords[2]) ** 2
+        )
+        print(coords_r)
+
         rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
         rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
 
@@ -130,10 +149,15 @@ class CC_DFT_DATA:
             rho_cc=grids.vector_to_matrix(rho_cc[0]),
             exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
             weights=grids.vector_to_matrix(weights),
-            coords_r=grids.vector_to_matrix(
-                coords[:, 0] ** 2 + coords[:, 1] ** 2 + coords[:, 2] ** 2
-            ),
+            coords_r=coords_r,
             ene_vc=ene_vc,
+        )
+
+        print(weights - grids.matrix_to_vector(grids.vector_to_matrix(weights)))
+        print(
+            grids.vector_to_matrix(
+                coords[:, 0] ** 2 + coords[:, 1] ** 2 + coords[:, 2] ** 2
+            )
         )
 
         # rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
