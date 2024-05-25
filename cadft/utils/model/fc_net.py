@@ -9,24 +9,24 @@ class FCNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(FCNet, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.laynorm1 = nn.LayerNorm(hidden_size)
+        self.norm1 = nn.BatchNorm1d(hidden_size)
         self.relu1 = nn.ReLU()
 
         self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.laynorm2 = nn.LayerNorm(hidden_size)
+        self.norm2 = nn.BatchNorm1d(hidden_size)
         self.relu2 = nn.ReLU()
 
         self.fc3 = nn.Linear(hidden_size, hidden_size)
-        self.laynorm3 = nn.LayerNorm(hidden_size)
+        self.norm3 = nn.BatchNorm1d(hidden_size)
         self.relu3 = nn.ReLU()
 
-        # self.fc4 = nn.Linear(hidden_size, hidden_size)
-        # self.laynorm4 = nn.LayerNorm(hidden_size)
-        # self.relu4 = nn.ReLU()
+        self.fc4 = nn.Linear(hidden_size, hidden_size)
+        self.norm4 = nn.BatchNorm1d(hidden_size)
+        self.relu4 = nn.ReLU()
 
-        # self.fc5 = nn.Linear(hidden_size, hidden_size)
-        # self.laynorm5 = nn.LayerNorm(hidden_size)
-        # self.relu5 = nn.ReLU()
+        self.fc5 = nn.Linear(hidden_size, hidden_size)
+        self.norm5 = nn.BatchNorm1d(hidden_size)
+        self.relu5 = nn.ReLU()
 
         self.fcout1 = nn.Linear(hidden_size, hidden_size)
         self.reluout = nn.ReLU()
@@ -36,27 +36,27 @@ class FCNet(nn.Module):
         """
         Standard forward function
         """
-        out = self.fc1(x)
-        out = self.laynorm1(out)
-        out = self.relu1(out)
+        x = self.fc1(x)
+        x = self.norm1(x)
+        x1 = self.relu1(x)
 
-        out = self.fc2(out)
-        out = self.laynorm2(out)
-        out = self.relu2(out)
+        x2 = self.fc2(x1)
+        x2 = self.norm2(x2)
+        x2 = self.relu2(x2)
 
-        out = self.fc3(out)
-        out = self.laynorm3(out)
-        out = self.relu3(out)
+        x3 = self.fc3(x2)
+        x3 = self.norm3(x3)
+        x3 = self.relu3(x3)
 
-        # out = self.fc4(out)
-        # out = self.laynorm4(out)
-        # out = self.relu4(out)
+        x4 = self.fc4(x3)
+        x4 = self.norm4(x4)
+        x4 = self.relu4(x4)
 
-        # out = self.fc5(out)
-        # out = self.laynorm5(out)
-        # out = self.relu5(out)
+        x5 = self.fc5(x4)
+        x5 = self.norm5(x5)
+        x5 = self.relu5(x5)
 
-        out = self.fcout1(out)
-        out = self.reluout(out)
-        out = self.fcout2(out)
-        return out
+        out4 = self.fcout1(x5)
+        out4 = self.reluout(out4)
+        out4 = self.fcout2(out4)
+        return out4

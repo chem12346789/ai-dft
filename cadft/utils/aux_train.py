@@ -9,7 +9,6 @@ import torch
 
 from cadft.utils.nao import NAO
 from cadft.utils.model.fc_net import FCNet as Model
-
 # from cadft.utils.model.transformer import Transformer as Model
 
 

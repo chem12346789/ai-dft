@@ -18,11 +18,8 @@ class Transformer(torch.nn.Module):
             d_model=input_size, nhead=1, batch_first=True
         )
         self.transformer_encoder = torch.nn.TransformerEncoder(
-            encoder_layer, num_layers=3
+            encoder_layer, num_layers=5
         )
-        self.fc1 = torch.nn.Linear(input_size, hidden_size)
-        self.relu1 = torch.nn.ReLU()
-        self.fc2 = torch.nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
         """
@@ -30,8 +27,5 @@ class Transformer(torch.nn.Module):
         """
         x = torch.unsqueeze(x, 1)
         out = self.transformer_encoder(x)
-        out = self.fc1(out)
-        out = self.relu1(out)
-        out = self.fc2(out)
         out = torch.squeeze(out, 1)
         return out

@@ -69,18 +69,18 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             model_dict[key + "1"].parameters(),
             lr=1e-4,
         )
-        scheduler_dict[key + "1"] = optim.lr_scheduler.ExponentialLR(
+        scheduler_dict[key + "1"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "1"],
-            gamma=1 - 1e-4,
+            T_max=5000,
         )
 
         optimizer_dict[key + "2"] = optim.Adam(
             model_dict[key + "2"].parameters(),
             lr=1e-4,
         )
-        scheduler_dict[key + "2"] = optim.lr_scheduler.ExponentialLR(
+        scheduler_dict[key + "2"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "2"],
-            gamma=1 - 1e-4,
+            T_max=5000,
         )
     load_model(model_dict, keys_l, args.load, args.hidden_size, device)
 
@@ -156,14 +156,14 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     middle_mat = model_dict[key + "1"](input_mat)
                     loss_1 = loss_fn(middle_mat, middle_mat_real)
                     loss_1.backward()
-                    train_loss_sum_1[key] += loss_1.item()
+                    train_loss_sum_1[key] += loss_1.item() / ntrain_dict[key]
                     optimizer_dict[key + "1"].step()
 
                     output_mat_real = batch["output"]
                     output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
                     loss_2 = loss_fn(output_mat, output_mat_real)
                     loss_2.backward()
-                    train_loss_sum_2[key] += loss_2.item()
+                    train_loss_sum_2[key] += loss_2.item() / ntrain_dict[key]
                     optimizer_dict[key + "2"].step()
 
             scheduler_dict[key + "1"].step()
@@ -184,14 +184,16 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     output_mat_real = batch["output"]
                     with torch.no_grad():
                         middle_mat = model_dict[key + "1"](input_mat)
-                        eval_loss_sum_1[key] += loss_fn(
-                            middle_mat, middle_mat_real
-                        ).item()
+                        eval_loss_sum_1[key] += (
+                            loss_fn(middle_mat, middle_mat_real).item()
+                            / neval_dict[key]
+                        )
 
-                        output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
-                        eval_loss_sum_2[key] += loss_fn(
-                            output_mat, output_mat_real
-                        ).item()
+                        output_mat = model_dict[key + "2"](input_mat + middle_mat)
+                        eval_loss_sum_2[key] += (
+                            loss_fn(output_mat, output_mat_real).item()
+                            / neval_dict[key]
+                        )
 
             lod_d = {
                 "epoch": epoch,
