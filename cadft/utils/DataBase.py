@@ -201,20 +201,9 @@ class DataBase:
 
         molecular = copy.deepcopy(Mol[name_mol])
         molecular[extend_atom][extend_xyz] += distance
-        dft2cc = cadft.cc_dft_data.CC_DFT_DATA(
-            molecular,
-            name=name,
-            basis=self.args.basis,
-            if_basis_str=self.args.if_basis_str,
-        )
 
-        mdft = pyscf.scf.RKS(dft2cc.mol)
-        mdft.xc = "b3lyp"
-        grids = Grid(dft2cc.mol)
-        coords = grids.coords
-        weights = grids.weights
+        weights_shape = (len(molecular), 3, 3)
 
-        weights_shape = grids.vector_to_matrix(weights).shape
         rho_real = np.zeros(weights_shape)
         exc_real = np.zeros(weights_shape)
         rho_pred = np.zeros(weights_shape)
@@ -255,8 +244,7 @@ class DataBase:
 
                     middle_mat = middle_mat.detach().cpu().numpy()
                     output_mat = output_mat.detach().cpu().numpy()
-                    print(output_mat)
-                    print(output_mat_real)
+                    print(output_mat - output_mat_real)
 
                     rho_pred[i_atom, :, i] = middle_mat
                     exc_pred[i_atom, :, i] = output_mat
@@ -281,13 +269,10 @@ class DataBase:
             ene_loss_i_1 = np.sum(np.abs(exc_pred - exc_real))
             ene_loss_i_2 = 0
 
-            rho_real = grids.matrix_to_vector(rho_real)
-            rho_pred = grids.matrix_to_vector(rho_pred)
-            weight = grids.matrix_to_vector(weight)
             rho_loss_i = np.sum(np.abs(rho_pred - rho_real))
-            dip_x_loss_i = np.sum((rho_pred - rho_real) * coords[:, 0])
-            dip_y_loss_i = np.sum((rho_pred - rho_real) * coords[:, 1])
-            dip_z_loss_i = np.sum((rho_pred - rho_real) * coords[:, 2])
+            dip_x_loss_i = 0
+            dip_y_loss_i = 0
+            dip_z_loss_i = 0
         print(
             f"    ene_loss: {ene_loss_i:7.4f}, rho_loss: {rho_loss_i:7.4f}, total rho {np.sum(rho_pred):7.4f}, total rho {np.sum(rho_real):7.4f}.",
             end="",

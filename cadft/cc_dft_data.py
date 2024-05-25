@@ -66,99 +66,71 @@ class CC_DFT_DATA:
         dm1_dft = mdft.make_rdm1(ao_repr=True)
         print(np.shape(dm1_dft))
 
-        mf = pyscf.scf.RHF(self.mol)
-        mf.kernel()
-        mycc = pyscf.cc.CCSD(mf)
-        mycc.kernel()
-        dm1_cc = mycc.make_rdm1(ao_repr=True)
-        dm2_cc = mycc.make_rdm2(ao_repr=True)
-        e_cc = mycc.e_tot
+        # mf = pyscf.scf.RHF(self.mol)
+        # mf.kernel()
+        # mycc = pyscf.cc.CCSD(mf)
+        # mycc.kernel()
+        # dm1_cc = mycc.make_rdm1(ao_repr=True)
+        # dm2_cc = mycc.make_rdm2(ao_repr=True)
+        # e_cc = mycc.e_tot
 
-        grids = Grid(self.mol)
+        grids = Grid(self.mol, level=0)
         coords = grids.coords
         weights = grids.weights
         ao_value = dft.numint.eval_ao(self.mol, coords, deriv=1)
 
-        mf = pyscf.scf.RHF(self.mol)
-        mf.kernel()
-        mycc = pyscf.cc.CCSD(mf)
-        mycc.kernel()
-        dm1_cc = mycc.make_rdm1(ao_repr=True)
-        dm2_cc = mycc.make_rdm2(ao_repr=True)
-        e_cc = mycc.e_tot
+        # coords_x = grids.vector_to_matrix(coords[:, 0])
+        # coords_y = grids.vector_to_matrix(coords[:, 1])
+        # coords_z = grids.vector_to_matrix(coords[:, 2])
 
-        coords_x = grids.vector_to_matrix(coords[:, 0])
-        coords_y = grids.vector_to_matrix(coords[:, 1])
-        coords_z = grids.vector_to_matrix(coords[:, 2])
+        # atom_coords = self.mol.atom_coords()[0]
+        # coords_r = np.sqrt(
+        #     (coords_x[0, :, 0] - atom_coords[0]) ** 2
+        #     + (coords_y[0, :, 0] - atom_coords[1]) ** 2
+        #     + (coords_z[0, :, 0] - atom_coords[2]) ** 2
+        # )
 
-        atom_coords = self.mol.atom_coords()[0]
-        coords_r = np.sqrt(
-            (coords_x[0, :, 0] - atom_coords[0]) ** 2
-            + (coords_y[0, :, 0] - atom_coords[1]) ** 2
-            + (coords_z[0, :, 0] - atom_coords[2]) ** 2
-        )
-        print(coords_r)
-        atom_coords = self.mol.atom_coords()[1]
-        coords_r = np.sqrt(
-            (coords_x[1, :, 0] - atom_coords[0]) ** 2
-            + (coords_y[1, :, 0] - atom_coords[1]) ** 2
-            + (coords_z[1, :, 0] - atom_coords[2]) ** 2
-        )
-        print(coords_r)
-
-        rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
+        # rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
         rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
 
-        exc_over_dm_cc_grids = np.zeros_like(rho_cc[0])
-        # exc_over_dm_cc_grids = -dft.libxc.eval_xc("b3lyp", rho_cc)[0]
-        expr_rinv_dm2_r = oe.contract_expression(
-            "ijkl,i,j,kl->",
-            0.5 * dm2_cc,
-            # 0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)),
-            # + 0.05 * oe.contract("pr,qs->pqrs", dm1_cc, dm1_cc),
-            (self.mol.nao,),
-            (self.mol.nao,),
-            (self.mol.nao, self.mol.nao),
-            constants=[0],
-            optimize="optimal",
-        )
+        # exc_over_dm_cc_grids = np.zeros_like(rho_cc[0])
+        # # exc_over_dm_cc_grids = -dft.libxc.eval_xc("b3lyp", rho_cc)[0]
+        # expr_rinv_dm2_r = oe.contract_expression(
+        #     "ijkl,i,j,kl->",
+        #     0.5 * dm2_cc,
+        #     # 0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)),
+        #     # + 0.05 * oe.contract("pr,qs->pqrs", dm1_cc, dm1_cc),
+        #     (self.mol.nao,),
+        #     (self.mol.nao,),
+        #     (self.mol.nao, self.mol.nao),
+        #     constants=[0],
+        #     optimize="optimal",
+        # )
 
-        for i, coord in enumerate(tqdm(coords)):
-            ao_0_i = ao_value[0][i]
-            # if np.linalg.norm(ao_0_i) < 1e-10:
-            #     continue
-            with self.mol.with_rinv_origin(coord):
-                rinv = self.mol.intor("int1e_rinv")
-                exc_over_dm_cc_grids[i] += (
-                    expr_rinv_dm2_r(
-                        ao_0_i,
-                        ao_0_i,
-                        rinv,
-                    )
-                    / rho_cc[0][i]
-                )
+        # for i, coord in enumerate(tqdm(coords)):
+        #     ao_0_i = ao_value[0][i]
+        #     # if np.linalg.norm(ao_0_i) < 1e-10:
+        #     #     continue
+        #     with self.mol.with_rinv_origin(coord):
+        #         rinv = self.mol.intor("int1e_rinv")
+        #         exc_over_dm_cc_grids[i] += (
+        #             expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv) / rho_cc[0][i]
+        #         )
 
-        ene_vc = np.sum(exc_over_dm_cc_grids * rho_cc[0] * weights)
-        h1e = mf.get_hcore()
-        error = ene_vc + np.sum(h1e * dm1_cc) + mf.energy_nuc() - e_cc
-        print(f"Error: {(1e3 * error):.5f} mHa")
+        # ene_vc = np.sum(exc_over_dm_cc_grids * rho_cc[0] * weights)
+        # h1e = mf.get_hcore()
+        # error = ene_vc + np.sum(h1e * dm1_cc) + mf.energy_nuc() - e_cc
+        # print(f"Error: {(1e3 * error):.5f} mHa")
 
-        np.savez_compressed(
-            Path("data") / "grids" / (f"data_{self.name}.npz"),
-            rho_dft=grids.vector_to_matrix(rho_dft[0]),
-            rho_cc=grids.vector_to_matrix(rho_cc[0]),
-            exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
-            weights=grids.vector_to_matrix(weights),
-            coords_r=coords_r,
-            ene_vc=ene_vc,
-        )
-
-        print(weights - grids.matrix_to_vector(grids.vector_to_matrix(weights)))
-        print(
-            grids.vector_to_matrix(
-                coords[:, 0] ** 2 + coords[:, 1] ** 2 + coords[:, 2] ** 2
-            )
-        )
+        # np.savez_compressed(
+        #     Path("data") / "grids" / (f"data_{self.name}.npz"),
+        #     rho_dft=grids.vector_to_matrix(rho_dft[0]),
+        #     rho_cc=grids.vector_to_matrix(rho_cc[0]),
+        #     exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
+        #     weights=grids.vector_to_matrix(weights),
+        #     coords_r=coords_r,
+        #     ene_vc=ene_vc,
+        # )
 
         # rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
         # rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
