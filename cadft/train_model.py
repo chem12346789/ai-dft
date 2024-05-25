@@ -2,9 +2,8 @@
 
 import argparse
 from pathlib import Path
-import copy
 import datetime
-from itertools import product
+import os
 
 from tqdm import trange
 import torch
@@ -126,6 +125,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         "batch_size": args.batch_size,
         "n_train": np.min(list(ntrain_dict.values())),
         "n_val": np.min(list(neval_dict.values())),
+        "dir_checkpoint": str(dir_checkpoint),
+        "jobid": os.environ.get("SLURM_JOB_ID"),
     }
 
     for k, v in ntrain_dict.items():

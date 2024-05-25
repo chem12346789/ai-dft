@@ -9,23 +9,23 @@ class FCNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(FCNet, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
-        self.norm1 = nn.BatchNorm1d(hidden_size)
+        self.norm1 = nn.LayerNorm(hidden_size)
         self.relu1 = nn.ReLU()
 
         self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.norm2 = nn.BatchNorm1d(hidden_size)
+        self.norm2 = nn.LayerNorm(hidden_size)
         self.relu2 = nn.ReLU()
 
         self.fc3 = nn.Linear(hidden_size, hidden_size)
-        self.norm3 = nn.BatchNorm1d(hidden_size)
+        self.norm3 = nn.LayerNorm(hidden_size)
         self.relu3 = nn.ReLU()
 
         self.fc4 = nn.Linear(hidden_size, hidden_size)
-        self.norm4 = nn.BatchNorm1d(hidden_size)
+        self.norm4 = nn.LayerNorm(hidden_size)
         self.relu4 = nn.ReLU()
 
         self.fc5 = nn.Linear(hidden_size, hidden_size)
-        self.norm5 = nn.BatchNorm1d(hidden_size)
+        self.norm5 = nn.LayerNorm(hidden_size)
         self.relu5 = nn.ReLU()
 
         self.fcout1 = nn.Linear(hidden_size, hidden_size)
