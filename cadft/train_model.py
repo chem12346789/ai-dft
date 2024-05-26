@@ -104,7 +104,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             pin_memory=True,
         )
         train_dict[key] = load_to_gpu(train_loader, device)
-        ntrain_dict[key] = len(database_train.input[key])
+        ntrain_dict[key] = len(database_train.input[key]) * model_dict["size"][key]
 
         dataset = BasicDataset(
             database_eval.input[key],
@@ -119,7 +119,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             pin_memory=True,
         )
         eval_dict[key] = load_to_gpu(eval_loader, device)
-        neval_dict[key] = len(database_eval.input[key])
+        neval_dict[key] = len(database_eval.input[key]) * model_dict["size"][key]
 
     update_d = {
         "batch_size": args.batch_size,

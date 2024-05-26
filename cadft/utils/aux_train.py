@@ -9,6 +9,7 @@ import torch
 
 from cadft.utils.nao import NAO
 from cadft.utils.model.fc_net import FCNet as Model
+
 # from cadft.utils.model.transformer import Transformer as Model
 
 
@@ -41,6 +42,7 @@ def gen_model_dict(keys_l, hidden_size, device):
         model_dict: dictionary of models
     """
     model_dict = {}
+    model_dict["size"] = {}
 
     for key in keys_l:
         model_dict[key + "1"] = Model(
@@ -49,6 +51,7 @@ def gen_model_dict(keys_l, hidden_size, device):
             NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
         ).to(device)
         model_dict[key + "1"].double()
+        model_dict["size"][key] = NAO[key.split("-")[0]] * NAO[key.split("-")[1]]
 
         model_dict[key + "2"] = Model(
             NAO[key.split("-")[0]] * NAO[key.split("-")[1]],

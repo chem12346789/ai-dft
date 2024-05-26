@@ -28,6 +28,14 @@ class FCNet(nn.Module):
         self.norm5 = nn.LayerNorm(hidden_size)
         self.relu5 = nn.ReLU()
 
+        # self.fc6 = nn.Linear(hidden_size, hidden_size)
+        # self.norm6 = nn.LayerNorm(hidden_size)
+        # self.relu6 = nn.ReLU()
+
+        # self.fc7 = nn.Linear(hidden_size, hidden_size)
+        # self.norm7 = nn.LayerNorm(hidden_size)
+        # self.relu7 = nn.ReLU()
+
         self.fcout1 = nn.Linear(hidden_size, hidden_size)
         self.reluout = nn.ReLU()
         self.fcout2 = nn.Linear(hidden_size, output_size)
@@ -56,7 +64,15 @@ class FCNet(nn.Module):
         x5 = self.norm5(x5)
         x5 = self.relu5(x5)
 
-        out4 = self.fcout1(x5)
+        # x6 = self.fc6(x5)
+        # x6 = self.norm6(x6)
+        # x6 = self.relu6(x6)
+
+        # x7 = self.fc7(x6)
+        # x7 = self.norm7(x7)
+        # x7 = self.relu7(x7)
+
+        out4 = self.fcout1(x3)
         out4 = self.reluout(out4)
         out4 = self.fcout2(out4)
         return out4
