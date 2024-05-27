@@ -69,18 +69,18 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             model_dict[key + "1"].parameters(),
             lr=1e-4,
         )
-        scheduler_dict[key + "1"] = optim.lr_scheduler.ExponentialLR(
+        scheduler_dict[key + "1"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "1"],
-            gamma=1 - 1e-4,
+            T_max=5000,
         )
 
         optimizer_dict[key + "2"] = optim.Adam(
             model_dict[key + "2"].parameters(),
             lr=1e-4,
         )
-        scheduler_dict[key + "2"] = optim.lr_scheduler.ExponentialLR(
+        scheduler_dict[key + "2"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "2"],
-            gamma=1 - 1e-4,
+            T_max=5000,
         )
     load_model(model_dict, keys_l, args, device)
 
