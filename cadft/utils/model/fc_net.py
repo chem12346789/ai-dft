@@ -72,7 +72,7 @@ class FCNet(nn.Module):
         # x7 = self.norm7(x7)
         # x7 = self.relu7(x7)
 
-        out4 = self.fcout1(x3)
+        out4 = self.fcout1(x5)
         out4 = self.reluout(out4)
         out4 = self.fcout2(out4)
         return out4
