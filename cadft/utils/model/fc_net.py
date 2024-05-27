@@ -59,4 +59,4 @@ class FCNet(nn.Module):
         out = self.fcout1(x5)
         out = self.reluout(out)
         out = self.fcout2(out)
-        return out4
+        return out
