@@ -49,7 +49,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     today = datetime.datetime.today()
     dir_checkpoint = Path(
         f"checkpoints/checkpoint-ccdft-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
-    )
+    ).resolve()
     print(
         f"Start training at {today:%Y-%m-%d-%H-%M-%S} with hidden size as {args.hidden_size}"
     )
