@@ -233,13 +233,12 @@ class DataBase:
 
             input_mat = self.input[key][f"{name}_{i}_{j}"]
             middle_real = self.middle[key][f"{name}_{i}_{j}"]
+            middle_real += input_mat
             output_real = self.output[key][f"{name}_{i}_{j}"]
 
             dm1_middle_real[
                 dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]
-            ] = (input_mat + middle_real).reshape(
-                NAO[molecular[i][0]], NAO[molecular[j][0]]
-            )
+            ] = middle_real.reshape(NAO[molecular[i][0]], NAO[molecular[j][0]])
             exc_real += np.sum(output_real)
 
             if not (model_list is None):
@@ -260,9 +259,10 @@ class DataBase:
 
                 middle_mat = middle_mat.detach().cpu().numpy()
                 output_mat = output_mat.detach().cpu().numpy()
+
+                print(middle_mat - middle_real)
             else:
                 middle_mat = middle_real.copy()
-                middle_mat += input_mat
                 output_mat = output_real.copy()
 
             dm1_middle[dft2cc.atom_info["slice"][i], dft2cc.atom_info["slice"][j]] = (
@@ -468,7 +468,7 @@ class DataBase:
         Check the input data, if model_list is not none, check loss of the model.
         """
         name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-        print(f"\rCheck {name:>30}", end="")
+        print(f"Check {name:>30}", end="")
 
         molecular = copy.deepcopy(Mol[name_mol])
         molecular[extend_atom][extend_xyz] += distance
@@ -522,10 +522,7 @@ class DataBase:
             np.einsum("i,i,i->i", rho - rho_real, coords[:, 2], weights)
         )
         ene_loss_i = 1000 * (self.data[name]["e_dft"] - self.data[name]["e_cc"])
-        print(
-            f"    ene_loss: {ene_loss_i:7.4f} rho_loss:  {rho_loss_i:7.4f}",
-            end="",
-        )
+        print(f"    ene_loss: {ene_loss_i:7.4f} rho_loss:  {rho_loss_i:7.4f}")
         return (
             ene_loss_i,
             0,
