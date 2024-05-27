@@ -26,10 +26,10 @@ TRAIN_STR_DICT = [
     "Neopentane",
     "Cyclopentane",
     "Benzene",
+    "Isopentane",
 ]
 EVAL_STR_DICT = [
     "Pentane",
-    "Isopentane",
 ]
 
 validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT)

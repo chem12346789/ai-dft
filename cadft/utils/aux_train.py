@@ -47,7 +47,7 @@ def gen_model_dict(keys_l, hidden_size, device):
     for key in keys_l:
         model_dict[key + "1"] = Model(
             NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]] * hidden_size,
+            hidden_size,
             NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
         ).to(device)
         model_dict[key + "1"].double()
@@ -55,7 +55,7 @@ def gen_model_dict(keys_l, hidden_size, device):
 
         model_dict[key + "2"] = Model(
             NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
-            NAO[key.split("-")[0]] * NAO[key.split("-")[1]] * hidden_size,
+            hidden_size,
             NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
         ).to(device)
         model_dict[key + "2"].double()
