@@ -97,7 +97,7 @@ class CC_DFT_DATA:
 
         dft_mat_cc -= ek_mat_cc * 0.05
         dft_mat_dft -= ek_mat_dft * 0.05
-        delta_exc_cc = exc_mat - dft_mat_dft
+        delta_exc_cc = exc_mat - dft_mat_cc
 
         cc_dft_diff = (
             exc_mat

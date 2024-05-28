@@ -28,7 +28,7 @@ class DataBase:
         self.molecular_list = molecular_list
         self.device = device
 
-        self.data_path = Path("data")
+        self.data_path = Path("data") / "dm"
 
         self.distance_l = gen_logger(args.distance_list)
         self.data = {}
@@ -82,14 +82,14 @@ class DataBase:
         Load the data.
         """
         data = np.load(self.data_path / f"data_{name}.npz")
-        e_cc = data["e_cc"][0]
-        e_dft = data["e_dft"][0]
-        energy_nuc = data["energy_nuc"][0]
+        e_cc = data["e_cc"]
+        e_dft = data["e_dft"]
+        energy_nuc = data["energy_nuc"]
         aoslice_by_atom = data["aoslice_by_atom"]
 
         input_mat = data["dm1_dft"]
         middle_mat = data["dm1_cc"]
-        output_mat = data["delta_exc_cc"]
+        output_mat = data["exc_mat"] - data["dft_mat_cc"]
         # output_mat = np.load(self.dir_output / f"output_cc_dft_diff_{name}.npy")
 
         self.data[name] = {
