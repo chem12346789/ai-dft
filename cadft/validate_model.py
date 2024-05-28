@@ -1,17 +1,10 @@
 import argparse
 from pathlib import Path
-import datetime
-from itertools import product
 
 import torch
 
-from cadft.utils import NAO
 from cadft.utils import add_args, gen_keys_l, ModelDict
-from cadft.utils import add_args, save_csv_loss, DataBase
-
-from cadft.utils import FCNet as Model
-
-# from cadft.utils import Transformer as Model
+from cadft.utils import save_csv_loss, DataBase
 
 
 def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):

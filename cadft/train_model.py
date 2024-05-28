@@ -1,8 +1,6 @@
 """Module providing a training method."""
 
 import argparse
-from pathlib import Path
-import datetime
 import os
 
 from tqdm import trange
@@ -14,13 +12,8 @@ import torch.nn as nn
 import numpy as np
 import wandb
 
-from cadft.utils import (
-    add_args,
-    load_to_gpu,
-    gen_keys_l,
-    ModelDict,
-)
-from cadft.utils import DataBase, BasicDataset
+from cadft.utils import add_args, load_to_gpu, gen_keys_l
+from cadft.utils import DataBase, BasicDataset, ModelDict
 
 
 def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
