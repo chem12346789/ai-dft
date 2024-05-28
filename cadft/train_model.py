@@ -2,9 +2,8 @@
 
 import argparse
 from pathlib import Path
-import copy
 import datetime
-from itertools import product
+import os
 
 from tqdm import trange
 import torch
@@ -49,8 +48,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
     today = datetime.datetime.today()
     dir_checkpoint = Path(
-        f"checkpoints/checkpoint-cc_dft_diff-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
-    )
+        f"checkpoints/checkpoint-ccdft-{today:%Y-%m-%d-%H-%M-%S}-{args.hidden_size}/"
+    ).resolve()
     print(
         f"Start training at {today:%Y-%m-%d-%H-%M-%S} with hidden size as {args.hidden_size}"
     )
@@ -60,7 +59,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     keys_l = gen_keys_l(ATOM_LIST)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_dict = gen_model_dict(keys_l, args, device)
+    model_dict = gen_model_dict(keys_l, args.hidden_size, device)
 
     optimizer_dict = {}
     scheduler_dict = {}
@@ -82,7 +81,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             optimizer_dict[key + "2"],
             T_max=5000,
         )
-    load_model(model_dict, keys_l, args, device)
+    load_model(model_dict, keys_l, args.load, args.hidden_size, device)
 
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
@@ -105,7 +104,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             pin_memory=True,
         )
         train_dict[key] = load_to_gpu(train_loader, device)
-        ntrain_dict[key] = len(database_train.input[key])
+        ntrain_dict[key] = len(database_train.input[key]) * model_dict["size"][key]
 
         dataset = BasicDataset(
             database_eval.input[key],
@@ -120,15 +119,15 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             pin_memory=True,
         )
         eval_dict[key] = load_to_gpu(eval_loader, device)
-        neval_dict[key] = len(database_eval.input[key])
+        neval_dict[key] = len(database_eval.input[key]) * model_dict["size"][key]
 
     update_d = {
         "batch_size": args.batch_size,
         "n_train": np.min(list(ntrain_dict.values())),
         "n_val": np.min(list(neval_dict.values())),
+        "dir_checkpoint": str(dir_checkpoint),
+        "jobid": os.environ.get("SLURM_JOB_ID"),
     }
-
-    print(f"n_train: {ntrain_dict}, n_val: {neval_dict}")
 
     for k, v in ntrain_dict.items():
         update_d[f"n_train_{k}"] = v
@@ -136,19 +135,19 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         update_d[f"n_val_{k}"] = v
     experiment.config.update(update_d)
 
-    loss_fn = nn.L1Loss()
+    loss_fn = nn.L1Loss(reduction="sum")
 
-    pbar = trange(args.epoch)
+    pbar = trange(args.epoch + 1)
     for epoch in pbar:
         train_loss_sum_1 = {}
         train_loss_sum_2 = {}
         for key in keys_l:
             model_dict[key + "1"].train(True)
             model_dict[key + "2"].train(True)
-            train_loss_1 = []
-            train_loss_2 = []
             optimizer_dict[key + "1"].zero_grad(set_to_none=True)
             optimizer_dict[key + "2"].zero_grad(set_to_none=True)
+            train_loss_sum_1[key] = 0
+            train_loss_sum_2[key] = 0
 
             for batch in train_dict[key]:
                 with torch.autocast(device.type):
@@ -158,31 +157,25 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     middle_mat = model_dict[key + "1"](input_mat)
                     loss_1 = loss_fn(middle_mat, middle_mat_real)
                     loss_1.backward()
-                    train_loss_1.append(
-                        loss_1.item() * input_mat.shape[0] / ntrain_dict[key]
-                    )
+                    train_loss_sum_1[key] += loss_1.item() / ntrain_dict[key]
                     optimizer_dict[key + "1"].step()
 
                     output_mat_real = batch["output"]
                     output_mat = model_dict[key + "2"](input_mat)
                     loss_2 = loss_fn(output_mat, output_mat_real)
                     loss_2.backward()
-                    train_loss_2.append(
-                        loss_2.item() * input_mat.shape[0] / ntrain_dict[key]
-                    )
+                    train_loss_sum_2[key] += loss_2.item() / ntrain_dict[key]
                     optimizer_dict[key + "2"].step()
 
             scheduler_dict[key + "1"].step()
             scheduler_dict[key + "2"].step()
-            train_loss_sum_1[key] = np.sum(train_loss_1)
-            train_loss_sum_2[key] = np.sum(train_loss_2)
 
         if epoch % args.eval_step == 0:
             eval_loss_sum_1 = {}
             eval_loss_sum_2 = {}
             for key in keys_l:
-                eval_loss_1 = []
-                eval_loss_2 = []
+                eval_loss_sum_1[key] = 0
+                eval_loss_sum_2[key] = 0
                 model_dict[key + "1"].eval()
                 model_dict[key + "2"].eval()
 
@@ -192,21 +185,16 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     output_mat_real = batch["output"]
                     with torch.no_grad():
                         middle_mat = model_dict[key + "1"](input_mat)
-                        eval_loss_1.append(
+                        eval_loss_sum_1[key] += (
                             loss_fn(middle_mat, middle_mat_real).item()
-                            * input_mat.shape[0]
                             / neval_dict[key]
                         )
 
                         output_mat = model_dict[key + "2"](input_mat)
-                        eval_loss_2.append(
+                        eval_loss_sum_2[key] += (
                             loss_fn(output_mat, output_mat_real).item()
-                            * input_mat.shape[0]
                             / neval_dict[key]
                         )
-
-                eval_loss_sum_1[key] = np.sum(eval_loss_1)
-                eval_loss_sum_2[key] = np.sum(eval_loss_2)
 
             lod_d = {
                 "epoch": epoch,
