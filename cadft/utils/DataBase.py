@@ -10,6 +10,7 @@ import numpy as np
 from cadft.utils.logger import gen_logger
 from cadft.utils.nao import NAO
 from cadft.utils.mol import Mol
+from cadft.utils.scale import MIDDLE_SCALE, OUTPUT_SCALE
 import cadft
 
 
@@ -52,27 +53,18 @@ class DataBase:
             self.args.extend_xyz,
             self.distance_l,
         ):
+            name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
             if abs(distance) < 1e-3:
                 if (extend_atom != 0) or extend_xyz != 1:
-                    print(
-                        f"\rSkip: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
-                        end="",
-                    )
+                    print(f"Skip: {name:>35}")
                     continue
 
             if extend_atom >= len(Mol[name_mol]):
-                print(
-                    f"\rSkip: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
-                    end="",
-                )
+                print(f"Skip: {name:>35}")
                 continue
 
-            name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
             if not (self.data_path / f"data_{name}.npz").exists():
-                print(
-                    f"\rNo file: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
-                    end="",
-                )
+                print(f"No file: {name:>35}")
                 continue
 
             self.load_data(name_mol, name)
@@ -89,8 +81,7 @@ class DataBase:
 
         input_mat = data["dm1_dft"]
         middle_mat = data["dm1_cc"]
-        output_mat = data["exc_mat"] - data["dft_mat_cc"]
-        # output_mat = np.load(self.dir_output / f"output_cc_dft_diff_{name}.npy")
+        output_mat = data["delta_exc_cc"]
 
         self.data[name] = {
             "e_cc": e_cc,
@@ -116,8 +107,14 @@ class DataBase:
             self.input[key][f"{name}_{i}_{j}"] = input_mat[slice_].flatten()
             self.middle[key][f"{name}_{i}_{j}"] = (
                 middle_mat[slice_].flatten() - input_mat[slice_].flatten()
+            ) * MIDDLE_SCALE
+            self.output[key][f"{name}_{i}_{j}"] = (
+                output_mat[slice_].flatten() * OUTPUT_SCALE
             )
-            self.output[key][f"{name}_{i}_{j}"] = output_mat[slice_].flatten() * 1000
+
+        # print(
+        #     f"Load: {name_mol:>20}_{0}_{1}_{0:.4f}  {np.max(np.abs(input_mat)):>10.4f}  {np.mean(np.max(middle_mat - input_mat)) * MIDDLE_SCALE:>10.4f}  {np.max(np.abs(output_mat)) * OUTPUT_SCALE:>10.4f}"
+        # )
 
     def check(self, model_list=None, if_equilibrium=True):
         """
@@ -231,7 +228,7 @@ class DataBase:
 
             input_mat = self.input[key][f"{name}_{i}_{j}"]
             middle_real = self.middle[key][f"{name}_{i}_{j}"]
-            middle_real += input_mat
+            middle_real = middle_real / MIDDLE_SCALE + input_mat
             output_real = self.output[key][f"{name}_{i}_{j}"]
 
             dm1_middle_real[
@@ -249,16 +246,12 @@ class DataBase:
                 model_list[key + "1"].eval()
                 model_list[key + "2"].eval()
                 with torch.no_grad():
-                    middle_mat = model_list[key + "1"](torch.unsqueeze(input_mat, 0))
-                    middle_mat = torch.squeeze(middle_mat, 0)
-                    middle_mat += input_mat
-                    output_mat = model_list[key + "2"](torch.unsqueeze(middle_mat, 0))
-                    output_mat = torch.squeeze(output_mat, 0)
+                    middle_mat = model_list[key + "1"](input_mat)
+                    middle_mat = middle_mat / MIDDLE_SCALE + input_mat
+                    output_mat = model_list[key + "2"](middle_mat)
 
                 middle_mat = middle_mat.detach().cpu().numpy()
                 output_mat = output_mat.detach().cpu().numpy()
-
-                print(middle_mat - middle_real)
             else:
                 middle_mat = middle_real.copy()
                 output_mat = output_real.copy()
@@ -312,7 +305,9 @@ class DataBase:
         )
 
         if model_list is None:
-            ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
+            ene_loss_i = exc * 1000 / OUTPUT_SCALE + 1000 * (
+                e_dft - self.data[name]["e_cc"]
+            )
             ene_loss_i_1 = exc - exc_real
             ene_loss_i_2 = 1000 * (e_dft - e_dft_real)
             if ene_loss_i > 1e-3:

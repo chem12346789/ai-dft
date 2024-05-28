@@ -6,12 +6,7 @@ from itertools import product
 import torch
 
 from cadft.utils import NAO
-from cadft.utils import (
-    add_args,
-    gen_keys_l,
-    gen_model_dict,
-    load_model,
-)
+from cadft.utils import add_args, gen_keys_l, ModelDict
 from cadft.utils import add_args, save_csv_loss, DataBase
 
 from cadft.utils import FCNet as Model
@@ -38,19 +33,19 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         device = torch.device("cpu")
 
     keys_l = gen_keys_l(ATOM_LIST)
-    model_dict = gen_model_dict(keys_l, args.hidden_size, device)
+    MODELDICT = ModelDict(keys_l, args.hidden_size, args, device)
 
     database_train = DataBase(args, keys_l, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, keys_l, EVAL_STR_DICT, device)
 
     if args.load != "":
-        load_model(model_dict, keys_l, args.load, args.hidden_size, device)
+        MODELDICT.load_model(args.load)
     else:
-        model_dict = None
+        MODELDICT.model_dict = None
 
-    ai_train = database_train.check(model_dict, if_equilibrium=False)
+    ai_train = database_train.check(MODELDICT.model_dict, if_equilibrium=False)
     save_csv_loss(ai_train, dir_validate / "train.csv")
-    ai_eval = database_eval.check(model_dict, if_equilibrium=False)
+    ai_eval = database_eval.check(MODELDICT.model_dict, if_equilibrium=False)
     save_csv_loss(ai_eval, dir_validate / "eval.csv")
 
     # dft_train = database_train.check_dft(if_equilibrium=False)
