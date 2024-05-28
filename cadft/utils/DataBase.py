@@ -28,10 +28,7 @@ class DataBase:
         self.molecular_list = molecular_list
         self.device = device
 
-        data_path = Path("data")
-        self.dir_weight = data_path / "weight/"
-        self.dir_output = data_path / "output/"
-        self.dir_input = data_path / "input"
+        self.data_path = Path("data")
 
         self.distance_l = gen_logger(args.distance_list)
         self.data = {}
@@ -71,7 +68,7 @@ class DataBase:
                 continue
 
             name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-            if not (self.dir_output / f"output_cc_dft_diff_{name}.npy").exists():
+            if not (self.data_path / f"data_{name}.npz").exists():
                 print(
                     f"\rNo file: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
                     end="",
@@ -84,14 +81,15 @@ class DataBase:
         """
         Load the data.
         """
-        e_cc = np.load(self.dir_weight / f"e_ccsd_{name}.npy")
-        e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
-        energy_nuc = np.load(self.dir_weight / f"energy_nuc_{name}.npy")
-        aoslice_by_atom = np.load(self.dir_weight / f"aoslice_by_atom_{name}.npy")
+        data = np.load(self.data_path / f"data_{name}.npz")
+        e_cc = data["e_cc"][0]
+        e_dft = data["e_dft"][0]
+        energy_nuc = data["energy_nuc"][0]
+        aoslice_by_atom = data["aoslice_by_atom"]
 
-        input_mat = np.load(self.dir_input / f"input_dft_{name}.npy")
-        middle_mat = np.load(self.dir_input / f"input_cc_{name}.npy")
-        output_mat = np.load(self.dir_output / f"output_delta_exc_cc_{name}.npy")
+        input_mat = data["dm1_dft"]
+        middle_mat = data["dm1_cc"]
+        output_mat = data["delta_exc_cc"]
         # output_mat = np.load(self.dir_output / f"output_cc_dft_diff_{name}.npy")
 
         self.data[name] = {

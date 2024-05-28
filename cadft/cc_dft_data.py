@@ -108,45 +108,19 @@ class CC_DFT_DATA:
             - ej_mat_dft * 0.5
         )
 
-        np.save(
-            Path("data") / "input" / f"input_dft_{self.name}.npy",
-            dm1_dft,
-        )
-        np.save(
-            Path("data") / "input" / f"input_cc_{self.name}.npy",
-            dm1_cc,
-        )
-
-        np.save(
-            Path("data") / "output" / f"output_cc_dft_diff_{self.name}.npy",
-            cc_dft_diff,
-        )
-        np.save(
-            Path("data") / "output" / f"output_delta_exc_cc_{self.name}.npy",
-            delta_exc_cc,
-        )
-        np.save(
-            Path("data") / "output" / f"exc_mat_{self.name}.npy",
-            exc_mat,
-        )
-        np.save(
-            Path("data") / "output" / f"exc_mat_dft_{self.name}.npy",
-            dft_mat_dft,
-        )
-        np.save(
-            Path("data") / "output" / f"exc_mat_cc_{self.name}.npy",
-            dft_mat_cc,
-        )
-
-        np.save(Path("data") / "weight" / f"e_ccsd_{self.name}.npy", e_cc)
-        np.save(Path("data") / "weight" / f"e_dft_{self.name}.npy", e_dft)
-        np.save(
-            Path("data") / "weight" / f"energy_nuc_{self.name}.npy",
-            self.mol.energy_nuc(),
-        )
-        np.save(
-            Path("data") / "weight" / f"aoslice_by_atom_{self.name}.npy",
-            self.aoslice_by_atom,
+        np.savez_compressed(
+            Path("data") / "dm" / (f"data_{self.name}.npz"),
+            dm1_dft=dm1_dft,
+            dm1_cc=dm1_cc,
+            cc_dft_diff=cc_dft_diff,
+            delta_exc_cc=delta_exc_cc,
+            exc_mat=exc_mat,
+            dft_mat_dft=dft_mat_dft,
+            dft_mat_cc=dft_mat_cc,
+            e_cc=e_cc,
+            e_dft=e_dft,
+            energy_nuc=self.mol.energy_nuc(),
+            aoslice_by_atom=self.aoslice_by_atom,
         )
 
         print(e_dft - mdft.energy_tot(dm=dm1_dft))
