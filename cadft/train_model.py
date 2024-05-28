@@ -48,7 +48,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     for key in keys_l:
         optimizer_dict[key + "1"] = optim.Adam(
             MODELDICT.model_dict[key + "1"].parameters(),
-            lr=1e-3,
+            lr=1e-4,
         )
         scheduler_dict[key + "1"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "1"],
@@ -57,7 +57,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         optimizer_dict[key + "2"] = optim.Adam(
             MODELDICT.model_dict[key + "2"].parameters(),
-            lr=1e-3,
+            lr=1e-4,
         )
         scheduler_dict[key + "2"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "2"],
