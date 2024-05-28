@@ -8,7 +8,7 @@ def save_csv_loss(dice_after_train, path):
     """
     data_frame = {}
     data_frame["mean"] = []
-    for i, i_str in enumerate(dice_after_train[-1]):
+    for i_str in dice_after_train[-1]:
         data_frame[i_str] = []
 
     for j, _ in enumerate(dice_after_train[:-1]):
