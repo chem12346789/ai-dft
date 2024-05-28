@@ -202,7 +202,7 @@ class DataBase:
         molecular = copy.deepcopy(Mol[name_mol])
         molecular[extend_atom][extend_xyz] += distance
 
-        weights_shape = (len(molecular), 3, 3)
+        weights_shape = (len(molecular), 75, 302)
 
         rho_real = np.zeros(weights_shape)
         exc_real = np.zeros(weights_shape)
