@@ -4,7 +4,6 @@ from cadft.utils.logger import gen_logger
 from cadft.utils.parser import add_args
 from cadft.utils.load_to_gpu import load_to_gpu
 from cadft.utils.save_csv_loss import save_csv_loss
-from cadft.utils.run_model import gen_dm1, gen_f_mat
 from cadft.utils.aux_train import gen_keys_l
 
 from cadft.utils.BasicDataset import BasicDataset

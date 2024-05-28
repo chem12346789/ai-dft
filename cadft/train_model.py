@@ -13,6 +13,7 @@ import numpy as np
 import wandb
 
 from cadft.utils import add_args, load_to_gpu, gen_keys_l
+from cadft.utils.scale import MIDDLE_SCALE
 from cadft.utils import DataBase, BasicDataset, ModelDict
 
 
@@ -147,7 +148,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
                     output_mat_real = batch["output"]
                     output_mat = MODELDICT.model_dict[key + "2"](
-                        input_mat + middle_mat_real / 1000
+                        input_mat + middle_mat_real / MIDDLE_SCALE
                     )
                     loss_2 = loss_fn(output_mat, output_mat_real)
                     loss_2.backward()
@@ -178,7 +179,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                         )
 
                         output_mat = MODELDICT.model_dict[key + "2"](
-                            input_mat + middle_mat / 1000
+                            input_mat + middle_mat / MIDDLE_SCALE
                         )
                         eval_loss_sum_2[key] += (
                             loss_fn(output_mat, output_mat_real).item()
