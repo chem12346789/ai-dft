@@ -1,18 +1,10 @@
 import argparse
 from pathlib import Path
-import datetime
-from itertools import product
 
 import torch
 
-from cadft.utils import NAO
-from cadft.utils import (
-    add_args,
-    gen_model_dict,
-    load_model,
-)
-from cadft.utils import add_args, save_csv_loss, DataBase
-from cadft.utils import FCNet as Model
+from cadft.utils import add_args, ModelDict
+from cadft.utils import save_csv_loss, DataBase
 
 # from cadft.utils import Transformer as Model
 
@@ -35,19 +27,19 @@ def validate_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     else:
         device = torch.device("cpu")
 
-    model_dict = gen_model_dict(ATOM_LIST, args.hidden_size, device)
+    MODELDICT = ModelDict(ATOM_LIST, args.hidden_size, args, device)
 
     database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
 
     if args.load != "":
-        load_model(model_dict, ATOM_LIST, args.load, args.hidden_size, device)
+        MODELDICT.load_model(args.load)
     else:
-        model_dict = None
+        MODELDICT.model_dict = None
 
-    ai_train = database_train.check(model_dict, if_equilibrium=False)
+    ai_train = database_train.check(MODELDICT.model_dict, if_equilibrium=False)
     save_csv_loss(ai_train, dir_validate / "train.csv")
-    ai_eval = database_eval.check(model_dict, if_equilibrium=False)
+    ai_eval = database_eval.check(MODELDICT.model_dict, if_equilibrium=False)
     save_csv_loss(ai_eval, dir_validate / "eval.csv")
 
     # dft_train = database_train.check_dft(if_equilibrium=False)

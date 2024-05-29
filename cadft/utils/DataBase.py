@@ -13,6 +13,8 @@ from cadft.utils.mol import Mol
 import cadft
 from cadft.utils.Grids import Grid
 
+MIDDLE_SCALE, OUTPUT_SCALE = 1000.0, 1000.0
+
 
 class DataBase:
     """Documentation for a class."""
@@ -88,9 +90,9 @@ class DataBase:
         e_dft = np.load(self.dir_weight / f"e_dft_{name}.npy")
 
         weight = data["weights"]
-        input_mat = data["rho_dft"] * weight
-        middle_mat = data["rho_cc"] * weight
-        output_mat = data["exc_over_dm_cc_grids"] * middle_mat
+        input_mat = data["rho_dft"]
+        middle_mat = (data["rho_cc"] - data["rho_dft"]) * MIDDLE_SCALE
+        output_mat = data["exc_over_dm_cc_grids"]
 
         self.data[name] = {
             "e_cc": e_cc,
@@ -101,16 +103,14 @@ class DataBase:
         for i_atom in range(input_mat.shape[0]):
             atom_name = molecular_list[i_atom][0]
             for i in range(input_mat.shape[2]):
-                # if np.linalg.norm(input_mat[i_atom, i, :]) < 1e-10:
-                #     continue
-                self.input[atom_name][f"{name}_{i_atom}_{i}"] = input_mat[i_atom, :, i]
-                self.middle[atom_name][f"{name}_{i_atom}_{i}"] = (
-                    middle_mat[i_atom, :, i] - input_mat[i_atom, :, i]
-                )
-                self.output[atom_name][f"{name}_{i_atom}_{i}"] = output_mat[
-                    i_atom, :, i
-                ]
-                self.weight[atom_name][f"{name}_{i_atom}_{i}"] = weight[i_atom, :, i]
+                key_ = f"{name}_{i_atom}_{i}"
+                self.input[atom_name][key_] = input_mat[i_atom, :, i]
+                self.middle[atom_name][key_] = middle_mat[i_atom, :, i]
+                self.output[atom_name][key_] = output_mat[i_atom, :, i]
+                self.weight[atom_name][key_] = weight[i_atom, :, i]
+        print(
+            f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, mean middle: {np.mean(middle_mat):7.4f}, mean output: {np.mean(output_mat):7.4f}."
+        )
 
     def check(self, model_list=None, if_equilibrium=True):
         """
@@ -253,7 +253,9 @@ class DataBase:
                     exc_pred[i_atom, :, i] = output_mat_real
 
         if model_list is None:
-            ene_loss_i = np.abs(np.sum(exc_pred) - self.data[name]["ene_vc"])
+            ene_loss_i = np.abs(
+                np.sum(exc_pred * rho_pred * weight) - self.data[name]["ene_vc"]
+            )
             ene_loss_i_1 = np.sum(np.abs(exc_pred - exc_real))
             ene_loss_i_2 = 0
             if ene_loss_i > 1e-3:

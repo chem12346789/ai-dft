@@ -66,31 +66,20 @@ class CC_DFT_DATA:
         dm1_dft = mdft.make_rdm1(ao_repr=True)
         print(np.shape(dm1_dft))
 
-        # mf = pyscf.scf.RHF(self.mol)
-        # mf.kernel()
-        # mycc = pyscf.cc.CCSD(mf)
-        # mycc.kernel()
-        # dm1_cc = mycc.make_rdm1(ao_repr=True)
+        mf = pyscf.scf.RHF(self.mol)
+        mf.kernel()
+        mycc = pyscf.cc.CCSD(mf)
+        mycc.kernel()
+        dm1_cc = mycc.make_rdm1(ao_repr=True)
         # dm2_cc = mycc.make_rdm2(ao_repr=True)
-        # e_cc = mycc.e_tot
+        e_cc = mycc.e_tot
 
         grids = Grid(self.mol, level=0)
         coords = grids.coords
         weights = grids.weights
         ao_value = dft.numint.eval_ao(self.mol, coords, deriv=1)
 
-        # coords_x = grids.vector_to_matrix(coords[:, 0])
-        # coords_y = grids.vector_to_matrix(coords[:, 1])
-        # coords_z = grids.vector_to_matrix(coords[:, 2])
-
-        # atom_coords = self.mol.atom_coords()[0]
-        # coords_r = np.sqrt(
-        #     (coords_x[0, :, 0] - atom_coords[0]) ** 2
-        #     + (coords_y[0, :, 0] - atom_coords[1]) ** 2
-        #     + (coords_z[0, :, 0] - atom_coords[2]) ** 2
-        # )
-
-        # rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
+        rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
         rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
 
         # exc_over_dm_cc_grids = np.zeros_like(rho_cc[0])
@@ -122,15 +111,13 @@ class CC_DFT_DATA:
         # error = ene_vc + np.sum(h1e * dm1_cc) + mf.energy_nuc() - e_cc
         # print(f"Error: {(1e3 * error):.5f} mHa")
 
-        # np.savez_compressed(
-        #     Path("data") / "grids" / (f"data_{self.name}.npz"),
-        #     rho_dft=grids.vector_to_matrix(rho_dft[0]),
-        #     rho_cc=grids.vector_to_matrix(rho_cc[0]),
-        #     exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
-        #     weights=grids.vector_to_matrix(weights),
-        #     coords_r=coords_r,
-        #     ene_vc=ene_vc,
-        # )
+        np.savez_compressed(
+            Path("data") / "grids" / (f"data_{self.name}.npz"),
+            rho_dft=grids.vector_to_matrix(rho_dft[0]),
+            rho_cc=grids.vector_to_matrix(rho_cc[0]),
+            weights=grids.vector_to_matrix(weights),
+            coords_r=coords_r,
+        )
 
         # rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
         # rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")

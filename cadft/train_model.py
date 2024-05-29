@@ -15,13 +15,9 @@ import torch.nn as nn
 import numpy as np
 import wandb
 
-from cadft.utils import (
-    add_args,
-    load_to_gpu,
-    gen_model_dict,
-    load_model,
-)
-from cadft.utils import DataBase, BasicDataset
+from cadft.utils import add_args, load_to_gpu
+from cadft.utils import MIDDLE_SCALE
+from cadft.utils import DataBase, BasicDataset, ModelDict
 
 
 def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
@@ -57,29 +53,29 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     (dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_dict = gen_model_dict(ATOM_LIST, args.hidden_size, device)
+    MODELDICT = ModelDict(ATOM_LIST, args.hidden_size, args, device)
 
     optimizer_dict = {}
     scheduler_dict = {}
     for key in ATOM_LIST:
         optimizer_dict[key + "1"] = optim.Adam(
-            model_dict[key + "1"].parameters(),
+            MODELDICT.model_dict[key + "1"].parameters(),
             lr=1e-4,
         )
-        scheduler_dict[key + "1"] = optim.lr_scheduler.ExponentialLR(
+        scheduler_dict[key + "1"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "1"],
-            gamma=1 - 1e-4,
+            T_max=5000,
         )
 
         optimizer_dict[key + "2"] = optim.Adam(
-            model_dict[key + "2"].parameters(),
+            MODELDICT.model_dict[key + "2"].parameters(),
             lr=1e-4,
         )
-        scheduler_dict[key + "2"] = optim.lr_scheduler.ExponentialLR(
+        scheduler_dict[key + "2"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "2"],
-            gamma=1 - 1e-4,
+            T_max=5000,
         )
-    load_model(model_dict, ATOM_LIST, args.load, args.hidden_size, device)
+    MODELDICT.load_model(args.load)
 
     database_train = DataBase(args, ATOM_LIST, TRAIN_STR_DICT, device)
     database_eval = DataBase(args, ATOM_LIST, EVAL_STR_DICT, device)
@@ -138,8 +134,8 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         train_loss_sum_1 = {}
         train_loss_sum_2 = {}
         for key in ATOM_LIST:
-            model_dict[key + "1"].train(True)
-            model_dict[key + "2"].train(True)
+            MODELDICT.model_dict[key + "1"].train(True)
+            MODELDICT.model_dict[key + "2"].train(True)
             optimizer_dict[key + "1"].zero_grad(set_to_none=True)
             optimizer_dict[key + "2"].zero_grad(set_to_none=True)
             train_loss_sum_1[key] = 0
@@ -150,17 +146,19 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
                     input_mat = batch["input"]
                     middle_mat_real = batch["middle"]
 
-                    middle_mat = model_dict[key + "1"](input_mat)
+                    middle_mat = MODELDICT.model_dict[key + "1"](input_mat)
                     loss_1 = loss_fn(middle_mat, middle_mat_real)
                     loss_1.backward()
-                    train_loss_sum_1[key] += loss_1.item()
+                    train_loss_sum_1[key] += loss_1.item() / ntrain_dict[key]
                     optimizer_dict[key + "1"].step()
 
                     output_mat_real = batch["output"]
-                    output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
+                    output_mat = MODELDICT.model_dict[key + "2"](
+                        input_mat + middle_mat_real / MIDDLE_SCALE
+                    )
                     loss_2 = loss_fn(output_mat, output_mat_real)
                     loss_2.backward()
-                    train_loss_sum_2[key] += loss_2.item()
+                    train_loss_sum_2[key] += loss_2.item() / ntrain_dict[key]
                     optimizer_dict[key + "2"].step()
 
             scheduler_dict[key + "1"].step()
@@ -170,25 +168,29 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             eval_loss_sum_1 = {}
             eval_loss_sum_2 = {}
             for key in ATOM_LIST:
-                model_dict[key + "1"].eval()
-                model_dict[key + "2"].eval()
                 eval_loss_sum_1[key] = 0
                 eval_loss_sum_2[key] = 0
+                MODELDICT.model_dict[key + "1"].eval()
+                MODELDICT.model_dict[key + "2"].eval()
 
                 for batch in eval_dict[key]:
                     input_mat = batch["input"]
                     middle_mat_real = batch["middle"]
                     output_mat_real = batch["output"]
                     with torch.no_grad():
-                        middle_mat = model_dict[key + "1"](input_mat)
-                        eval_loss_sum_1[key] += loss_fn(
-                            middle_mat, middle_mat_real
-                        ).item()
+                        middle_mat = MODELDICT.model_dict[key + "1"](input_mat)
+                        eval_loss_sum_1[key] += (
+                            loss_fn(middle_mat, middle_mat_real).item()
+                            / neval_dict[key]
+                        )
 
-                        output_mat = model_dict[key + "2"](input_mat + middle_mat_real)
-                        eval_loss_sum_2[key] += loss_fn(
-                            output_mat, output_mat_real
-                        ).item()
+                        output_mat = MODELDICT.model_dict[key + "2"](
+                            input_mat + middle_mat_real / MIDDLE_SCALE
+                        )
+                        eval_loss_sum_2[key] += (
+                            loss_fn(output_mat, output_mat_real).item()
+                            / neval_dict[key]
+                        )
 
             lod_d = {
                 "epoch": epoch,
@@ -219,11 +221,5 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
             )
 
         if epoch % 5000 == 0:
-            for key in ATOM_LIST:
-                for i_str in ["1", "2"]:
-                    state_dict_ = model_dict[key + i_str].state_dict()
-                    torch.save(
-                        state_dict_,
-                        dir_checkpoint / f"{key}-{i_str}-{epoch}.pth",
-                    )
+            MODELDICT.save_model(epoch)
     pbar.close()

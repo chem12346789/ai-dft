@@ -136,6 +136,20 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--num_layers",
+        type=int,
+        default=3,
+        help="Number of layers for training. Default is 3.",
+    )
+
+    parser.add_argument(
+        "--residual",
+        type=int,
+        default=0,
+        help="Type of residual for training. Default is 0. 0 for no residual, 1 for residual, 2 for multi-level residual.",
+    )
+
+    parser.add_argument(
         "--eval_step",
         type=int,
         default=100,
