@@ -16,3 +16,4 @@ from cadft.utils.aux_train import ModelDict
 from cadft.utils.mass import MASS
 from cadft.utils.mol import Mol
 from cadft.utils.nao import NAO
+from cadft.utils.DataBase import MIDDLE_SCALE, OUTPUT_SCALE
