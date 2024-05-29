@@ -13,7 +13,7 @@ import numpy as np
 import wandb
 
 from cadft.utils import add_args, load_to_gpu, gen_keys_l
-from cadft.utils.scale import MIDDLE_SCALE
+from cadft.utils import MIDDLE_SCALE
 from cadft.utils import DataBase, BasicDataset, ModelDict
 
 
@@ -48,7 +48,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
     for key in keys_l:
         optimizer_dict[key + "1"] = optim.Adam(
             MODELDICT.model_dict[key + "1"].parameters(),
-            lr=1e-4,
+            lr=1e-3,
         )
         scheduler_dict[key + "1"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "1"],
@@ -57,7 +57,7 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
 
         optimizer_dict[key + "2"] = optim.Adam(
             MODELDICT.model_dict[key + "2"].parameters(),
-            lr=1e-4,
+            lr=1e-3,
         )
         scheduler_dict[key + "2"] = optim.lr_scheduler.CosineAnnealingLR(
             optimizer_dict[key + "2"],
@@ -113,6 +113,9 @@ def train_model(ATOM_LIST, TRAIN_STR_DICT, EVAL_STR_DICT):
         "n_val": np.min(list(neval_dict.values())),
         "dir_checkpoint": str(MODELDICT.dir_checkpoint.stem),
         "jobid": os.environ.get("SLURM_JOB_ID"),
+        "hidden_size": args.hidden_size,
+        "num_layers": args.num_layers,
+        "residual": args.residual,
     }
 
     for k, v in ntrain_dict.items():

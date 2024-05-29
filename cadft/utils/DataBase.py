@@ -10,8 +10,9 @@ import numpy as np
 from cadft.utils.logger import gen_logger
 from cadft.utils.nao import NAO
 from cadft.utils.mol import Mol
-from cadft.utils.scale import MIDDLE_SCALE, OUTPUT_SCALE
 import cadft
+
+MIDDLE_SCALE, OUTPUT_SCALE = 1000.0, 1000.0
 
 
 class DataBase:
