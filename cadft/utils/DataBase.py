@@ -275,11 +275,8 @@ class DataBase:
 
         rho = dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_middle, xctype="GGA")
         exc_cc_grids = dft.libxc.eval_xc("b3lyp", rho)[0]
-        ek_mat_cc = np.einsum("pqrs,pr,qs->qs", eri, dm1_middle, dm1_middle)
-        exc_cc = (
-            np.einsum("i,i,i->", exc_cc_grids, rho[0], weights)
-            - np.sum(ek_mat_cc) * 0.05
-        )
+        ek_cc = np.einsum("pqrs,pr,qs->", eri, dm1_middle, dm1_middle)
+        exc_cc = np.einsum("i,i,i->", exc_cc_grids, rho[0], weights) - ek_cc * 0.05
         e_dft = (
             exc_cc
             + np.einsum("pqrs,pq,rs", eri, dm1_middle, dm1_middle) / 2
@@ -287,30 +284,30 @@ class DataBase:
             + dft2cc.mol.energy_nuc()
         )
 
-        rho_real = dft.numint.eval_rho(
-            dft2cc.mol, ao_value, dm1_middle_real, xctype="GGA"
-        )
-        exc_cc_grids_real = dft.libxc.eval_xc("b3lyp", rho_real)[0]
-        ek_mat_cc_real = np.einsum(
-            "pqrs,pr,qs->qs", eri, dm1_middle_real, dm1_middle_real
-        )
-        exc_cc_real = (
-            np.einsum("i,i,i->", exc_cc_grids_real, rho_real[0], weights)
-            - np.sum(ek_mat_cc_real) * 0.05
-        )
-        e_dft_real = (
-            exc_cc_real
-            + np.einsum("pqrs,pq,rs", eri, dm1_middle_real, dm1_middle_real) / 2
-            + np.sum(h1e * dm1_middle_real)
-            + dft2cc.mol.energy_nuc()
-        )
+        # rho_real = dft.numint.eval_rho(
+        #     dft2cc.mol, ao_value, dm1_middle_real, xctype="GGA"
+        # )
+        # exc_cc_grids_real = dft.libxc.eval_xc("b3lyp", rho_real)[0]
+        # ek_mat_cc_real = np.einsum(
+        #     "pqrs,pr,qs->qs", eri, dm1_middle_real, dm1_middle_real
+        # )
+        # exc_cc_real = (
+        #     np.einsum("i,i,i->", exc_cc_grids_real, rho_real[0], weights)
+        #     - np.sum(ek_mat_cc_real) * 0.05
+        # )
+        # e_dft_real = (
+        #     exc_cc_real
+        #     + np.einsum("pqrs,pq,rs", eri, dm1_middle_real, dm1_middle_real) / 2
+        #     + np.sum(h1e * dm1_middle_real)
+        #     + dft2cc.mol.energy_nuc()
+        # )
 
         if model_list is None:
             ene_loss_i = exc * 1000 / OUTPUT_SCALE + 1000 * (
                 e_dft - self.data[name]["e_cc"]
             )
             ene_loss_i_1 = exc - exc_real
-            ene_loss_i_2 = 1000 * (e_dft - e_dft_real)
+            ene_loss_i_2 = 0
             if ene_loss_i > 1e-3:
                 print("")
                 print(f"name: {name}, ene_loss_i: {ene_loss_i:7.4f}")
@@ -322,7 +319,8 @@ class DataBase:
         else:
             ene_loss_i = exc + 1000 * (e_dft - self.data[name]["e_cc"])
             ene_loss_i_1 = exc - exc_real
-            ene_loss_i_2 = 1000 * (e_dft - e_dft_real)
+            ene_loss_i_2 = 0
+            # ene_loss_i_2 = 1000 * (e_dft - e_dft_real)
 
             rho_real = dft.numint.eval_rho(dft2cc.mol, ao_value[0], dm1_middle_real)
             rho_loss_i = np.einsum("i,i->", np.abs(rho[0] - rho_real), weights)
