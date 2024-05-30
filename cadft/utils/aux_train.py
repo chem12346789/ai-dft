@@ -60,21 +60,20 @@ class ModelDict:
         self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
 
         for key in keys_l:
+            input_size = NAO[key.split("-")[0]] * NAO[key.split("-")[1]]
             self.model_dict[key + "1"] = Model(
-                NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
-                hidden_size,
-                NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
+                input_size,
+                input_size * hidden_size,
+                input_size,
                 args,
             ).to(device)
             self.model_dict[key + "1"].double()
-            self.model_dict["size"][key] = (
-                NAO[key.split("-")[0]] * NAO[key.split("-")[1]]
-            )
+            self.model_dict["size"][key] = input_size
 
             self.model_dict[key + "2"] = Model(
-                NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
-                hidden_size,
-                NAO[key.split("-")[0]] * NAO[key.split("-")[1]],
+                input_size,
+                input_size * hidden_size,
+                input_size,
                 args,
             ).to(device)
             self.model_dict[key + "2"].double()

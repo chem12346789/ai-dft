@@ -35,9 +35,11 @@ class FCNet(nn.Module):
                 tmp = self.actv_fn(tmp)
             if layer.in_features == layer.out_features:
                 if self.args.residual == 2:
+                    if num_res > 0:
+                        x = x + res_tmp / num_res
                     num_res = num_res + 1
                     res_tmp = res_tmp + tmp
-                    x = x + res_tmp / num_res
+                    x = x + tmp
                 if self.args.residual == 1:
                     x = x + tmp
                 else:
