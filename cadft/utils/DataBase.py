@@ -4,12 +4,24 @@ from itertools import product
 import torch
 import numpy as np
 
-from cadft.utils.logger import gen_logger
 from cadft.utils.BasicDataset import BasicDataset
 from cadft.utils.mol import Mol
 
 # perprocess factor, can be imported from other files.
 MIDDLE_SCALE, OUTPUT_SCALE = 1000.0, 1000.0
+
+
+def gen_logger(distance_list):
+    """
+    Function to distance list and generate logger
+    """
+    if len(distance_list) == 3:
+        distance_l = np.linspace(
+            distance_list[0], distance_list[1], int(distance_list[2])
+        )
+    else:
+        distance_l = distance_list
+    return distance_l
 
 
 class DataBase:

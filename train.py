@@ -24,7 +24,6 @@ TRAIN_STR_DICT = [
     # "Benzene",
 ]
 EVAL_STR_DICT = [
-    "Propane",  
     "Propane",
     "Propyne",
     "Cyclopropene",
@@ -36,4 +35,5 @@ EVAL_STR_DICT = [
     # "Isopentane",
 ]
 
-train_model(TRAIN_STR_DICT, EVAL_STR_DICT)
+if __name__ == "__main__":
+    train_model(TRAIN_STR_DICT, EVAL_STR_DICT)
