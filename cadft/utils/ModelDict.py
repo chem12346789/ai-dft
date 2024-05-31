@@ -121,7 +121,8 @@ class ModelDict:
 
                 middle_mat = self.model_dict["1"](input_mat)
                 loss_1 += self.loss_fn(middle_mat * weight, middle_mat_real * weight)
-                loss_2 -= torch.sum(self.model_dict["2"](input_mat))
+                out_mat = self.model_dict["2"](input_mat)
+                loss_2 -= torch.sum(out_mat * weight)
 
             loss_2 = torch.abs(loss_2)
             loss_1.backward()
@@ -156,7 +157,7 @@ class ModelDict:
                     middle_mat = self.model_dict["1"](input_mat)
                     loss_1 += self.loss_fn(middle_mat, middle_mat_real)
                     out_mat = self.model_dict["2"](input_mat)
-                    loss_2 -= torch.sum(out_mat)
+                    loss_2 -= torch.sum(out_mat * weight)
 
             loss_2 = torch.abs(loss_2)
 
