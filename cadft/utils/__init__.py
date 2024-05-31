@@ -10,7 +10,7 @@ from cadft.utils.DataBase import DataBase, gen_logger
 from cadft.utils.model.fc_net import FCNet
 from cadft.utils.model.transformer import Transformer
 from cadft.utils.Grids import Grid
-from cadft.utils.aux_train import ModelDict
+from cadft.utils.ModelDict import ModelDict
 
 from cadft.utils.mol import Mol
 from cadft.utils.DataBase import MIDDLE_SCALE, OUTPUT_SCALE

@@ -1,8 +1,7 @@
 """
-Generate list of keys for the dictionary that will store the model.
+Generate list of model.
 """
 
-from itertools import product
 from pathlib import Path
 import datetime
 
@@ -12,9 +11,6 @@ import torch.optim as optim
 from cadft.utils.model.fc_net import FCNet as Model
 
 # from cadft.utils.model.transformer import Transformer as Model
-
-import pandas as pd
-import numpy as np
 
 
 class ModelDict:
@@ -156,9 +152,11 @@ class ModelDict:
                 input_mat = batch["input"]
                 middle_mat_real = batch["middle"]
 
-                middle_mat = self.model_dict["1"](input_mat)
-                loss_1 += self.loss_fn(middle_mat, middle_mat_real)
-                loss_2 -= torch.sum(self.model_dict["2"](input_mat))
+                with torch.no_grad():
+                    middle_mat = self.model_dict["1"](input_mat)
+                    loss_1 += self.loss_fn(middle_mat, middle_mat_real)
+                    out_mat = self.model_dict["2"](input_mat)
+                    loss_2 -= torch.sum(out_mat)
 
             loss_2 = torch.abs(loss_2)
 
