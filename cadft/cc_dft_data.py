@@ -1,11 +1,8 @@
 from pathlib import Path
-from itertools import product
-from tqdm import tqdm
 
 import numpy as np
 import pyscf
 from pyscf import dft
-import opt_einsum as oe
 import torch
 
 from cadft.utils import gen_basis
@@ -54,7 +51,7 @@ class CC_DFT_DATA:
 
     def save_dm1(
         self,
-        cc_triple=False,
+        cc_triple,
         xc_code="b3lyp",
     ):
         """
@@ -64,6 +61,7 @@ class CC_DFT_DATA:
         mdft.xc = xc_code
         mdft.kernel()
         dm1_dft = mdft.make_rdm1(ao_repr=True)
+        e_dft = mdft.e_tot
         print(np.shape(dm1_dft))
 
         mf = pyscf.scf.RHF(self.mol)
@@ -71,16 +69,16 @@ class CC_DFT_DATA:
         mycc = pyscf.cc.CCSD(mf)
         mycc.kernel()
         dm1_cc = mycc.make_rdm1(ao_repr=True)
-        # dm2_cc = mycc.make_rdm2(ao_repr=True)
         e_cc = mycc.e_tot
+        e_cc_dft = mdft.energy_tot(dm1_cc)
 
-        grids = Grid(self.mol, level=0)
+        grids = Grid(self.mol)
         coords = grids.coords
         weights = grids.weights
-        ao_value = dft.numint.eval_ao(self.mol, coords, deriv=1)
+        ao_value = dft.numint.eval_ao(self.mol, coords)
 
-        rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
-        rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
+        rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc)
+        rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft)
 
         # exc_over_dm_cc_grids = np.zeros_like(rho_cc[0])
         # # exc_over_dm_cc_grids = -dft.libxc.eval_xc("b3lyp", rho_cc)[0]
@@ -113,10 +111,11 @@ class CC_DFT_DATA:
 
         np.savez_compressed(
             Path("data") / "grids" / (f"data_{self.name}.npz"),
-            rho_dft=grids.vector_to_matrix(rho_dft[0]),
-            rho_cc=grids.vector_to_matrix(rho_cc[0]),
+            rho_dft=grids.vector_to_matrix(rho_dft),
+            rho_cc=grids.vector_to_matrix(rho_cc),
             weights=grids.vector_to_matrix(weights),
-            coords_r=coords_r,
+            delta_ene_cc=e_cc - e_cc_dft,
+            delta_ene_dft=e_cc - e_dft,
         )
 
         # rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")

@@ -1,10 +1,9 @@
+import pandas as pd
+
 from cadft.utils.basis import gen_basis
 from cadft.utils.rotate import rotate
 from cadft.utils.logger import gen_logger
 from cadft.utils.parser import add_args
-from cadft.utils.load_to_gpu import load_to_gpu
-from cadft.utils.save_csv_loss import save_csv_loss
-from cadft.utils.run_model import gen_dm1, gen_f_mat
 
 from cadft.utils.BasicDataset import BasicDataset
 from cadft.utils.DataBase import DataBase
@@ -17,3 +16,17 @@ from cadft.utils.mass import MASS
 from cadft.utils.mol import Mol
 from cadft.utils.nao import NAO
 from cadft.utils.DataBase import MIDDLE_SCALE, OUTPUT_SCALE
+
+
+def save_csv_loss(name_list, loss_rho, loss_ene, path):
+    """
+    save the loss to a csv file
+    """
+    df = pd.DataFrame(
+        {
+            "name": name_list,
+            "loss_rho": loss_rho,
+            "loss_ene": loss_ene,
+        }
+    )
+    df.to_csv(path, index=False)

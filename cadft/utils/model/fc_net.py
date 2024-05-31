@@ -7,12 +7,14 @@ class FCNet(nn.Module):
     Fully connected neural network (dense network)
     """
 
-    def __init__(self, input_size, hidden_size, output_size, args):
+    def __init__(self, input_size, hidden_size, output_size, residual, num_layers):
         super(FCNet, self).__init__()
 
         self.hidden_size = hidden_size
-        self.args = args
-        sizes = [input_size] + [hidden_size] * args.num_layers + [output_size]
+        self.residual = residual
+        self.num_layers = num_layers
+
+        sizes = [input_size] + [self.hidden_size] * self.num_layers + [output_size]
 
         self.layers = nn.ModuleList(
             [
@@ -26,7 +28,7 @@ class FCNet(nn.Module):
         """
         Standard forward function, required for all nn.Module classes
         """
-        if self.args.residual == 2:
+        if self.residual == 2:
             res_tmp = torch.zeros(self.hidden_size, device=x.device)
             num_res = 0
         for i, layer in enumerate(self.layers):
@@ -34,11 +36,11 @@ class FCNet(nn.Module):
             if i < len(self.layers) - 1:
                 tmp = self.actv_fn(tmp)
             if layer.in_features == layer.out_features:
-                if self.args.residual == 2:
+                if self.residual == 2:
                     num_res = num_res + 1
                     res_tmp = res_tmp + tmp
                     x = x + res_tmp / num_res
-                if self.args.residual == 1:
+                if self.residual == 1:
                     x = x + tmp
                 else:
                     x = tmp
