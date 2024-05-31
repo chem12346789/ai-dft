@@ -60,7 +60,7 @@ class ModelDict:
 
         self.optimizer_dict["1"] = optim.Adam(
             self.model_dict["1"].parameters(),
-            lr=1e-6,
+            lr=1e-5,
         )
         self.scheduler_dict["1"] = optim.lr_scheduler.CosineAnnealingLR(
             self.optimizer_dict["1"],
