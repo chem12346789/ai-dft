@@ -75,7 +75,7 @@ class BasicDataset:
             self,
             shuffle=False,
             batch_size=self.batch_size,
-            num_workers=8,
+            num_workers=1,
             pin_memory=True,
         )
         return load_to_gpu(train_loader)
