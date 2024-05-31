@@ -6,34 +6,27 @@ TRAIN_STR_DICT = [
     "Ethylene",
     "Acetylene",
     "Allene",
-    # "Propane",
-    # "Propyne",
-    # "Cyclopropene",
-    # "Cyclopropane",
-    # "Propylene",
-    # "Isobutane",
-    # "Butane",
-    # "Butadiene",
-    # "Butyne",
-    # "Bicyclobutane",
-    # "Cyclobutane",
-    # "Spiropentane",
-    # "Cyclopropylmethyl",
-    # "Neopentane",
-    # "Cyclopentane",
-    # "Benzene",
-]
-EVAL_STR_DICT = [
-    "Propane",  
     "Propane",
     "Propyne",
     "Cyclopropene",
     "Cyclopropane",
     "Propylene",
+]
+EVAL_STR_DICT = [
     "Isobutane",
     "Butane",
-    # "Pentane",
-    # "Isopentane",
+    "Butadiene",
+    "Butyne",
+    "Bicyclobutane",
+    "Cyclobutane",
+    "Spiropentane",
+    "Cyclopropylmethyl",
+    "Neopentane",
+    "Cyclopentane",
+    "Benzene",
+    "Pentane",
+    "Isopentane",
 ]
 
-train_model(TRAIN_STR_DICT, EVAL_STR_DICT)
+if __name__ == "__main__":
+    train_model(TRAIN_STR_DICT, EVAL_STR_DICT)
