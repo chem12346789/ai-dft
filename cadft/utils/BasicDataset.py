@@ -35,10 +35,12 @@ def load_to_gpu(dataloader):
         (
             batch_gpu["input"],
             batch_gpu["middle"],
+            batch_gpu["output"],
             batch_gpu["weight"],
         ) = (
             process(batch["input"]),
             process(batch["middle"]),
+            process(batch["output"]),
             process(batch["weight"]),
         )
         dataloader_gpu.append(batch_gpu)
@@ -50,10 +52,11 @@ class BasicDataset:
     Documentation for a class.
     """
 
-    def __init__(self, input_, middle_, weight_, batch_size):
+    def __init__(self, input_, middle_, output_, weight_, batch_size):
         self.input = input_
         self.middle = middle_
         self.weight = weight_
+        self.output = output_
         self.ids = list(input_.keys())
         self.batch_size = batch_size
 
@@ -64,6 +67,7 @@ class BasicDataset:
         return {
             "input": self.input[self.ids[idx]],
             "middle": self.middle[self.ids[idx]],
+            "output": self.output[self.ids[idx]],
             "weight": self.weight[self.ids[idx]],
         }
 

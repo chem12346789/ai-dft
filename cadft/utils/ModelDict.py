@@ -152,6 +152,7 @@ class ModelDict:
             for batch in database_train.data_gpu[name]:
                 input_mat = batch["input"]
                 middle_mat_real = batch["middle"]
+                weight = batch["weight"]
 
                 with torch.no_grad():
                     middle_mat = self.model_dict["1"](input_mat)
