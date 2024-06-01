@@ -56,20 +56,20 @@ class ModelDict:
 
         self.optimizer_dict["1"] = optim.Adam(
             self.model_dict["1"].parameters(),
-            lr=1e-5,
+            lr=1e-4,
         )
-        self.scheduler_dict["1"] = optim.lr_scheduler.CosineAnnealingLR(
+        self.scheduler_dict["1"] = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer_dict["1"],
-            T_max=2500,
+            "min",
         )
 
         self.optimizer_dict["2"] = optim.Adam(
             self.model_dict["2"].parameters(),
-            lr=1e-6,
+            lr=1e-4,
         )
-        self.scheduler_dict["2"] = optim.lr_scheduler.CosineAnnealingLR(
+        self.scheduler_dict["2"] = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer_dict["2"],
-            T_max=2500,
+            "min",
         )
 
         self.loss_fn = torch.nn.L1Loss(reduction="sum")
@@ -133,8 +133,8 @@ class ModelDict:
             train_loss_1.append(loss_1.item())
             train_loss_2.append(loss_2.item())
 
-        self.scheduler_dict["1"].step()
-        self.scheduler_dict["2"].step()
+        # self.scheduler_dict["1"].step()
+        # self.scheduler_dict["2"].step()
         return train_loss_1, train_loss_2
 
     def eval_model(self, database_train):
