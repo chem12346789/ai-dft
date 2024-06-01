@@ -34,7 +34,7 @@ class DataBase:
         extend_xyz,
         distance_list,
         batch_size,
-        ene_grid_label,
+        ene_grid_factor,
         device,
     ):
         self.molecular_list = molecular_list
@@ -42,7 +42,7 @@ class DataBase:
         self.extend_xyz = extend_xyz
         self.distance_list = distance_list
         self.batch_size = batch_size
-        self.ene_grid_label = ene_grid_label
+        self.ene_grid_factor = ene_grid_factor
         self.device = device
 
         self.distance_l = gen_logger(self.distance_list)
@@ -93,9 +93,8 @@ class DataBase:
         middle_mat = (data["rho_cc"] - data["rho_dft"]) * MIDDLE_SCALE
         ene = data["delta_ene_dft"] * OUTPUT_SCALE
 
-        if self.ene_grid_label:
-            if "exc_over_dm_cc_grids" in data.files:
-                output_mat = data["exc_over_dm_cc_grids"] * OUTPUT_SCALE
+        if (self.ene_grid_factor) and ("exc_over_dm_cc_grids" in data.files):
+            output_mat = data["exc_over_dm_cc_grids"] * OUTPUT_SCALE
         else:
             output_mat = np.array([])
 

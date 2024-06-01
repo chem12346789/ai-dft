@@ -44,6 +44,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.extend_xyz,
         args.distance_list,
         args.batch_size,
+        args.ene_grid_factor,
         device,
     )
     database_eval = DataBase(
@@ -52,6 +53,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.extend_xyz,
         args.distance_list,
         args.batch_size,
+        args.ene_grid_factor,
         device,
     )
 

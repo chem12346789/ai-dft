@@ -117,12 +117,18 @@ class ModelDict:
             for batch in database_train.data_gpu[name]:
                 input_mat = batch["input"]
                 middle_mat_real = batch["middle"]
+                output_mat_real = batch["output"]
                 weight = batch["weight"]
 
                 middle_mat = self.model_dict["1"](input_mat)
                 loss_1 += self.loss_fn(middle_mat * weight, middle_mat_real * weight)
                 out_mat = self.model_dict["2"](input_mat)
                 loss_2 -= torch.sum(out_mat * weight)
+                if output_mat_real.size()[1] != 0:
+                    loss_2 += (
+                        self.loss_fn(out_mat * weight, output_mat_real * weight)
+                        * database_train.ene_grid_factor
+                    )
 
             loss_2 = torch.abs(loss_2)
             loss_1.backward()
@@ -137,7 +143,7 @@ class ModelDict:
         # self.scheduler_dict["2"].step()
         return train_loss_1, train_loss_2
 
-    def eval_model(self, database_train):
+    def eval_model(self, database_eval):
         """
         Evaluate the model.
         """
@@ -147,11 +153,12 @@ class ModelDict:
         for key in ["1", "2"]:
             self.model_dict[key].eval(True)
 
-        for name in database_train.name_list:
-            loss_1, loss_2 = 0, database_train.ene[name]
-            for batch in database_train.data_gpu[name]:
+        for name in database_eval.name_list:
+            loss_1, loss_2 = 0, database_eval.ene[name]
+            for batch in database_eval.data_gpu[name]:
                 input_mat = batch["input"]
                 middle_mat_real = batch["middle"]
+                output_mat_real = batch["output"]
                 weight = batch["weight"]
 
                 with torch.no_grad():
@@ -159,6 +166,11 @@ class ModelDict:
                     loss_1 += self.loss_fn(middle_mat, middle_mat_real)
                     out_mat = self.model_dict["2"](input_mat)
                     loss_2 -= torch.sum(out_mat * weight)
+                    if output_mat_real.size != 0:
+                        loss_2 += (
+                            self.loss_fn(out_mat * weight, output_mat_real * weight)
+                            * database_eval.ene_grid_factor
+                        )
 
             loss_2 = torch.abs(loss_2)
 

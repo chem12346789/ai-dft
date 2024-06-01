@@ -55,8 +55,8 @@ class BasicDataset:
     def __init__(self, input_, middle_, output_, weight_, batch_size):
         self.input = input_
         self.middle = middle_
-        self.weight = weight_
         self.output = output_
+        self.weight = weight_
         self.ids = list(input_.keys())
         self.batch_size = batch_size
 

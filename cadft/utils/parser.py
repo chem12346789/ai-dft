@@ -101,13 +101,6 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--save",
-        type=str2bool,
-        default=False,
-        help="Weather to save the data. Default is False.",
-    )
-
-    parser.add_argument(
         "--epoch",
         type=int,
         default=10000,
@@ -115,10 +108,10 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--only_2",
-        type=str2bool,
-        default=False,
-        help="Weather to use only the 2nd models. Default is False.",
+        "--ene_grid_factor",
+        type=float,
+        default=0,
+        help="Weather to use the energy grid label. 0 for not using. Default is 0.",
     )
 
     parser.add_argument(
