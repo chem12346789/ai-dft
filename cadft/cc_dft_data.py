@@ -4,6 +4,7 @@ import numpy as np
 import pyscf
 from pyscf import dft
 import torch
+import opt_einsum as oe
 
 from cadft.utils import gen_basis
 from cadft.utils import rotate
@@ -75,107 +76,78 @@ class CC_DFT_DATA:
         grids = Grid(self.mol)
         coords = grids.coords
         weights = grids.weights
-        ao_value = dft.numint.eval_ao(self.mol, coords)
+        ao_2 = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
+        ao_0 = ao_2[0, :, :]
+        ao_value = ao_2[:4, :, :]
+        ao_2_diag = ao_2[4, :, :] + ao_2[7, :, :] + ao_2[9, :, :]
 
-        rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc)
-        rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft)
+        rho_dft = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
+        rho_cc = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
+        exc_over_dm_cc_grids = np.zeros_like(rho_dft[0])
 
-        # exc_over_dm_cc_grids = np.zeros_like(rho_cc[0])
-        # # exc_over_dm_cc_grids = -dft.libxc.eval_xc("b3lyp", rho_cc)[0]
-        # expr_rinv_dm2_r = oe.contract_expression(
-        #     "ijkl,i,j,kl->",
-        #     0.5 * dm2_cc,
-        #     # 0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)),
-        #     # + 0.05 * oe.contract("pr,qs->pqrs", dm1_cc, dm1_cc),
-        #     (self.mol.nao,),
-        #     (self.mol.nao,),
-        #     (self.mol.nao, self.mol.nao),
-        #     constants=[0],
-        #     optimize="optimal",
-        # )
+        dm2_cc = mycc.make_rdm2(ao_repr=True)
+        exc_over_dm_cc_grids = (
+            -pyscf.dft.libxc.eval_xc("b3lyp", rho_dft)[0] * rho_dft[0]
+        )
+        expr_rinv_dm2_r = oe.contract_expression(
+            "ijkl,i,j,kl->",
+            0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_dft, dm1_dft))
+            + 0.05 * oe.contract("pr,qs->pqrs", dm1_dft, dm1_dft),
+            (self.mol.nao,),
+            (self.mol.nao,),
+            (self.mol.nao, self.mol.nao),
+            constants=[0],
+            optimize="optimal",
+        )
 
-        # for i, coord in enumerate(tqdm(coords)):
-        #     ao_0_i = ao_value[0][i]
-        #     # if np.linalg.norm(ao_0_i) < 1e-10:
-        #     #     continue
-        #     with self.mol.with_rinv_origin(coord):
-        #         rinv = self.mol.intor("int1e_rinv")
-        #         exc_over_dm_cc_grids[i] += (
-        #             expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv) / rho_cc[0][i]
-        #         )
+        for i, coord in enumerate(coords):
+            ao_0_i = ao_value[0][i]
+            if np.linalg.norm(ao_0_i) < 1e-10:
+                continue
+            with self.mol.with_rinv_origin(coord):
+                rinv = self.mol.intor("int1e_rinv")
+                exc_over_dm_cc_grids[i] += expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv)
 
-        # ene_vc = np.sum(exc_over_dm_cc_grids * rho_cc[0] * weights)
-        # h1e = mf.get_hcore()
-        # error = ene_vc + np.sum(h1e * dm1_cc) + mf.energy_nuc() - e_cc
-        # print(f"Error: {(1e3 * error):.5f} mHa")
+            for i_atom in range(self.mol.natm):
+                exc_over_dm_cc_grids[i] -= (
+                    (rho_cc[0][i] - rho_dft[0][i])
+                    * self.mol.atom_charges()[i_atom]
+                    / np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
+                )
+
+        dm1_cc_mo = mycc.make_rdm1(ao_repr=False)
+        eigs_e_dm1, eigs_v_dm1 = np.linalg.eigh(dm1_cc_mo)
+        eigs_v_dm1 = mf.mo_coeff @ eigs_v_dm1
+        for i in range(np.shape(eigs_v_dm1)[1]):
+            part = oe.contract(
+                "pm,m,n,pn->p",
+                ao_0,
+                eigs_v_dm1[:, i],
+                eigs_v_dm1[:, i],
+                ao_2_diag,
+            )
+            exc_over_dm_cc_grids -= part * eigs_e_dm1[i] / 2
+
+        for i in range(self.mol.nelec[0]):
+            part = oe.contract(
+                "pm,m,n,pn->p",
+                ao_0,
+                mdft.mo_coeff[:, i],
+                mdft.mo_coeff[:, i],
+                ao_2_diag,
+            )
+            exc_over_dm_cc_grids += part
+
+        error = np.sum(exc_over_dm_cc_grids * weights) - (e_cc - e_dft)
+
+        print(f"Error: {(1e3 * error):.5f} mHa")
 
         np.savez_compressed(
             Path("data") / "grids" / (f"data_{self.name}.npz"),
-            rho_dft=grids.vector_to_matrix(rho_dft),
-            rho_cc=grids.vector_to_matrix(rho_cc),
+            rho_dft=grids.vector_to_matrix(rho_dft[0]),
+            rho_cc=grids.vector_to_matrix(rho_cc[0]),
             weights=grids.vector_to_matrix(weights),
             delta_ene_cc=e_cc - e_cc_dft,
             delta_ene_dft=e_cc - e_dft,
+            exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
         )
-
-        # rho_dft = dft.numint.eval_rho(self.mol, ao_value, dm1_dft, xctype="GGA")
-        # rho_cc = dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="GGA")
-        # delta_exc_over_dm_dft_grids = -dft.libxc.eval_xc("b3lyp", rho_dft)[0]
-
-        # expr_rinv_dm2_r = oe.contract_expression(
-        #     "ijkl,i,j,kl->",
-        #     0.5 * dm2_cc
-        #     - (
-        #         0.5 * oe.contract("pq,rs->pqrs", dm1_dft, dm1_dft)
-        #         - 0.05 * oe.contract("pr,qs->pqrs", dm1_dft, dm1_dft)
-        #     ),
-        #     (self.mol.nao,),
-        #     (self.mol.nao,),
-        #     (self.mol.nao, self.mol.nao),
-        #     constants=[0],
-        #     optimize="optimal",
-        # )
-
-        # for i, coord in enumerate(tqdm(coords)):
-        #     ao_0_i = ao_value[0][i]
-        #     if np.linalg.norm(ao_0_i) < 1e-10:
-        #         continue
-        #     if np.linalg.norm(rho_dft[0][i]) < 1e-10:
-        #         continue
-        #     with self.mol.with_rinv_origin(coord):
-        #         rinv = self.mol.intor("int1e_rinv")
-        #         delta_exc_over_dm_dft_grids[i] += (
-        #             expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv) / rho_dft[0][i]
-        #         )
-
-        #     for i_atom in range(self.mol.natm):
-        #         delta_exc_over_dm_dft_grids[i] -= (
-        #             (rho_cc[0][i] - rho_dft[0][i])
-        #             * self.mol.atom_charges()[i_atom]
-        #             / rho_dft[0][i]
-        #             / np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
-        #         )
-
-        # eigs_e_dm1, eigs_v_dm1 = np.linalg.eigh(dm1_cc)
-        # eigs_v_dm1 = self.mol.mo @ eigs_v_dm1
-        # eigs_e_dm1 = eigs_e_dm1
-        # tau_rho_wf = gen_tau_rho(
-        #     self.aux_function,
-        #     dm1_r,
-        #     eigs_v_dm1,
-        #     eigs_e_dm1,
-        #     backend="torch",
-        #     logger=self.logger,
-        # )
-        # delta_exc_over_dm_dft_grids = tau_rho_wf - oe_tau_rho(dm1_dft)
-
-        # error = (
-        #     np.sum(delta_exc_over_dm_dft_grids * rho_dft[0] * weights)
-        #     + np.sum(self.mol.intor("int1e_kin") * dm1_cc)
-        #     - np.sum(self.mol.intor("int1e_kin") * dm1_dft)
-        #     - (e_cc - e_dft)
-        # )
-        # print(f"Error: {(1e3 * error):.5f} mHa")
-        # print(
-        #     f"max of delta_exc_over_dm_dft_grids: {np.max(delta_exc_over_dm_dft_grids)}"
-        # )
