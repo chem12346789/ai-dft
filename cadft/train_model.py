@@ -1,6 +1,7 @@
 """Module providing a training method."""
 
 import argparse
+import os
 
 from tqdm import trange
 import torch
@@ -57,7 +58,19 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         device,
     )
 
-    experiment.config.update({"batch_size": args.batch_size})
+    experiment.config.update(
+        {
+            "batch_size": args.batch_size,
+            "n_train": len(database_train.name_list),
+            "n_eval": len(database_eval.name_list),
+            "hidden_size": args.hidden_size,
+            "num_layers": args.num_layers,
+            "residual": args.residual,
+            "ene_grid_factor": args.ene_grid_factor,
+            "jobid": os.environ.get("SLURM_JOB_ID"),
+            "checkpoint": Modeldict.dir_checkpoint,
+        }
+    )
 
     pbar = trange(args.epoch + 1)
     for epoch in pbar:
@@ -76,6 +89,8 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                     "mean train2 loss": np.mean(train_loss_2),
                     "mean eval1 loss": np.mean(eval_loss_1),
                     "mean eval2 loss": np.mean(eval_loss_2),
+                    "lr1": Modeldict.optimizer_dict["1"].param_groups[0]["lr"],
+                    "lr2": Modeldict.optimizer_dict["2"].param_groups[0]["lr"],
                 }
             )
 
