@@ -44,17 +44,23 @@ work_bash = work_dir / "train-template.bash"
 for (
     checkpoint,
     hidden_size,
+    ene_grid_factor,
 ) in itertools.product(
     ["NEW"],
     # ["2024-06-01-00-55-45"],
     [302],
+    [0, 0.1],
 ):
+    ene_grid_factor_str = (
+        f"--ene_grid_factor {ene_grid_factor}" if ene_grid_factor else ""
+    )
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/ENE_GRID_FACTOR/{ene_grid_factor_str}/g" {work_bash}"""
     cmd += (
         "&&"
-        + f"""mv {work_bash} {work_dir / f"train_{checkpoint}_{hidden_size}.bash"}"""
+        + f"""mv {work_bash} {work_dir / f"train_{checkpoint}_{hidden_size}_{ene_grid_factor}.bash"}"""
     )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
@@ -64,4 +70,4 @@ for child in (work_dir).glob("*.bash"):
         cmd = f"""sbatch < {child}"""
         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
             subprocess.call(cmd, shell=True, stdout=f)
-        time.sleep(0.01)
+        time.sleep(6)  # enough time for sleep

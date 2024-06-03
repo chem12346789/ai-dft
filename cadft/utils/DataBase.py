@@ -107,6 +107,10 @@ class DataBase:
 
         for i_atom in range(input_mat.shape[0]):
             for i in range(input_mat.shape[1]):
+                # skip the zero input (compare to the error of the float number)
+                if np.mean(np.abs(input_mat[i_atom, i, :])) < 1e-5:
+                    continue
+
                 key_ = f"{i_atom}_{i}"
                 input_[key_] = input_mat[i_atom, i, :]
                 middle_[key_] = middle_mat[i_atom, i, :]
