@@ -72,7 +72,8 @@ class ModelDict:
             "min",
         )
 
-        self.loss_fn = torch.nn.L1Loss(reduction="sum")
+        self.loss_fn1 = torch.nn.L1Loss(reduction="sum")
+        self.loss_fn2 = torch.nn.L1Loss(reduction="mean")
 
     def load_model(self, load):
         """
@@ -105,17 +106,22 @@ class ModelDict:
         """
         Train the model, one epoch.
         """
-        train_loss_1 = []
-        train_loss_2 = []
+        train_loss_1, train_loss_2, train_loss_3 = [], [], []
 
         for key in ["1", "2"]:
             self.model_dict[key].train(True)
             self.optimizer_dict[key].zero_grad(set_to_none=True)
 
         for name in database_train.name_list:
-            loss_1, loss_2 = 0, database_train.ene[name]
-            if database_train.ene_grid_factor:
-                loss_3 = 0
+            (
+                loss_1,
+                loss_2,
+                loss_3,
+            ) = (
+                torch.tensor([0.0], device=self.device),
+                torch.tensor([database_train.ene[name]], device=self.device),
+                torch.tensor([0.0], device=self.device),
+            )
 
             for batch in database_train.data_gpu[name]:
                 input_mat = batch["input"]
@@ -124,41 +130,46 @@ class ModelDict:
                 weight = batch["weight"]
 
                 middle_mat = self.model_dict["1"](input_mat)
-                loss_1 += self.loss_fn(middle_mat * weight, middle_mat_real * weight)
+                loss_1 += self.loss_fn1(middle_mat * weight, middle_mat_real * weight)
                 out_mat = self.model_dict["2"](input_mat)
                 loss_2 -= torch.sum(out_mat * weight)
                 if output_mat_real.size() == out_mat.size():
-                    loss_3 += self.loss_fn(out_mat * weight, output_mat_real * weight)
+                    loss_3 += self.loss_fn2(out_mat * weight, output_mat_real * weight)
 
             loss_2 = torch.abs(loss_2)
+            train_loss_1.append(loss_1.item())
+            train_loss_2.append(loss_2.item())
+
             if database_train.ene_grid_factor:
                 loss_2 += loss_3 * database_train.ene_grid_factor
+
+            train_loss_3.append(loss_3.item())
             loss_1.backward()
             loss_2.backward()
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
-            train_loss_1.append(loss_1.item())
-            train_loss_2.append(loss_2.item())
-
-        # self.scheduler_dict["1"].step()
-        # self.scheduler_dict["2"].step()
-        return train_loss_1, train_loss_2
+        return train_loss_1, train_loss_2, train_loss_3
 
     def eval_model(self, database_eval):
         """
         Evaluate the model.
         """
-        eval_loss_1 = []
-        eval_loss_2 = []
+        eval_loss_1, eval_loss_2, eval_loss_3 = [], [], []
 
         for key in ["1", "2"]:
             self.model_dict[key].eval(True)
 
         for name in database_eval.name_list:
-            loss_1, loss_2 = 0, database_eval.ene[name]
-            if database_eval.ene_grid_factor:
-                loss_3 = 0
+            (
+                loss_1,
+                loss_2,
+                loss_3,
+            ) = (
+                torch.tensor([0.0], device=self.device),
+                torch.tensor([database_eval.ene[name]], device=self.device),
+                torch.tensor([0.0], device=self.device),
+            )
 
             for batch in database_eval.data_gpu[name]:
                 input_mat = batch["input"]
@@ -168,19 +179,19 @@ class ModelDict:
 
                 with torch.no_grad():
                     middle_mat = self.model_dict["1"](input_mat)
-                    loss_1 += self.loss_fn(middle_mat, middle_mat_real)
+                    loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
                     out_mat = self.model_dict["2"](input_mat)
                     loss_2 -= torch.sum(out_mat * weight)
-                    if output_mat_real.size() == out_mat.size():
-                        loss_3 += self.loss_fn(
-                            out_mat * weight, output_mat_real * weight
-                        )
+                if output_mat_real.size() == out_mat.size():
+                    loss_3 += self.loss_fn2(out_mat * weight, output_mat_real * weight)
 
             loss_2 = torch.abs(loss_2)
-            if database_eval.ene_grid_factor:
-                loss_2 += loss_3 * database_eval.ene_grid_factor
-
             eval_loss_1.append(loss_1.item())
             eval_loss_2.append(loss_2.item())
 
-        return eval_loss_1, eval_loss_2
+            if database_eval.ene_grid_factor:
+                loss_2 += loss_3 * database_eval.ene_grid_factor
+
+            eval_loss_3.append(loss_3.item())
+
+        return eval_loss_1, eval_loss_2, eval_loss_3

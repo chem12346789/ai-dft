@@ -74,10 +74,12 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
 
     pbar = trange(args.epoch + 1)
     for epoch in pbar:
-        train_loss_1, train_loss_2 = Modeldict.train_model(database_train)
+        train_loss_1, train_loss_2, train_loss_3 = Modeldict.train_model(database_train)
+        # Modeldict.scheduler_dict["1"].step()
+        # Modeldict.scheduler_dict["2"].step()
 
         if epoch % args.eval_step == 0:
-            eval_loss_1, eval_loss_2 = Modeldict.train_model(database_eval)
+            eval_loss_1, eval_loss_2, eval_loss_3 = Modeldict.train_model(database_eval)
             Modeldict.scheduler_dict["1"].step(np.mean(eval_loss_1))
             Modeldict.scheduler_dict["2"].step(np.mean(eval_loss_2))
 
@@ -105,15 +107,17 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         if epoch % 2500 == 0:
             save_csv_loss(
                 database_train.name_list,
+                Modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}.csv",
                 train_loss_1,
                 train_loss_2,
-                Modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}.csv",
+                train_loss_3,
             )
             save_csv_loss(
                 database_eval.name_list,
+                Modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}.csv",
                 eval_loss_1,
                 eval_loss_2,
-                Modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}.csv",
+                eval_loss_3,
             )
             Modeldict.save_model(epoch)
     pbar.close()

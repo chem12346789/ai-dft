@@ -108,13 +108,18 @@ class DataBase:
         for i_atom in range(input_mat.shape[0]):
             for i in range(input_mat.shape[1]):
                 # skip the zero input (compare to the error of the float number)
-                if np.mean(np.abs(input_mat[i_atom, i, :])) < 1e-5:
+                input_i = input_mat[i_atom, i, :]
+                weight_i = weight[i_atom, i, :]
+                if np.logical_not(
+                    (np.mean(np.abs(input_i * weight_i)) > 1e-8)
+                    & (np.mean(np.abs(input_i)) > 1e-5)
+                ):
                     continue
 
                 key_ = f"{i_atom}_{i}"
-                input_[key_] = input_mat[i_atom, i, :]
+                input_[key_] = input_i
                 middle_[key_] = middle_mat[i_atom, i, :]
-                weight_[key_] = weight[i_atom, i, :]
+                weight_[key_] = weight_i
                 if output_mat.size != 0:
                     output_[key_] = output_mat[i_atom, i, :]
                 else:
