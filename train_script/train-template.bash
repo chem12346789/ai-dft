@@ -18,4 +18,4 @@ CUDA_VISIBLE_DEVICES=0
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
-~/anaconda3/bin/python train.py -dl -0.5 0.5 3 -b cc-pvdz --extend_atom 0 1 2 --extend_xyz 0 1 2 --eval_step 100 --load CHECKPOINT --batch_size 4096 --epoch 100000 --hidden_size HIDDEN_SIZE --num_layer 5 --residual 1 ENE_GRID_FACTOR
+~/anaconda3/bin/python train.py -dl -0.5 0.5 11 -b cc-pvdz --extend_atom 0 1 2 --extend_xyz 0 1 2 --eval_step 100 --load CHECKPOINT --batch_size 4096 --epoch 100000 --hidden_size HIDDEN_SIZE --num_layer 7 --residual 1 ENE_GRID_FACTOR

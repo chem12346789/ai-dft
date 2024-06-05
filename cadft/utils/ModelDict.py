@@ -139,11 +139,11 @@ class ModelDict:
             loss_2 = torch.abs(loss_2)
             train_loss_1.append(loss_1.item())
             train_loss_2.append(loss_2.item())
+            train_loss_3.append(loss_3.item())
 
             if database_train.ene_grid_factor:
                 loss_2 += loss_3 * database_train.ene_grid_factor
 
-            train_loss_3.append(loss_3.item())
             loss_1.backward()
             loss_2.backward()
             self.optimizer_dict["1"].step()
@@ -188,10 +188,6 @@ class ModelDict:
             loss_2 = torch.abs(loss_2)
             eval_loss_1.append(loss_1.item())
             eval_loss_2.append(loss_2.item())
-
-            if database_eval.ene_grid_factor:
-                loss_2 += loss_3 * database_eval.ene_grid_factor
-
             eval_loss_3.append(loss_3.item())
 
         return eval_loss_1, eval_loss_2, eval_loss_3
