@@ -9,6 +9,7 @@ import torch
 import torch.optim as optim
 
 from cadft.utils.model.fc_net import FCNet as Model
+from cadft.utils.model.unet import UNet as Model
 
 # from cadft.utils.model.transformer import Transformer as Model
 
@@ -131,24 +132,16 @@ class ModelDict:
                 output_mat_real = batch["output"]
                 weight = batch["weight"]
 
-                middle_poly = self.model_dict["1"](input_mat)
-                middle_mat = torch.zeros_like(middle_mat_real)
-                for i in range(self.num_poly):
-                    middle_mat += (input_mat * weight) ** (i + 1) * (
-                        middle_poly[:, i].unsqueeze(1)
-                    )
-                loss_1 += self.loss_fn1(middle_mat, middle_mat_real * weight)
+                middle_mat = self.model_dict["1"](input_mat)
+                loss_1 += self.loss_fn1(middle_mat * weight, middle_mat_real * weight)
 
-                output_poly = self.model_dict["2"](input_mat)
-                output_mat = torch.zeros_like(middle_mat_real)
-                for i in range(self.num_poly):
-                    output_mat += (input_mat * weight) ** (i + 1) * (
-                        output_poly[:, i].unsqueeze(1)
-                    )
-                loss_2 -= torch.sum(output_mat)
+                output_mat = self.model_dict["2"](input_mat)
+                loss_2 -= torch.sum(output_mat * weight)
 
                 if output_mat_real.size() == output_mat.size():
-                    loss_3 += self.loss_fn2(output_mat, output_mat_real * weight)
+                    loss_3 += self.loss_fn2(
+                        output_mat * weight, output_mat_real * weight
+                    )
 
             loss_2 = torch.abs(loss_2)
             train_loss_1.append(loss_1.item())
@@ -194,24 +187,18 @@ class ModelDict:
                 weight = batch["weight"]
 
                 with torch.no_grad():
-                    middle_poly = self.model_dict["1"](input_mat)
-                    middle_mat = torch.zeros_like(middle_mat_real)
-                    for i in range(self.num_poly):
-                        middle_mat += (input_mat * weight) ** (i + 1) * (
-                            middle_poly[:, i].unsqueeze(1)
-                        )
-                    loss_1 += self.loss_fn1(middle_mat, middle_mat_real * weight)
+                    middle_mat = self.model_dict["1"](input_mat)
+                    loss_1 += self.loss_fn1(
+                        middle_mat * weight, middle_mat_real * weight
+                    )
 
-                    output_poly = self.model_dict["2"](input_mat)
-                    output_mat = torch.zeros_like(middle_mat_real)
-                    for i in range(self.num_poly):
-                        output_mat += (input_mat * weight) ** (i + 1) * (
-                            output_poly[:, i].unsqueeze(1)
-                        )
-                    loss_2 -= torch.sum(output_mat)
+                    output_mat = self.model_dict["2"](input_mat)
+                    loss_2 -= torch.sum(output_mat * weight)
 
                     if output_mat_real.size() == output_mat.size():
-                        loss_3 += self.loss_fn2(output_mat, output_mat_real * weight)
+                        loss_3 += self.loss_fn2(
+                            output_mat * weight, output_mat_real * weight
+                        )
 
             loss_2 = torch.abs(loss_2)
             eval_loss_1.append(loss_1.item())

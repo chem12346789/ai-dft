@@ -107,24 +107,21 @@ class DataBase:
         output_ = {}
 
         for i_atom in range(input_mat.shape[0]):
-            for i in range(input_mat.shape[1]):
-                # skip the zero input (compare to the error of the float number)
-                input_i = input_mat[i_atom, i, :]
-                weight_i = weight[i_atom, i, :]
-                # if np.logical_not(
-                #     (np.mean(np.abs(input_i * weight_i)) > 1e-8)
-                #     & (np.mean(np.abs(input_i)) > 1e-5)
-                # ):
-                #     continue
+            # skip the zero input (compare to the error of the float number)
+            # if np.logical_not(
+            #     (np.mean(np.abs(input_i * weight_i)) > 1e-8)
+            #     & (np.mean(np.abs(input_i)) > 1e-5)
+            # ):
+            #     continue
 
-                key_ = f"{i_atom}_{i}"
-                input_[key_] = input_i
-                middle_[key_] = middle_mat[i_atom, i, :]
-                weight_[key_] = weight_i
-                if output_mat.size != 0:
-                    output_[key_] = output_mat[i_atom, i, :]
-                else:
-                    output_[key_] = np.array([])
+            key_ = f"{i_atom}"
+            input_[key_] = input_mat[i_atom, 6:-5, :][np.newaxis, :, :]
+            middle_[key_] = middle_mat[i_atom, 6:-5, :][np.newaxis, :, :]
+            weight_[key_] = weight[i_atom, 6:-5, :][np.newaxis, :, :]
+            if output_mat.size != 0:
+                output_[key_] = output_mat[i_atom, 6:-5, :][np.newaxis, :, :]
+            else:
+                output_[key_] = np.array([])
 
         self.data_gpu[name] = BasicDataset(
             input_, middle_, output_, weight_, self.batch_size

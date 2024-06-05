@@ -8,7 +8,7 @@ class FCNet(nn.Module):
     """
 
     def __init__(self, input_size, hidden_size, output_size, residual, num_layers):
-        super(FCNet, self).__init__()
+        super().__init__()
 
         self.hidden_size = hidden_size
         self.residual = residual
