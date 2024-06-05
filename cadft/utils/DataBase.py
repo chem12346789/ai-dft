@@ -52,6 +52,7 @@ class DataBase:
         self.shape = {}
 
         self.name_list = []
+        self.rng = np.random.default_rng()
 
         for (
             name_mol,

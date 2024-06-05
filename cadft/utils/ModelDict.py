@@ -18,7 +18,7 @@ class ModelDict:
     Model_Dict
     """
 
-    def __init__(self, hidden_size, num_layers, residual, device):
+    def __init__(self, hidden_size, num_layers, residual, device, if_mkdir=True):
         """
         input:
             hidden_size: number of hidden units
@@ -43,14 +43,15 @@ class ModelDict:
         self.dir_checkpoint = Path(
             f"checkpoints/checkpoint-ccdft-{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}-{self.hidden_size}/"
         ).resolve()
-        self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
+        if if_mkdir:
+            self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
 
         self.model_dict["1"] = Model(
-            302, self.hidden_size, 302, self.residual, self.num_layers
+            302, self.hidden_size, 3, self.residual, self.num_layers
         ).to(device)
         self.model_dict["1"].double()
         self.model_dict["2"] = Model(
-            302, self.hidden_size, 302, self.residual, self.num_layers
+            302, self.hidden_size, 3, self.residual, self.num_layers
         ).to(device)
         self.model_dict["2"].double()
 
@@ -129,12 +130,24 @@ class ModelDict:
                 output_mat_real = batch["output"]
                 weight = batch["weight"]
 
-                middle_mat = self.model_dict["1"](input_mat)
+                middle_poly = self.model_dict["1"](input_mat)
+                middle_mat = (
+                    input_mat * middle_poly[:, 0]
+                    + input_mat * input_mat * middle_poly[:, 1]
+                    + input_mat * input_mat * input_mat * middle_poly[:, 2]
+                )
                 loss_1 += self.loss_fn1(middle_mat * weight, middle_mat_real * weight)
-                out_mat = self.model_dict["2"](input_mat)
-                loss_2 -= torch.sum(out_mat * weight)
-                if output_mat_real.size() == out_mat.size():
-                    loss_3 += self.loss_fn2(out_mat * weight, output_mat_real * weight)
+                output_poly = self.model_dict["2"](input_mat)
+                output_mat = (
+                    input_mat * output_poly[:, 0]
+                    + input_mat * input_mat * output_poly[:, 1]
+                    + input_mat * input_mat * input_mat * output_poly[:, 2]
+                )
+                loss_2 -= torch.sum(output_mat * weight)
+                if output_mat_real.size() == output_mat.size():
+                    loss_3 += self.loss_fn2(
+                        output_mat * weight, output_mat_real * weight
+                    )
 
             loss_2 = torch.abs(loss_2)
             train_loss_1.append(loss_1.item())
@@ -149,6 +162,7 @@ class ModelDict:
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
+        database_train.rng.shuffle(database_train.name_list)
         return train_loss_1, train_loss_2, train_loss_3
 
     def eval_model(self, database_eval):
@@ -178,12 +192,26 @@ class ModelDict:
                 weight = batch["weight"]
 
                 with torch.no_grad():
-                    middle_mat = self.model_dict["1"](input_mat)
-                    loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
-                    out_mat = self.model_dict["2"](input_mat)
-                    loss_2 -= torch.sum(out_mat * weight)
-                if output_mat_real.size() == out_mat.size():
-                    loss_3 += self.loss_fn2(out_mat * weight, output_mat_real * weight)
+                    middle_poly = self.model_dict["1"](input_mat)
+                    middle_mat = (
+                        input_mat * middle_poly[:, 0]
+                        + input_mat * input_mat * middle_poly[:, 1]
+                        + input_mat * input_mat * input_mat * middle_poly[:, 2]
+                    )
+                    loss_1 += self.loss_fn1(
+                        middle_mat * weight, middle_mat_real * weight
+                    )
+                    output_poly = self.model_dict["2"](input_mat)
+                    output_mat = (
+                        input_mat * output_poly[:, 0]
+                        + input_mat * input_mat * output_poly[:, 1]
+                        + input_mat * input_mat * input_mat * output_poly[:, 2]
+                    )
+                    loss_2 -= torch.sum(output_mat * weight)
+                    if output_mat_real.size() == output_mat.size():
+                        loss_3 += self.loss_fn2(
+                            output_mat * weight, output_mat_real * weight
+                        )
 
             loss_2 = torch.abs(loss_2)
             eval_loss_1.append(loss_1.item())
