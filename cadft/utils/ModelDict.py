@@ -130,12 +130,11 @@ class ModelDict:
                 middle_mat_real = batch["middle"]
                 output_mat_real = batch["output"]
                 weight = batch["weight"]
-                input_mat_weight = input_mat * weight
 
                 middle_poly = self.model_dict["1"](input_mat)
                 middle_mat = torch.zeros_like(middle_mat_real)
                 for i in range(self.num_poly):
-                    middle_mat += torch.sin((i + 1) * torch.pi * input_mat_weight) * (
+                    middle_mat += (input_mat * weight) ** (i + 1) * (
                         middle_poly[:, i].unsqueeze(1)
                     )
                 loss_1 += self.loss_fn1(middle_mat, middle_mat_real * weight)
@@ -143,7 +142,7 @@ class ModelDict:
                 output_poly = self.model_dict["2"](input_mat)
                 output_mat = torch.zeros_like(middle_mat_real)
                 for i in range(self.num_poly):
-                    output_mat += torch.sin((i + 1) * torch.pi * input_mat_weight) * (
+                    output_mat += (input_mat * weight) ** (i + 1) * (
                         output_poly[:, i].unsqueeze(1)
                     )
                 loss_2 -= torch.sum(output_mat)
@@ -160,8 +159,8 @@ class ModelDict:
                 loss_2 += loss_3 * database_train.ene_grid_factor
 
             loss_1.backward()
-            loss_2.backward()
-            # loss_3.backward()
+            # loss_2.backward()
+            loss_3.backward()
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
@@ -193,23 +192,22 @@ class ModelDict:
                 middle_mat_real = batch["middle"]
                 output_mat_real = batch["output"]
                 weight = batch["weight"]
-                input_mat_weight = input_mat * weight
 
                 with torch.no_grad():
                     middle_poly = self.model_dict["1"](input_mat)
                     middle_mat = torch.zeros_like(middle_mat_real)
                     for i in range(self.num_poly):
-                        middle_mat += torch.sin(
-                            (i + 1) * torch.pi * input_mat_weight
-                        ) * (middle_poly[:, i].unsqueeze(1))
+                        middle_mat += (input_mat * weight) ** (i + 1) * (
+                            middle_poly[:, i].unsqueeze(1)
+                        )
                     loss_1 += self.loss_fn1(middle_mat, middle_mat_real * weight)
 
                     output_poly = self.model_dict["2"](input_mat)
                     output_mat = torch.zeros_like(middle_mat_real)
                     for i in range(self.num_poly):
-                        output_mat += torch.sin(
-                            (i + 1) * torch.pi * input_mat_weight
-                        ) * (output_poly[:, i].unsqueeze(1))
+                        output_mat += (input_mat * weight) ** (i + 1) * (
+                            output_poly[:, i].unsqueeze(1)
+                        )
                     loss_2 -= torch.sum(output_mat)
 
                     if output_mat_real.size() == output_mat.size():
