@@ -38,7 +38,7 @@ class ModelDict:
 
         self.model_dict = {}
         self.model_dict["size"] = {}
-        self.num_poly = 10
+        self.num_poly = 1
         self.optimizer_dict = {}
         self.scheduler_dict = {}
         self.dir_checkpoint = Path(
@@ -141,7 +141,7 @@ class ModelDict:
                 loss_1 += self.loss_fn1(middle_mat, middle_mat_real * weight)
 
                 output_poly = self.model_dict["2"](input_mat)
-                output_mat = torch.zeros_like(output_mat_real)
+                output_mat = torch.zeros_like(middle_mat_real)
                 for i in range(self.num_poly):
                     output_mat += torch.sin((i + 1) * torch.pi * input_mat_weight) * (
                         output_poly[:, i].unsqueeze(1)
@@ -160,8 +160,8 @@ class ModelDict:
                 loss_2 += loss_3 * database_train.ene_grid_factor
 
             loss_1.backward()
-            # loss_2.backward()
-            loss_3.backward()
+            loss_2.backward()
+            # loss_3.backward()
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
@@ -205,7 +205,7 @@ class ModelDict:
                     loss_1 += self.loss_fn1(middle_mat, middle_mat_real * weight)
 
                     output_poly = self.model_dict["2"](input_mat)
-                    output_mat = torch.zeros_like(output_mat_real)
+                    output_mat = torch.zeros_like(middle_mat_real)
                     for i in range(self.num_poly):
                         output_mat += torch.sin(
                             (i + 1) * torch.pi * input_mat_weight
