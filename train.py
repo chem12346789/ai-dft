@@ -5,9 +5,9 @@ TRAIN_STR_DICT = [
 ]
 EVAL_STR_DICT = [
     "Ethane",
-    "Ethylene",
-    "Acetylene",
-    "Allene",
+    # "Ethylene",
+    # "Acetylene",
+    # "Allene",
     # "Propane",
     # "Propyne",
     # "Cyclopropene",

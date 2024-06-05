@@ -135,17 +135,19 @@ class ModelDict:
                 middle_poly = self.model_dict["1"](input_mat)
                 middle_mat = torch.zeros_like(middle_mat_real)
                 for i in range(self.num_poly):
-                    middle_mat += torch.sin(
-                        (i + 1) * torch.pi * input_mat_weight
-                    ) * middle_poly[:, i].unsqueeze(1)
+                    middle_mat += torch.sin((i + 1) * torch.pi * input_mat_weight) * (
+                        middle_poly[:, i].unsqueeze(1)
+                    )
                 loss_1 += self.loss_fn1(middle_mat, middle_mat_real * weight)
+
                 output_poly = self.model_dict["2"](input_mat)
                 output_mat = torch.zeros_like(output_mat_real)
                 for i in range(self.num_poly):
-                    output_mat += torch.sin((i + 1) * torch.pi * input_mat_weight) * output_poly[
-                        :, i
-                    ].unsqueeze(1)
+                    output_mat += torch.sin((i + 1) * torch.pi * input_mat_weight) * (
+                        output_poly[:, i].unsqueeze(1)
+                    )
                 loss_2 -= torch.sum(output_mat)
+
                 if output_mat_real.size() == output_mat.size():
                     loss_3 += self.loss_fn2(output_mat, output_mat_real * weight)
 
@@ -173,7 +175,7 @@ class ModelDict:
         eval_loss_1, eval_loss_2, eval_loss_3 = [], [], []
 
         for key in ["1", "2"]:
-            self.model_dict[key].eval(True)
+            self.model_dict[key].eval()
 
         for name in database_eval.name_list:
             (
@@ -199,15 +201,17 @@ class ModelDict:
                     for i in range(self.num_poly):
                         middle_mat += torch.sin(
                             (i + 1) * torch.pi * input_mat_weight
-                        ) * middle_poly[:, i].unsqueeze(1)
+                        ) * (middle_poly[:, i].unsqueeze(1))
                     loss_1 += self.loss_fn1(middle_mat, middle_mat_real * weight)
+
                     output_poly = self.model_dict["2"](input_mat)
                     output_mat = torch.zeros_like(output_mat_real)
                     for i in range(self.num_poly):
                         output_mat += torch.sin(
                             (i + 1) * torch.pi * input_mat_weight
-                        ) * output_poly[:, i].unsqueeze(1)
+                        ) * (output_poly[:, i].unsqueeze(1))
                     loss_2 -= torch.sum(output_mat)
+
                     if output_mat_real.size() == output_mat.size():
                         loss_3 += self.loss_fn2(output_mat, output_mat_real * weight)
 

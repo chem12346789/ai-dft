@@ -79,7 +79,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         # Modeldict.scheduler_dict["2"].step()
 
         if epoch % args.eval_step == 0:
-            eval_loss_1, eval_loss_2, eval_loss_3 = Modeldict.train_model(database_eval)
+            eval_loss_1, eval_loss_2, eval_loss_3 = Modeldict.eval_model(database_eval)
             Modeldict.scheduler_dict["1"].step(np.mean(eval_loss_1))
             Modeldict.scheduler_dict["2"].step(np.mean(eval_loss_2))
 
