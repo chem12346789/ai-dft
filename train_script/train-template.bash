@@ -12,8 +12,8 @@ export OMP_NUM_THREADS=12
 export MKL_NUM_THREADS=12
 export OPENBLAS_NUM_THREADS=12
 
-NVIDIA_VISIBLE_DEVICES=1
-CUDA_VISIBLE_DEVICES=0
+export NVIDIA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
 
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
