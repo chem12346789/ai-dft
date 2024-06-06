@@ -158,7 +158,7 @@ class ModelDict:
         eval_loss_1, eval_loss_2, eval_loss_3 = [], [], []
 
         for key in ["1", "2"]:
-            self.model_dict[key].eval(True)
+            self.model_dict[key].eval()
 
         for name in database_eval.name_list:
             (
@@ -179,7 +179,9 @@ class ModelDict:
 
                 with torch.no_grad():
                     middle_mat = self.model_dict["1"](input_mat)
-                    loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
+                    loss_1 += self.loss_fn1(
+                        middle_mat * weight, middle_mat_real * weight
+                    )
                     out_mat = self.model_dict["2"](input_mat)
                     loss_2 -= torch.sum(out_mat * weight)
                 if output_mat_real.size() == out_mat.size():
