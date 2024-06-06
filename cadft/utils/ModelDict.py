@@ -152,8 +152,8 @@ class ModelDict:
                 loss_2 += loss_3 * database_train.ene_grid_factor
 
             loss_1.backward()
-            # loss_2.backward()
-            loss_3.backward()
+            loss_2.backward()
+            # loss_3.backward()
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
