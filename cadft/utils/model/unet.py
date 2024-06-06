@@ -11,9 +11,9 @@ class UNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, residual, num_layers):
         super().__init__()
         self.model = smp.UnetPlusPlus(
-            encoder_name="timm-efficientnet-b2",
+            encoder_name="timm-mobilenetv3_small_minimal_100",
             encoder_depth=3,
-            decoder_channels=(64, 32, 16),
+            decoder_channels=(128, 64, 32),
             in_channels=1,
             classes=1,
         )
