@@ -39,7 +39,6 @@ class ModelDict:
 
         self.model_dict = {}
         self.model_dict["size"] = {}
-        self.num_poly = 1
         self.optimizer_dict = {}
         self.scheduler_dict = {}
         self.dir_checkpoint = Path(
@@ -50,11 +49,11 @@ class ModelDict:
             (self.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
         self.model_dict["1"] = Model(
-            302, self.hidden_size, self.num_poly, self.residual, self.num_layers
+            None, None, None, self.residual, self.num_layers
         ).to(device)
         self.model_dict["1"].double()
         self.model_dict["2"] = Model(
-            302, self.hidden_size, self.num_poly, self.residual, self.num_layers
+            None, None, None, self.residual, self.num_layers
         ).to(device)
         self.model_dict["2"].double()
 
@@ -192,6 +191,7 @@ class ModelDict:
                     loss_1 += self.loss_fn1(
                         middle_mat * weight, middle_mat_real * weight
                     )
+                    print(middle_mat)
 
                     output_mat = self.model_dict["2"](input_mat)
                     loss_2 -= torch.sum(output_mat * weight)
