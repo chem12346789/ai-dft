@@ -191,7 +191,6 @@ class ModelDict:
                     loss_1 += self.loss_fn1(
                         middle_mat * weight, middle_mat_real * weight
                     )
-                    print(middle_mat)
 
                     output_mat = self.model_dict["2"](input_mat)
                     loss_2 -= torch.sum(output_mat * weight)
