@@ -124,9 +124,18 @@ class DataBase:
                 output_[key_] = np.array([])
 
         self.data_gpu[name] = BasicDataset(
-            input_, middle_, output_, weight_, self.batch_size
+            input_,
+            middle_,
+            output_,
+            weight_,
+            self.batch_size,
         ).load_to_gpu()
-        self.data[name] = {"input": input_, "middle": middle_, "weight": weight_}
+        self.data[name] = {
+            "input": input_,
+            "middle": middle_,
+            "output": output_,
+            "weight": weight_,
+        }
 
         print(
             f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, mean middle: {np.mean(middle_mat):7.4f}, mean output: {ene:7.4f}."
