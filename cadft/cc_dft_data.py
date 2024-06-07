@@ -92,7 +92,8 @@ class CC_DFT_DATA:
         )
         expr_rinv_dm2_r = oe.contract_expression(
             "ijkl,i,j,kl->",
-            0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_dft, dm1_dft)),
+            0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_dft, dm1_dft))
+            + 0.05 * oe.contract("pr,qs->pqrs", dm1_dft, dm1_dft),
             (self.mol.nao,),
             (self.mol.nao,),
             (self.mol.nao, self.mol.nao),
