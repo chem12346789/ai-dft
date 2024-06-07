@@ -139,21 +139,20 @@ class ModelDict:
                 loss_2 -= torch.sum(output_mat * weight)
 
                 if output_mat_real.size() == output_mat.size():
-                    loss_3 += self.loss_fn2(
+                    loss_3 = self.loss_fn2(
                         output_mat * weight, output_mat_real * weight
                     )
+                    if database_train.ene_grid_factor:
+                        loss_2 += loss_3 * database_train.ene_grid_factor
+
+                loss_1.backward()
+                loss_3.backward()
 
             loss_2 = torch.abs(loss_2)
             train_loss_1.append(loss_1.item())
             train_loss_2.append(loss_2.item())
             train_loss_3.append(loss_3.item())
 
-            if database_train.ene_grid_factor:
-                loss_2 += loss_3 * database_train.ene_grid_factor
-
-            loss_1.backward()
-            loss_2.backward()
-            # loss_3.backward()
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
@@ -191,7 +190,6 @@ class ModelDict:
                     loss_1 += self.loss_fn1(
                         middle_mat * weight, middle_mat_real * weight
                     )
-                    print(middle_mat)
 
                     output_mat = self.model_dict["2"](input_mat)
                     loss_2 -= torch.sum(output_mat * weight)

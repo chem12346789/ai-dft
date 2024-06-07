@@ -4,7 +4,7 @@
 #SBATCH -p gpu
 #SBATCH -J train-ccdft-CHECKPOINT-HIDDEN_SIZE
 #SBATCH -o log/%j.log
-#SBATCH --exclude=gpu[003,006,007]
+#SBATCH --exclude=gpu[001,006,007]
 #SBATCH --mem-per-gpu=20G
 
 ## user's own commands below
