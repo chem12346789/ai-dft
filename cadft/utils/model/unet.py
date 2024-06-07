@@ -16,6 +16,7 @@ class UNet(nn.Module):
             decoder_channels=(128, 64, 32),
             in_channels=1,
             classes=1,
+            decoder_use_batchnorm=False,
         )
 
     def forward(self, x):
