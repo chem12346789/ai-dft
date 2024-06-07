@@ -47,6 +47,7 @@ class ModelDict:
         ).resolve()
         if if_mkdir:
             self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
+            (self.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
         self.model_dict["1"] = Model(
             302, self.hidden_size, self.num_poly, self.residual, self.num_layers
@@ -157,7 +158,7 @@ class ModelDict:
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
-        database_train.rng.shuffle(database_train.name_list)
+        # database_train.rng.shuffle(database_train.name_list)
         return train_loss_1, train_loss_2, train_loss_3
 
     def eval_model(self, database_eval):
