@@ -1,4 +1,5 @@
 from pathlib import Path
+from tqdm import tqdm
 
 import numpy as np
 import pyscf
@@ -91,8 +92,7 @@ class CC_DFT_DATA:
         )
         expr_rinv_dm2_r = oe.contract_expression(
             "ijkl,i,j,kl->",
-            0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_dft, dm1_dft))
-            + 0.05 * oe.contract("pr,qs->pqrs", dm1_dft, dm1_dft),
+            0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_dft, dm1_dft)),
             (self.mol.nao,),
             (self.mol.nao,),
             (self.mol.nao, self.mol.nao),
@@ -100,13 +100,15 @@ class CC_DFT_DATA:
             optimize="optimal",
         )
 
-        for i, coord in enumerate(coords):
+        for i, coord in enumerate(tqdm(coords)):
             ao_0_i = ao_value[0][i]
             if np.linalg.norm(ao_0_i) < 1e-10:
                 continue
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
-                exc_over_dm_cc_grids[i] += expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv)
+                exc_over_dm_cc_grids[i] += expr_rinv_dm2_r(
+                    ao_0_i, ao_0_i, rinv, backend="torch"
+                )
 
             for i_atom in range(self.mol.natm):
                 exc_over_dm_cc_grids[i] -= (
