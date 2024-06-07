@@ -2,10 +2,11 @@
 
 #slurm options
 #SBATCH -p gpu
-#SBATCH -J train-ccdft-CHECKPOINT-HIDDEN_SIZE
-#SBATCH -o log/%j.log
 #SBATCH --gres=gpu:1
-#SBATCH --exclude=gpu[004-006]
+#SBATCH -J gen_data-MOL
+#SBATCH -o log/%j.log
+#SBATCH --exclude=gpu[002-007]
+#SBATCH --mem-per-gpu=20G
 
 ## user's own commands below
 export OMP_NUM_THREADS=14
