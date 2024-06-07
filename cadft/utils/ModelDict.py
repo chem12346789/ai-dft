@@ -73,7 +73,7 @@ class ModelDict:
         )
 
         self.loss_fn1 = torch.nn.L1Loss(reduction="sum")
-        self.loss_fn2 = torch.nn.L1Loss(reduction="mean")
+        self.loss_fn2 = torch.nn.L1Loss(reduction="sum")
 
     def load_model(self, load):
         """

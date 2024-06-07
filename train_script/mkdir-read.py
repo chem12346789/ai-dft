@@ -49,7 +49,7 @@ for (
     ["NEW"],
     # ["2024-06-01-00-55-45"],
     [302],
-    [0],
+    [1],
 ):
     ene_grid_factor_str = (
         f"--ene_grid_factor {ene_grid_factor}" if ene_grid_factor else ""

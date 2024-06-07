@@ -89,19 +89,20 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                     "global_step": epoch,
                     "mean train1 loss": np.mean(train_loss_1),
                     "mean train2 loss": np.mean(train_loss_2),
+                    "mean train3 loss": np.mean(train_loss_3),
                     "mean eval1 loss": np.mean(eval_loss_1),
                     "mean eval2 loss": np.mean(eval_loss_2),
+                    "mean eval3 loss": np.mean(eval_loss_3),
                     "lr1": Modeldict.optimizer_dict["1"].param_groups[0]["lr"],
                     "lr2": Modeldict.optimizer_dict["2"].param_groups[0]["lr"],
                 }
             )
 
             pbar.set_description(
-                f"epoch: {epoch}, "
-                f"train1: {np.mean(train_loss_1):.4f}, "
-                f"eval1: {np.mean(eval_loss_1):.4f}, "
-                f"train2: {np.mean(train_loss_2):.4f}, "
-                f"eval2: {np.mean(eval_loss_2):.4f}"
+                f"t/e1: {np.mean(train_loss_1):.1e}/{np.mean(eval_loss_1):.1e}, "
+                f"t/e2: {np.mean(train_loss_2):.1e}/{np.mean(eval_loss_2):.1e}, "
+                f"t/e3: {np.mean(train_loss_3):.1e}/{np.mean(eval_loss_3):.1e}, "
+                f"lr2: {Modeldict.optimizer_dict['1'].param_groups[0]['lr']:.1e}"
             )
 
         if epoch % 2500 == 0:
