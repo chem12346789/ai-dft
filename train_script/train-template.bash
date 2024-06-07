@@ -18,4 +18,4 @@ export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
-~/anaconda3/bin/python train.py -dl -0 0 1 -b cc-pvdz --extend_atom 0 1 2 --extend_xyz 0 1 2 --eval_step 100 --load CHECKPOINT --batch_size 1024 --epoch 100000 --hidden_size HIDDEN_SIZE  --residual 1 --num_layer 3 ENE_GRID_FACTOR
+~/anaconda3/bin/python train.py -dl -0 0 1 -b cc-pvdz --extend_atom 0 1 2 --extend_xyz 0 1 2 --eval_step 100 --load CHECKPOINT --batch_size 1 --epoch 100000 --hidden_size HIDDEN_SIZE  --residual 1 --num_layer 3 ENE_GRID_FACTOR
