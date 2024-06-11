@@ -19,7 +19,7 @@ class ModelDict:
     Model_Dict
     """
 
-    def __init__(self, hidden_size, num_layers, residual, device, if_mkdir=True):
+    def __init__(self, hidden_size, num_layers, residual, device, dtype, if_mkdir=True):
         """
         input:
             hidden_size: number of hidden units
@@ -36,6 +36,7 @@ class ModelDict:
         self.num_layers = num_layers
         self.residual = residual
         self.device = device
+        self.type = dtype
 
         self.model_dict = {}
         self.model_dict["size"] = {}
@@ -51,11 +52,14 @@ class ModelDict:
         self.model_dict["1"] = Model(
             None, None, None, self.residual, self.num_layers
         ).to(device)
-        self.model_dict["1"].double()
+        if dtype == "float64":
+            self.model_dict["1"].double()
+
         self.model_dict["2"] = Model(
             None, None, None, self.residual, self.num_layers
         ).to(device)
-        self.model_dict["2"].double()
+        if dtype == "float64":
+            self.model_dict["2"].double()
 
         self.optimizer_dict["1"] = optim.Adam(
             self.model_dict["1"].parameters(),

@@ -39,15 +39,12 @@ class UNet(nn.Module):
         super().__init__()
         self.in_channels = 1
         self.classes = 1
-        self.bilinear = False
-
-        factor = 2 if self.bilinear else 1
 
         self.inc = DoubleConv(self.in_channels, 16)
         self.down1 = Down(16, 32)
         self.down2 = Down(32, 64)
-        self.up2 = Up(64, 32 // factor, self.bilinear)
-        self.up1 = Up(32, 16, self.bilinear)
+        self.up2 = Up(64, 32)
+        self.up1 = Up(32, 16)
         self.outc = OutConv(16, self.classes)
 
     def forward(self, x):

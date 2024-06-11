@@ -35,7 +35,13 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
     wandb.define_metric("*", step_metric="global_step")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    Modeldict = ModelDict(args.hidden_size, args.num_layers, args.residual, device)
+    Modeldict = ModelDict(
+        args.hidden_size,
+        args.num_layers,
+        args.residual,
+        device,
+        args.precision,
+    )
     (Modeldict.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
     Modeldict.load_model(args.load)
 

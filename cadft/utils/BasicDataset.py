@@ -86,4 +86,4 @@ class BasicDataset:
             num_workers=1,
             pin_memory=True,
         )
-        return load_to_gpu(train_loader, dtype=dtype)
+        return load_to_gpu(train_loader, dtype=self.dtype)

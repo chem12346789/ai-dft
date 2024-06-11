@@ -28,6 +28,7 @@ def validate_model(TRAIN_STR_DICT):
         args.num_layers,
         args.residual,
         device,
+        args.precision,
         if_mkdir=False,
     )
     Modeldict.load_model(args.load)
