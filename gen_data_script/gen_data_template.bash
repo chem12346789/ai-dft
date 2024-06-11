@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH -J gen_data-MOL
 #SBATCH -o log/%j.log
-#SBATCH --exclude=gpu[002-007]
+#SBATCH --exclude=gpu[001-006]
 #SBATCH --mem-per-gpu=20G
 
 ## user's own commands below

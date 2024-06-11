@@ -49,6 +49,7 @@ for mol, basis_set, range_list in itertools.product(
         # "Acetylene",
         # "Allene",
         "Propane",
+        "Benzene",
         "Propyne",
         "Cyclopropene",
         "Cyclopropane",
@@ -61,7 +62,6 @@ for mol, basis_set, range_list in itertools.product(
         "Cyclobutane",
         "Spiropentane",
         "Cyclopropylmethyl",
-        "Benzene",
         "Pentane",
         "Isopentane",
         "Neopentane",
@@ -72,7 +72,7 @@ for mol, basis_set, range_list in itertools.product(
     [
         # (-0.5, 0.0, 26),
         # (0.02, 0.5, 25),
-        (0, 0, 1),
+        (-0.1, 0.1, 2),
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
