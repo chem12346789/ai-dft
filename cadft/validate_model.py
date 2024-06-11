@@ -40,6 +40,7 @@ def validate_model(TRAIN_STR_DICT):
         args.batch_size,
         args.ene_grid_factor,
         device,
+        args.precision,
     )
 
     eval_loss_1, eval_loss_2, eval_loss_3 = Modeldict.eval_model(database_eval)

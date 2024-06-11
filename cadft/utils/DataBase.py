@@ -36,6 +36,7 @@ class DataBase:
         batch_size,
         ene_grid_factor,
         device,
+        dtype,
     ):
         self.molecular_list = molecular_list
         self.extend_atom = extend_atom
@@ -44,6 +45,7 @@ class DataBase:
         self.batch_size = batch_size
         self.ene_grid_factor = ene_grid_factor
         self.device = device
+        self.dtype = dtype
 
         self.distance_l = gen_logger(self.distance_list)
         self.data = {}
@@ -129,6 +131,7 @@ class DataBase:
             output_,
             weight_,
             self.batch_size,
+            self.dtype,
         ).load_to_gpu()
         self.data[name] = {
             "input": input_,

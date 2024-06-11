@@ -47,6 +47,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.batch_size,
         args.ene_grid_factor,
         device,
+        args.precision,
     )
     database_eval = DataBase(
         EVAL_STR_DICT,
@@ -56,6 +57,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.batch_size,
         args.ene_grid_factor,
         device,
+        args.precision,
     )
 
     experiment.config.update(

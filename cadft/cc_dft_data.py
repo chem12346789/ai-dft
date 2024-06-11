@@ -13,13 +13,6 @@ from cadft.utils import Mol
 from cadft.utils import Grid
 
 
-def process(data, device="cuda"):
-    """
-    Load the whole data to the device.
-    """
-    return torch.as_tensor(data).to(torch.float64).contiguous().to(device=device)
-
-
 class CC_DFT_DATA:
     def __init__(
         self,

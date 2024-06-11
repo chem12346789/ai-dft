@@ -156,7 +156,16 @@ def add_args(parser: argparse.ArgumentParser):
         help="Weather to print the noise. Default is False.",
     )
 
+    parser.add_argument(
+        "--precision",
+        type=str,
+        default="float64",
+        choices=["float32", "float64"],
+        help="Precision for the training. Default is float64.",
+    )
+
     args = parser.parse_args()
     for i in range(len(args.extend_xyz)):
         args.extend_xyz[i] += 1
+
     return args

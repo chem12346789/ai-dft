@@ -6,24 +6,24 @@ import torch
 from torch.utils.data import DataLoader
 
 
-def process(data):
+def process(data, dtype):
     """
     Load the whole data to the gpu.
     """
     if len(data.shape) == 4:
         return data.to(
             device="cuda",
-            dtype=torch.float64,
+            dtype=dtype,
             memory_format=torch.channels_last,
         )
     else:
         return data.to(
             device="cuda",
-            dtype=torch.float64,
+            dtype=dtype,
         )
 
 
-def load_to_gpu(dataloader):
+def load_to_gpu(dataloader, dtype=torch.float64):
     """
     Load the whole data to the device.
     """
@@ -38,10 +38,10 @@ def load_to_gpu(dataloader):
             batch_gpu["output"],
             batch_gpu["weight"],
         ) = (
-            process(batch["input"]),
-            process(batch["middle"]),
-            process(batch["output"]),
-            process(batch["weight"]),
+            process(batch["input"], dtype),
+            process(batch["middle"], dtype),
+            process(batch["output"], dtype),
+            process(batch["weight"], dtype),
         )
         dataloader_gpu.append(batch_gpu)
     return dataloader_gpu
@@ -52,13 +52,17 @@ class BasicDataset:
     Documentation for a class.
     """
 
-    def __init__(self, input_, middle_, output_, weight_, batch_size):
+    def __init__(self, input_, middle_, output_, weight_, batch_size, dtype):
         self.input = input_
         self.middle = middle_
         self.output = output_
         self.weight = weight_
         self.ids = list(input_.keys())
         self.batch_size = batch_size
+        if dtype == "float32":
+            self.dtype = torch.float32
+        else:
+            self.dtype = torch.float64
 
     def __len__(self):
         return len(self.ids)
@@ -82,4 +86,4 @@ class BasicDataset:
             num_workers=1,
             pin_memory=True,
         )
-        return load_to_gpu(train_loader)
+        return load_to_gpu(train_loader, dtype=dtype)
