@@ -321,7 +321,7 @@ def mrks(self, frac_old, load_inv=True):
 
             for i_atom in range(self.mol.natm):
                 distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
-                cut_off = 1e-4
+                cut_off = 1e-3
                 if distance < cut_off:
                     # distance = 2 / cut_off - 1 / cut_off / cut_off * distance
                     distance = cut_off
