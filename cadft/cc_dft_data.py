@@ -511,6 +511,12 @@ class CC_DFT_DATA:
                     f"shift: {potential_shift::<10.5e}",
                 )
             if (i > 0) and (error_vxc < 1e-6):
+                print(
+                    f"step:{i:<8}",
+                    f"error of vxc: {error_vxc::<10.5e}",
+                    f"dm: {error_dm1::<10.5e}",
+                    f"shift: {potential_shift::<10.5e}",
+                )
                 break
 
         tau_rho_ks = gen_tau_rho(
@@ -523,8 +529,35 @@ class CC_DFT_DATA:
 
         kin_correct = 2 * np.sum((tau_rho_wf - tau_rho_ks) * weights)
         kin_correct1 = 2 * np.sum((taup_rho_wf - taup_rho_ks) * weights)
-        inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv * 2)
-        dft_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, mdft.make_rdm1())
+        inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv * 2) + 1e-14
+        dft_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, mdft.make_rdm1()) + 1e-14
+
+        if True:
+            expr_rinv_dm1_r = oe.contract_expression(
+                "ij,ij->",
+                dm1_cc,
+                (norb, norb),
+                constants=[0],
+                optimize="optimal",
+            )
+
+            for i, coord in enumerate(tqdm(coords)):
+                with self.mol.with_rinv_origin(coord):
+                    rinv = self.mol.intor("int1e_rinv")
+                    rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
+                    exc_grids[i] += rinv_dm1_r * rho_cc[0][i] - rinv_dm1_r * inv_r[i]
+
+                for i_atom in range(self.mol.natm):
+                    distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
+                    if distance < 1e-3:
+                        distance = 1e-3
+                    exc_grids[i] -= (
+                        (rho_cc[0][i] - inv_r[i])
+                        * self.mol.atom_charges()[i_atom]
+                        / distance
+                    )
+
+            exc_over_rho_grids = exc_grids / inv_r
 
         save_data = {}
         save_data["energy"] = AU2KJMOL * e_cc
