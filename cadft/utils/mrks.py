@@ -17,7 +17,7 @@ def mrks(self, frac_old, load_inv=True):
     """
     Generate 1-RDM.
     """
-    Path(f"data/grids/saved_data/{self.name}").mkdir(parents=True, exist_ok=True)
+    Path(f"data/grids_mrks/saved_data/{self.name}").mkdir(parents=True, exist_ok=True)
 
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
@@ -87,10 +87,13 @@ def mrks(self, frac_old, load_inv=True):
     rho_cc_half = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc / 2) + 1e-14
     exc_grids = np.zeros_like(rho_cc[0])
 
-    if load_inv and Path(f"data/grids/saved_data/{self.name}/exc_grids.npy").exists():
-        exc_grids = np.load(f"data/grids/saved_data/{self.name}/exc_grids.npy")
+    if (
+        load_inv
+        and Path(f"data/grids_mrks/saved_data/{self.name}/exc_grids.npy").exists()
+    ):
+        exc_grids = np.load(f"data/grids_mrks/saved_data/{self.name}/exc_grids.npy")
         exc_over_rho_grids = np.load(
-            f"data/grids/saved_data/{self.name}/exc_over_rho_grids.npy"
+            f"data/grids_mrks/saved_data/{self.name}/exc_over_rho_grids.npy"
         )
     else:
         print("Calculating exc_grids")
@@ -119,19 +122,21 @@ def mrks(self, frac_old, load_inv=True):
 
         print(f"Error: {(1e3 * error):.5f} mHa")
         np.save(
-            f"data/grids/saved_data/{self.name}/exc_grids.npy",
+            f"data/grids_mrks/saved_data/{self.name}/exc_grids.npy",
             exc_grids,
         )
         np.save(
-            f"data/grids/saved_data/{self.name}/exc_over_rho_grids.npy",
+            f"data/grids_mrks/saved_data/{self.name}/exc_over_rho_grids.npy",
             exc_over_rho_grids,
         )
 
-    if load_inv and Path(f"data/grids/saved_data/{self.name}/emax.npy").exists():
-        emax = np.load(f"data/grids/saved_data/{self.name}/emax.npy")
-        taup_rho_wf = np.load(f"data/grids/saved_data/{self.name}/taup_rho_wf.npy")
-        tau_rho_wf = np.load(f"data/grids/saved_data/{self.name}/tau_rho_wf.npy")
-        v_vxc_e_taup = np.load(f"data/grids/saved_data/{self.name}/v_vxc_e_taup.npy")
+    if load_inv and Path(f"data/grids_mrks/saved_data/{self.name}/emax.npy").exists():
+        emax = np.load(f"data/grids_mrks/saved_data/{self.name}/emax.npy")
+        taup_rho_wf = np.load(f"data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy")
+        tau_rho_wf = np.load(f"data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy")
+        v_vxc_e_taup = np.load(
+            f"data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy"
+        )
     else:
         generalized_fock = dm1_cc_mo @ h1_mo + oe.contract(
             "rsnq,rsmq->mn", eri_mo, dm2_cc_mo
@@ -178,16 +183,21 @@ def mrks(self, frac_old, load_inv=True):
 
         v_vxc_e_taup += exc_over_rho_grids * 2 + taup_rho_wf / rho_cc_half
 
-        np.save(f"data/grids/saved_data/{self.name}/emax.npy", emax)
-        np.save(f"data/grids/saved_data/{self.name}/taup_rho_wf.npy", taup_rho_wf)
-        np.save(f"data/grids/saved_data/{self.name}/tau_rho_wf.npy", tau_rho_wf)
-        np.save(f"data/grids/saved_data/{self.name}/v_vxc_e_taup.npy", v_vxc_e_taup)
+        np.save(f"data/grids_mrks/saved_data/{self.name}/emax.npy", emax)
+        np.save(f"data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy", taup_rho_wf)
+        np.save(f"data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy", tau_rho_wf)
+        np.save(
+            f"data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy", v_vxc_e_taup
+        )
 
-    if load_inv and Path(f"data/grids/saved_data/{self.name}/dm1_inv.npy").exists():
-        dm1_inv = np.load(f"data/grids/saved_data/{self.name}/dm1_inv.npy")
-        vxc_inv = np.load(f"data/grids/saved_data/{self.name}/vxc_inv.npy")
-        tau_rho_ks = np.load(f"data/grids/saved_data/{self.name}/tau_rho_ks.npy")
-        taup_rho_ks = np.load(f"data/grids/saved_data/{self.name}/taup_rho_ks.npy")
+    if (
+        load_inv
+        and Path(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy").exists()
+    ):
+        dm1_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
+        vxc_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/vxc_inv.npy")
+        tau_rho_ks = np.load(f"data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy")
+        taup_rho_ks = np.load(f"data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy")
     else:
         eigvecs_inv = mf.mo_energy.copy()
         mo_inv = mo.copy()
@@ -283,10 +293,10 @@ def mrks(self, frac_old, load_inv=True):
             oe_tau_rho,
             backend="torch",
         )
-        np.save(f"data/grids/saved_data/{self.name}/dm1_inv.npy", dm1_inv)
-        np.save(f"data/grids/saved_data/{self.name}/vxc_inv.npy", vxc_inv)
-        np.save(f"data/grids/saved_data/{self.name}/tau_rho_ks.npy", tau_rho_ks)
-        np.save(f"data/grids/saved_data/{self.name}/taup_rho_ks.npy", taup_rho_ks)
+        np.save(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy", dm1_inv)
+        np.save(f"data/grids_mrks/saved_data/{self.name}/vxc_inv.npy", vxc_inv)
+        np.save(f"data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy", tau_rho_ks)
+        np.save(f"data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy", taup_rho_ks)
 
     kin_correct = 2 * np.sum((tau_rho_wf - tau_rho_ks) * weights)
     kin_correct1 = 2 * np.sum((taup_rho_wf - taup_rho_ks) * weights)
@@ -337,12 +347,22 @@ def mrks(self, frac_old, load_inv=True):
         )
         - e_cc
     )
+    save_data["energy_inv"] = AU2KJMOL * (
+        (
+            oe.contract("ij,ji->", h1e, dm1_inv * 2)
+            + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
+            + self.mol.energy_nuc()
+            + np.sum(exc_over_rho_grids_real * inv_r * weights)
+            + kin_correct
+        )
+        - e_cc
+    )
     save_data["energy_inv1"] = AU2KJMOL * (
         (
             oe.contract("ij,ji->", h1e, dm1_inv * 2)
             + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
             + self.mol.energy_nuc()
-            + np.sum(exc_over_rho_grids * inv_r * weights)
+            + np.sum(exc_over_rho_grids_real * inv_r * weights)
             + kin_correct1
         )
         - e_cc
