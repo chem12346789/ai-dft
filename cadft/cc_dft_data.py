@@ -303,6 +303,7 @@ class CC_DFT_DATA:
         h1_mo = np.einsum("ab,ai,bj->ij", h1e, mo, mo)
         eri_mo = pyscf.ao2mo.kernel(eri, mo, compact=False)
         norb = mo.shape[1]
+        print(h1e.shape)
 
         mat_s = self.mol.intor("int1e_ovlp")
         mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
@@ -313,7 +314,7 @@ class CC_DFT_DATA:
         dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
         e_cc = mycc.e_tot
 
-        grids = Grid(self.mol, level=3)
+        grids = Grid(self.mol)
         coords = grids.coords
         weights = grids.weights
         ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
@@ -348,9 +349,11 @@ class CC_DFT_DATA:
             """
             return new * (1 - frac_old) + old * frac_old
 
-        rho_cc = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="mGGA")
-        rho_cc_half = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc / 2)
-        exc_over_dm_cc_grids = np.zeros_like(rho_cc[0])
+        rho_cc = (
+            pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="mGGA") + 1e-14
+        )
+        rho_cc_half = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc / 2) + 1e-14
+        exc_grids = np.zeros_like(rho_cc[0])
 
         expr_rinv_dm2_r = oe.contract_expression(
             "ijkl,i,j,kl->",
@@ -366,12 +369,10 @@ class CC_DFT_DATA:
             ao_0_i = ao_value[0][i]
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
-                exc_over_dm_cc_grids[i] += (
-                    expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch")
-                    / rho_cc[0][i]
-                )
+                exc_grids[i] += expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch")
 
-        ene_vc = np.sum(exc_over_dm_cc_grids * rho_cc[0] * weights)
+        exc_over_rho_grids = exc_grids / rho_cc[0]
+        ene_vc = np.sum(exc_over_rho_grids * rho_cc[0] * weights)
         error = ene_vc - (
             np.einsum("pqrs,pqrs", eri, dm2_cc).real / 2
             - np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc).real / 2
@@ -406,7 +407,7 @@ class CC_DFT_DATA:
         np.save(f"data/grids/saved_data/v_vxc_e_taup_{self.name}.npy", v_vxc_e_taup)
         np.save(
             f"data/grids/saved_data/exc_over_dm_cc_grids_{self.name}.npy",
-            exc_over_dm_cc_grids,
+            exc_over_rho_grids,
         )
 
         eigs_e_dm1, eigs_v_dm1 = np.linalg.eigh(dm1_cc_mo)
@@ -433,7 +434,7 @@ class CC_DFT_DATA:
         mo_inv = mo.copy()
         dm1_inv = dm1_cc / 2
         vj_inv = mf.get_jk(self.mol, dm1_inv * 2, 1)[0]
-        v_vxc_e_taup += exc_over_dm_cc_grids * 2 + taup_rho_wf / rho_cc_half
+        v_vxc_e_taup += exc_over_rho_grids * 2 + taup_rho_wf / rho_cc_half
 
         vxc_inv = pyscf.dft.libxc.eval_xc(
             "B88,P86",
@@ -468,11 +469,9 @@ class CC_DFT_DATA:
 
         for i in range(25000):
             vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv)
-            dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv)
+            dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
-            print(np.max(eigvecs_inv[:nocc]))
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
-
             ebar_ks = (
                 oe_ebar_r_ks(
                     eigvecs_inv[:nocc] + potential_shift,
@@ -528,13 +527,16 @@ class CC_DFT_DATA:
         dft_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, mdft.make_rdm1())
 
         save_data = {}
+        save_data["energy"] = AU2KJMOL * e_cc
+        save_data["correct kinetic energy"] = AU2KJMOL * kin_correct
+        save_data["correct kinetic energy1"] = AU2KJMOL * kin_correct1
         save_data["energy_dft"] = AU2KJMOL * (mdft.e_tot - e_cc)
         save_data["energy_inv"] = AU2KJMOL * (
             (
                 oe.contract("ij,ji->", h1e, dm1_inv * 2)
                 + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
                 + self.mol.energy_nuc()
-                + np.sum(exc_over_dm_cc_grids * inv_r * weights)
+                + np.sum(exc_over_rho_grids * inv_r * weights)
                 + kin_correct
             )
             - e_cc
@@ -544,14 +546,11 @@ class CC_DFT_DATA:
                 oe.contract("ij,ji->", h1e, dm1_inv * 2)
                 + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
                 + self.mol.energy_nuc()
-                + np.sum(exc_over_dm_cc_grids * inv_r * weights)
+                + np.sum(exc_over_rho_grids * inv_r * weights)
                 + kin_correct1
             )
             - e_cc
         )
-        save_data["energy"] = AU2KJMOL * e_cc
-        save_data["correct kinetic energy"] = AU2KJMOL * kin_correct
-        save_data["correct kinetic energy1"] = AU2KJMOL * kin_correct1
 
         error_inv_r = np.sum(np.abs(inv_r - rho_cc[0]) * weights)
         error_dft_r = np.sum(np.abs(dft_r - rho_cc[0]) * weights)
@@ -588,7 +587,7 @@ class CC_DFT_DATA:
             Path("data") / "grids" / f"data_{self.name}.npz",
             rho_cc=grids.vector_to_matrix(rho_cc[0]),
             weights=grids.vector_to_matrix(weights),
-            exc=grids.vector_to_matrix(exc_over_dm_cc_grids),
+            exc=grids.vector_to_matrix(exc_over_rho_grids),
             vxc=grids.vector_to_matrix(vxc_inv),
             coords=coords,
             coords_x=grids.vector_to_matrix(coords[:, 0]),

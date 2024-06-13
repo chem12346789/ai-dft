@@ -30,7 +30,7 @@ def gen_taup_rho(
                 part -= oe_taup_rho(eigs_v_dm1[:, j], eigs_v_dm1[:, i], backend=backend)
                 part1 = np.sum(part**2, axis=1)
                 taup += part1 * eigs_e_dm1[i] * eigs_e_dm1[j]
-    taup_rho = taup / (dm1_r + 1e-14) * 0.5
+    taup_rho = taup / dm1_r * 0.5
     return taup_rho
 
 
