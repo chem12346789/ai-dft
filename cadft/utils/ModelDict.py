@@ -211,3 +211,30 @@ class ModelDict:
             eval_loss_3.append(loss_3.item())
 
         return eval_loss_1, eval_loss_2, eval_loss_3
+
+    def eval_dft(self, database_eval):
+        """
+        Evaluate the model.
+        """
+        eval_loss_1, eval_loss_2, eval_loss_3 = [], [], []
+        for name in database_eval.name_list:
+            (
+                loss_1,
+                loss_2,
+                loss_3,
+            ) = (
+                torch.tensor([0.0], device=self.device),
+                torch.tensor([database_eval.ene[name]], device=self.device),
+                torch.tensor([0.0], device=self.device),
+            )
+            for batch in database_eval.data_gpu[name]:
+                input_mat = batch["input"]
+                middle_mat_real = batch["middle"]
+                weight = batch["weight"]
+
+                loss_1 += self.loss_fn2(middle_mat_real * weight, input_mat * weight)
+
+            eval_loss_1.append(loss_1.item())
+            eval_loss_2.append(loss_2.item())
+            eval_loss_3.append(loss_3.item())
+        return eval_loss_1, eval_loss_2, eval_loss_3

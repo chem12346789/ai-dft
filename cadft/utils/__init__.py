@@ -4,6 +4,7 @@ import numpy as np
 from cadft.utils.basis import gen_basis
 from cadft.utils.rotate import rotate
 from cadft.utils.parser import add_args
+from cadft.utils.gen_tau import gen_taup_rho, gen_tau_rho
 
 from cadft.utils.BasicDataset import BasicDataset
 from cadft.utils.DataBase import DataBase, gen_logger

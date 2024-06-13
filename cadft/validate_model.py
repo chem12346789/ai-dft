@@ -44,7 +44,8 @@ def validate_model(TRAIN_STR_DICT):
         args.precision,
     )
 
-    eval_loss_1, eval_loss_2, eval_loss_3 = Modeldict.eval_model(database_eval)
+    # eval_loss_1, eval_loss_2, eval_loss_3 = Modeldict.eval_model(database_eval)
+    eval_loss_1, eval_loss_2, eval_loss_3 = Modeldict.eval_dft(database_eval)
 
     Path(f"validate/validate-ccdft-{args.load}-{args.hidden_size}/").mkdir(
         parents=True, exist_ok=True

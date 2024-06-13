@@ -22,7 +22,6 @@ TRAIN_STR_DICT = [
     "Neopentane",
     "Cyclopentane",
     "Benzene",
-    "Propane",
     "Pentane",
     "Isopentane",
 ]

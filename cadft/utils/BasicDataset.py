@@ -23,30 +23,6 @@ def process(data, dtype):
         )
 
 
-def load_to_gpu(dataloader, dtype=torch.float64):
-    """
-    Load the whole data to the device.
-    """
-
-    dataloader_gpu = []
-    for batch in dataloader:
-        batch_gpu = {}
-        # move images and labels to correct device and type
-        (
-            batch_gpu["input"],
-            batch_gpu["middle"],
-            batch_gpu["output"],
-            batch_gpu["weight"],
-        ) = (
-            process(batch["input"], dtype),
-            process(batch["middle"], dtype),
-            process(batch["output"], dtype),
-            process(batch["weight"], dtype),
-        )
-        dataloader_gpu.append(batch_gpu)
-    return dataloader_gpu
-
-
 class BasicDataset:
     """
     Documentation for a class.
@@ -79,11 +55,28 @@ class BasicDataset:
         """
         Load the whole data to the device.
         """
-        train_loader = DataLoader(
+        dataloader = DataLoader(
             self,
             shuffle=False,
             batch_size=self.batch_size,
             num_workers=1,
             pin_memory=True,
         )
-        return load_to_gpu(train_loader, dtype=self.dtype)
+
+        dataloader_gpu = []
+        for batch in dataloader:
+            batch_gpu = {}
+            # move images and labels to correct device and type
+            (
+                batch_gpu["input"],
+                batch_gpu["middle"],
+                batch_gpu["output"],
+                batch_gpu["weight"],
+            ) = (
+                process(batch["input"], self.dtype),
+                process(batch["middle"], self.dtype),
+                process(batch["output"], self.dtype),
+                process(batch["weight"], self.dtype),
+            )
+            dataloader_gpu.append(batch_gpu)
+        return dataloader_gpu

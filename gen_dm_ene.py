@@ -52,7 +52,7 @@ for (
         basis=args.basis,
         if_basis_str=args.if_basis_str,
     )
-    dft2cc.save_dm1(args.cc_triple)
+    dft2cc.mrks(0.8)
 
     del dft2cc
     gc.collect()
