@@ -355,30 +355,46 @@ class CC_DFT_DATA:
         rho_cc_half = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc / 2) + 1e-14
         exc_grids = np.zeros_like(rho_cc[0])
 
-        expr_rinv_dm2_r = oe.contract_expression(
-            "ijkl,i,j,kl->",
-            0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)),
-            (self.mol.nao,),
-            (self.mol.nao,),
-            (self.mol.nao, self.mol.nao),
-            constants=[0],
-            optimize="optimal",
-        )
+        if True:
+            expr_rinv_dm2_r = oe.contract_expression(
+                "ijkl,i,j,kl->",
+                0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)),
+                (self.mol.nao,),
+                (self.mol.nao,),
+                (self.mol.nao, self.mol.nao),
+                constants=[0],
+                optimize="optimal",
+            )
 
-        for i, coord in enumerate(tqdm(coords)):
-            ao_0_i = ao_value[0][i]
-            with self.mol.with_rinv_origin(coord):
-                rinv = self.mol.intor("int1e_rinv")
-                exc_grids[i] += expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch")
+            for i, coord in enumerate(tqdm(coords)):
+                ao_0_i = ao_value[0][i]
+                with self.mol.with_rinv_origin(coord):
+                    rinv = self.mol.intor("int1e_rinv")
+                    exc_grids[i] += expr_rinv_dm2_r(
+                        ao_0_i, ao_0_i, rinv, backend="torch"
+                    )
 
-        exc_over_rho_grids = exc_grids / rho_cc[0]
-        ene_vc = np.sum(exc_over_rho_grids * rho_cc[0] * weights)
-        error = ene_vc - (
-            np.einsum("pqrs,pqrs", eri, dm2_cc).real / 2
-            - np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc).real / 2
-        )
+            exc_over_rho_grids = exc_grids / rho_cc[0]
+            ene_vc = np.sum(exc_over_rho_grids * rho_cc[0] * weights)
+            error = ene_vc - (
+                np.einsum("pqrs,pqrs", eri, dm2_cc).real / 2
+                - np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc).real / 2
+            )
 
-        print(f"Error: {(1e3 * error):.5f} mHa")
+            print(f"Error: {(1e3 * error):.5f} mHa")
+            np.save(
+                f"data/grids/saved_data/exc_over_rho_grids_{self.name}.npy",
+                exc_over_rho_grids,
+            )
+            np.save(
+                f"data/grids/saved_data/exc_grids_{self.name}.npy",
+                exc_grids,
+            )
+        else:
+            exc_over_rho_grids = np.load(
+                f"data/grids/saved_data/exc_over_rho_grids_{self.name}.npy"
+            )
+            exc_grids = np.load(f"data/grids/saved_data/exc_grids_{self.name}.npy")
 
         generalized_fock = dm1_cc_mo @ h1_mo + oe.contract(
             "rsnq,rsmq->mn", eri_mo, dm2_cc_mo
@@ -402,13 +418,6 @@ class CC_DFT_DATA:
 
         emax = np.max(e_bar_r_wf)
         v_vxc_e_taup = -e_bar_r_wf
-
-        np.save(f"data/grids/saved_data/emax_{self.name}.npy", emax)
-        np.save(f"data/grids/saved_data/v_vxc_e_taup_{self.name}.npy", v_vxc_e_taup)
-        np.save(
-            f"data/grids/saved_data/exc_over_dm_cc_grids_{self.name}.npy",
-            exc_over_rho_grids,
-        )
 
         eigs_e_dm1, eigs_v_dm1 = np.linalg.eigh(dm1_cc_mo)
         eigs_v_dm1 = mo @ eigs_v_dm1
@@ -550,8 +559,8 @@ class CC_DFT_DATA:
 
                 for i_atom in range(self.mol.natm):
                     distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
-                    if distance < 1e-2:
-                        distance = 1e-2
+                    if distance < 1e-1:
+                        distance = 101 - 100 * distance
                     exc_grids[i] -= (
                         (rho_cc[0][i] - inv_r[i])
                         * self.mol.atom_charges()[i_atom]
