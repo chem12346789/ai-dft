@@ -531,6 +531,7 @@ class CC_DFT_DATA:
         kin_correct1 = 2 * np.sum((taup_rho_wf - taup_rho_ks) * weights)
         inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv * 2) + 1e-14
         dft_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, mdft.make_rdm1()) + 1e-14
+        exc_over_rho_grids_real = exc_over_rho_grids.copy()
 
         if True:
             expr_rinv_dm1_r = oe.contract_expression(
@@ -549,14 +550,13 @@ class CC_DFT_DATA:
 
                 for i_atom in range(self.mol.natm):
                     distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
-                    if distance < 1e-3:
-                        distance = 1e-3
+                    if distance < 1e-2:
+                        distance = 1e-2
                     exc_grids[i] -= (
                         (rho_cc[0][i] - inv_r[i])
                         * self.mol.atom_charges()[i_atom]
                         / distance
                     )
-
             exc_over_rho_grids = exc_grids / inv_r
 
         save_data = {}
@@ -622,6 +622,7 @@ class CC_DFT_DATA:
             weights=grids.vector_to_matrix(weights),
             exc=grids.vector_to_matrix(exc_over_rho_grids),
             vxc=grids.vector_to_matrix(vxc_inv),
+            exc_real=grids.vector_to_matrix(exc_over_rho_grids_real),
             coords=coords,
             coords_x=grids.vector_to_matrix(coords[:, 0]),
             coords_y=grids.vector_to_matrix(coords[:, 1]),
