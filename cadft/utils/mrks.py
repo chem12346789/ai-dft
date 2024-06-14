@@ -26,6 +26,7 @@ def mrks(self, frac_old, load_inv=True):
     mf = pyscf.scf.RHF(self.mol)
     mf.kernel()
     mycc = pyscf.cc.CCSD(mf)
+    mycc.direct = True
     mycc.kernel()
 
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
@@ -75,11 +76,11 @@ def mrks(self, frac_old, load_inv=True):
         optimize="optimal",
     )
 
-    def hybrid(new, old):
+    def hybrid(new, old, frac_old_=frac_old):
         """
         Generate the hybrid density matrix.
         """
-        return new * (1 - frac_old) + old * frac_old
+        return new * (1 - frac_old_) + old * frac_old_
 
     rho_cc = (
         pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="mGGA") + 1e-14
@@ -190,10 +191,11 @@ def mrks(self, frac_old, load_inv=True):
             f"data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy", v_vxc_e_taup
         )
 
-    if (
-        load_inv
-        and Path(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy").exists()
-    ):
+    # if (
+    #     load_inv
+    #     and Path(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy").exists()
+    # ):
+    if False:
         dm1_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
         vxc_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/vxc_inv.npy")
         tau_rho_ks = np.load(f"data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy")
@@ -235,7 +237,6 @@ def mrks(self, frac_old, load_inv=True):
         )
 
         for i in range(25000):
-            vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv)
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -260,8 +261,8 @@ def mrks(self, frac_old, load_inv=True):
             vxc_inv = v_vxc_e_taup + ebar_ks - taup_rho_ks / dm1_inv_r
             error_vxc = np.linalg.norm((vxc_inv - vxc_inv_old) * weights)
             vxc_inv = hybrid(vxc_inv, vxc_inv_old)
-
             xc_v = oe_fock(vxc_inv, weights, backend="torch")
+            vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv, 0.99999)
             eigvecs_inv, mo_inv = np.linalg.eigh(
                 mat_hs @ (h1e + vj_inv + xc_v) @ mat_hs
             )
@@ -270,14 +271,14 @@ def mrks(self, frac_old, load_inv=True):
             dm1_inv = mo_inv[:, :nocc] @ mo_inv[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_inv - dm1_inv_old)
 
-            if i % 100 == 0:
+            if i % 1 == 0:
                 print(
                     f"step:{i:<8}",
                     f"error of vxc: {error_vxc::<10.5e}",
                     f"dm: {error_dm1::<10.5e}",
                     f"shift: {potential_shift::<10.5e}",
                 )
-            if (i > 0) and (error_vxc < 1e-6):
+            if (i > 0) and (error_vxc < 1e-4):
                 print(
                     f"step:{i:<8}",
                     f"error of vxc: {error_vxc::<10.5e}",
@@ -347,7 +348,7 @@ def mrks(self, frac_old, load_inv=True):
         )
         - e_cc
     )
-    save_data["energy_inv"] = AU2KJMOL * (
+    save_data["energy_inv_real"] = AU2KJMOL * (
         (
             oe.contract("ij,ji->", h1e, dm1_inv * 2)
             + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
@@ -357,7 +358,7 @@ def mrks(self, frac_old, load_inv=True):
         )
         - e_cc
     )
-    save_data["energy_inv1"] = AU2KJMOL * (
+    save_data["energy_inv_real1"] = AU2KJMOL * (
         (
             oe.contract("ij,ji->", h1e, dm1_inv * 2)
             + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
@@ -393,14 +394,14 @@ def mrks(self, frac_old, load_inv=True):
     save_data["dipole_z_dft"] = dipole_z_dft
 
     with open(
-        Path("data") / "grids" / f"save_data_{self.name}.json",
+        Path("data/grids_mrks") / f"save_data_{self.name}.json",
         "w",
         encoding="utf-8",
     ) as f:
         json.dump(save_data, f, indent=4)
 
     np.savez_compressed(
-        Path("data") / "grids" / f"data_{self.name}.npz",
+        Path("data/grids_mrks") / f"data_{self.name}.npz",
         rho_cc=grids.vector_to_matrix(rho_cc[0]),
         weights=grids.vector_to_matrix(weights),
         exc=grids.vector_to_matrix(exc_over_rho_grids),

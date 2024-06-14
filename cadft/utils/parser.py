@@ -157,6 +157,13 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--load_inv",
+        type=str2bool,
+        default=False,
+        help="Weather to load the inversed potential. Default is False.",
+    )
+
+    parser.add_argument(
         "--precision",
         type=str,
         default="float64",
