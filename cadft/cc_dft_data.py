@@ -276,8 +276,8 @@ class CC_DFT_DATA:
             e_cc=data["e_cc"],
         )
 
-    def mrks(self, frac_old):
+    def mrks(self, frac_old, load_inv):
         """
         Generate 1-RDM.
         """
-        mrks(self, frac_old)
+        mrks(self, frac_old, load_inv)

@@ -48,11 +48,19 @@ for (
 
     dft2cc = CC_DFT_DATA(
         molecular,
-        name=f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+        name=f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}",
         basis=args.basis,
         if_basis_str=args.if_basis_str,
     )
-    dft2cc.mrks(0.8)
+
+    if abs(distance) >= 0.5:
+        FACTOR = 0.9995
+    elif abs(distance) >= 0.3:
+        FACTOR = 0.95
+    else:
+        FACTOR = 0.8
+
+    dft2cc.mrks(FACTOR, args.load_inv)
 
     del dft2cc
     gc.collect()

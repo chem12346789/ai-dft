@@ -363,6 +363,7 @@ Mol = {
     "Cyclobutane": Cyclobutane,
     "Spiropentane": Spiropentane,
     "Benzene": Benzene,
+    "Benzene1": Benzene,
     "Pentane": Pentane,
     "Isopentane": Isopentane,
     "Neopentane": Neopentane,
