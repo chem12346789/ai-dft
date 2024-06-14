@@ -89,7 +89,7 @@ def mrks(self, frac_old, load_inv=True):
         DIIS for the potential.
         """
 
-        def __init__(self, len_vec, n=50):
+        def __init__(self, len_vec, n=10):
             self.n = n
             self.errors = np.zeros((n, len_vec))
             self.v_xc = np.zeros((n, len_vec))
