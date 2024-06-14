@@ -282,7 +282,7 @@ def mrks(self, frac_old, load_inv=True):
         diis = DIIS(len(vxc_inv))
         diis_mo = DIIS(len(mo))
 
-        for i in range(5000):
+        for i in range(50):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
