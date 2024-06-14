@@ -82,6 +82,49 @@ def mrks(self, frac_old, load_inv=True):
         """
         return new * (1 - frac_old_) + old * frac_old_
 
+    class DIIS:
+        """
+        DIIS for the potential.
+        """
+
+        def __init__(self, len_vec, n=25):
+            self.n = n
+            self.errors = np.zeros((n, len_vec))
+            self.v_xc = np.zeros((n, len_vec))
+            self.step = 0
+
+        def add(self, error, v_xc):
+            self.errors = np.roll(self.errors, -1, axis=0)
+            self.v_xc = np.roll(self.v_xc, -1, axis=0)
+            self.errors[-1, :] = error
+            self.v_xc[-1, :] = v_xc
+
+        def hybrid(self):
+            self.step += 1
+            mat = np.zeros((self.n + 1, self.n + 1))
+            mat[:-1, :-1] = np.einsum("ik,jk->ij", self.errors, self.errors)
+            mat[-1, :] = -1
+            mat[:, -1] = -1
+            mat[-1, -1] = 0
+
+            b = np.zeros(self.n + 1)
+            b[-1] = -1
+
+            if self.step < self.n:
+                c = np.linalg.solve(
+                    mat[-(self.step + 1) :, -(self.step + 1) :], b[-(self.step + 1) :]
+                )
+                print(mat)
+                print(c)
+                print(self.v_xc)
+                v_xc = np.sum(c[:-1, np.newaxis] * self.v_xc[-self.step :], axis=0)
+                print(v_xc)
+                return v_xc
+            else:
+                c = np.linalg.solve(mat, b)
+                v_xc = np.sum(c[:-1, np.newaxis] * self.v_xc, axis=0)
+                return v_xc
+
     rho_cc = (
         pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="mGGA") + 1e-14
     )
@@ -236,7 +279,10 @@ def mrks(self, frac_old, load_inv=True):
             optimize="optimal",
         )
 
-        for i in range(25000):
+        diis = DIIS(len(vxc_inv))
+        diis_mo = DIIS(len(mo))
+
+        for i in range(5000):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -260,9 +306,11 @@ def mrks(self, frac_old, load_inv=True):
             vxc_inv_old = vxc_inv.copy()
             vxc_inv = v_vxc_e_taup + ebar_ks - taup_rho_ks / dm1_inv_r
             error_vxc = np.linalg.norm((vxc_inv - vxc_inv_old) * weights)
-            vxc_inv = hybrid(vxc_inv, vxc_inv_old)
+            diis.add(vxc_inv - vxc_inv_old, vxc_inv)
+            vxc_inv = diis.hybrid()
+            # vxc_inv = hybrid(vxc_inv, vxc_inv_old)
             xc_v = oe_fock(vxc_inv, weights, backend="torch")
-            vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv, 0.99999)
+            vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv)
             eigvecs_inv, mo_inv = np.linalg.eigh(
                 mat_hs @ (h1e + vj_inv + xc_v) @ mat_hs
             )
@@ -278,7 +326,7 @@ def mrks(self, frac_old, load_inv=True):
                     f"dm: {error_dm1::<10.5e}",
                     f"shift: {potential_shift::<10.5e}",
                 )
-            if (i > 0) and (error_vxc < 1e-4):
+            if (i > 0) and (error_vxc < 1e-7):
                 print(
                     f"step:{i:<8}",
                     f"error of vxc: {error_vxc::<10.5e}",
@@ -303,7 +351,8 @@ def mrks(self, frac_old, load_inv=True):
     kin_correct1 = 2 * np.sum((taup_rho_wf - taup_rho_ks) * weights)
     inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv * 2) + 1e-14
     dft_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, mdft.make_rdm1()) + 1e-14
-    exc_over_rho_grids_real = exc_over_rho_grids.copy()
+    exc_over_rho_grids_fake = exc_over_rho_grids.copy()
+    exc_grids_fake = exc_grids.copy()
 
     if True:
         expr_rinv_dm1_r = oe.contract_expression(
@@ -318,7 +367,7 @@ def mrks(self, frac_old, load_inv=True):
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
                 rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
-                exc_grids[i] += rinv_dm1_r * rho_cc[0][i] - rinv_dm1_r * inv_r[i]
+                exc_grids_fake[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
 
             for i_atom in range(self.mol.natm):
                 distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
@@ -326,12 +375,12 @@ def mrks(self, frac_old, load_inv=True):
                 if distance < cut_off:
                     # distance = 2 / cut_off - 1 / cut_off / cut_off * distance
                     distance = cut_off
-                exc_grids[i] -= (
+                exc_grids_fake[i] -= (
                     (rho_cc[0][i] - inv_r[i])
                     * self.mol.atom_charges()[i_atom]
                     / distance
                 )
-        exc_over_rho_grids = exc_grids / inv_r
+        exc_over_rho_grids_fake = exc_grids_fake / inv_r
 
     save_data = {}
     save_data["energy"] = AU2KJMOL * e_cc
@@ -343,7 +392,7 @@ def mrks(self, frac_old, load_inv=True):
             oe.contract("ij,ji->", h1e, dm1_inv * 2)
             + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
             + self.mol.energy_nuc()
-            + np.sum(exc_over_rho_grids * inv_r * weights)
+            + np.sum(exc_over_rho_grids_fake * inv_r * weights)
             + kin_correct
         )
         - e_cc
@@ -353,7 +402,7 @@ def mrks(self, frac_old, load_inv=True):
             oe.contract("ij,ji->", h1e, dm1_inv * 2)
             + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
             + self.mol.energy_nuc()
-            + np.sum(exc_over_rho_grids_real * inv_r * weights)
+            + np.sum(exc_over_rho_grids * inv_r * weights)
             + kin_correct
         )
         - e_cc
@@ -363,7 +412,7 @@ def mrks(self, frac_old, load_inv=True):
             oe.contract("ij,ji->", h1e, dm1_inv * 2)
             + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
             + self.mol.energy_nuc()
-            + np.sum(exc_over_rho_grids_real * inv_r * weights)
+            + np.sum(exc_over_rho_grids * inv_r * weights)
             + kin_correct1
         )
         - e_cc
@@ -404,9 +453,9 @@ def mrks(self, frac_old, load_inv=True):
         Path("data/grids_mrks") / f"data_{self.name}.npz",
         rho_cc=grids.vector_to_matrix(rho_cc[0]),
         weights=grids.vector_to_matrix(weights),
-        exc=grids.vector_to_matrix(exc_over_rho_grids),
+        exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         vxc=grids.vector_to_matrix(vxc_inv),
-        exc_real=grids.vector_to_matrix(exc_over_rho_grids_real),
+        exc_real=grids.vector_to_matrix(exc_over_rho_grids),
         coords=coords,
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
