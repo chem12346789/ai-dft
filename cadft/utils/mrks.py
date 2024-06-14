@@ -310,6 +310,7 @@ def mrks(self, frac_old, load_inv=True):
             vxc_inv = diis.hybrid()
             # vxc_inv = hybrid(vxc_inv, vxc_inv_old)
             xc_v = oe_fock(vxc_inv, weights, backend="torch")
+            vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv)
             eigvecs_inv, mo_inv = np.linalg.eigh(
                 mat_hs @ (h1e + vj_inv + xc_v) @ mat_hs
             )
@@ -318,8 +319,7 @@ def mrks(self, frac_old, load_inv=True):
             dm1_inv = mo_inv[:, :nocc] @ mo_inv[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_inv - dm1_inv_old)
 
-            if i % 10 == 0:
-                vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv)
+            if i % 1 == 0:
                 print(
                     f"step:{i:<8}",
                     f"error of vxc: {error_vxc::<10.5e}",

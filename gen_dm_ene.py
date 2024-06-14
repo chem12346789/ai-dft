@@ -58,9 +58,9 @@ for (
     elif abs(distance) >= 0.3:
         FACTOR = 0.999
     else:
-        FACTOR = 0.999
+        FACTOR = 0.99
 
-    dft2cc.mrks(0.999, args.load_inv)
+    dft2cc.mrks(FACTOR, args.load_inv)
 
     del dft2cc
     gc.collect()
