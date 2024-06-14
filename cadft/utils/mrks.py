@@ -27,6 +27,8 @@ def mrks(self, frac_old, load_inv=True):
     mf.kernel()
     mycc = pyscf.cc.CCSD(mf)
     mycc.direct = True
+    mycc.incore_complete = True
+    mycc.async_io = False
     mycc.kernel()
 
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
