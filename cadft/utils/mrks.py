@@ -89,7 +89,7 @@ def mrks(self, frac_old, load_inv=True):
         DIIS for the potential.
         """
 
-        def __init__(self, len_vec, n=10):
+        def __init__(self, len_vec, n=50):
             self.n = n
             self.errors = np.zeros((n, len_vec))
             self.v_xc = np.zeros((n, len_vec))
@@ -284,7 +284,7 @@ def mrks(self, frac_old, load_inv=True):
         diis = DIIS(len(vxc_inv))
         diis_mo = DIIS(len(mo))
 
-        for i in range(50):
+        for i in range(25000):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -308,16 +308,26 @@ def mrks(self, frac_old, load_inv=True):
             vxc_inv_old = vxc_inv.copy()
             vxc_inv = v_vxc_e_taup + ebar_ks - taup_rho_ks / dm1_inv_r
             error_vxc = np.linalg.norm((vxc_inv - vxc_inv_old) * weights)
+
             diis.add(vxc_inv - vxc_inv_old, vxc_inv)
             vxc_inv = diis.hybrid()
             # vxc_inv = hybrid(vxc_inv, vxc_inv_old)
+
             xc_v = oe_fock(vxc_inv, weights, backend="torch")
+
             vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv)
+            # vj_inv = mf.get_jk(self.mol, 2 * dm1_inv, 1)[0]
+
             eigvecs_inv, mo_inv = np.linalg.eigh(
                 mat_hs @ (h1e + vj_inv + xc_v) @ mat_hs
             )
             mo_inv = mat_hs @ mo_inv
             dm1_inv_old = dm1_inv.copy()
+
+            # if i > 0:
+            #     mo_inv = hybrid(mo_inv, mo_inv_old)
+            # mo_inv_old = mo_inv.copy()
+
             dm1_inv = mo_inv[:, :nocc] @ mo_inv[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_inv - dm1_inv_old)
 
