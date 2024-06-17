@@ -34,6 +34,29 @@ def gen_taup_rho(
     return taup_rho
 
 
+def gen_taul_rho(
+    dm1_r,
+    eigs_v_dm1,
+    eigs_e_dm1,
+    oe_taul_rho,
+    backend="numpy",
+):
+    """
+    Documentation for a function.
+
+    More details.
+    """
+    taul = np.zeros(len(dm1_r))
+    norb = np.shape(eigs_v_dm1)[1]
+
+    for i in range(norb):
+        part = oe_taul_rho(eigs_v_dm1[:, i], backend=backend)
+        part1 = np.sum((part) ** 2, axis=1)
+        taul += part1 * eigs_e_dm1[i] * 0.5
+    taul_rho = taul
+    return taul_rho
+
+
 def gen_tau_rho(
     dm1_r,
     eigs_v_dm1,

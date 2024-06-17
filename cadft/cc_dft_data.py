@@ -99,8 +99,6 @@ class CC_DFT_DATA:
 
         for i, coord in enumerate(tqdm(coords)):
             ao_0_i = ao_value[0][i]
-            if np.linalg.norm(ao_0_i) < 1e-10:
-                continue
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
                 exc_over_dm_cc_grids[i] += expr_rinv_dm2_r(
@@ -108,10 +106,15 @@ class CC_DFT_DATA:
                 )
 
             for i_atom in range(self.mol.natm):
+                distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
+                cut_off = 1e-3
+                if distance < cut_off:
+                    # distance = 2 / cut_off - 1 / cut_off / cut_off * distance
+                    distance = cut_off
                 exc_over_dm_cc_grids[i] -= (
                     (rho_cc[0][i] - rho_dft[0][i])
                     * self.mol.atom_charges()[i_atom]
-                    / np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
+                    / distance
                 )
 
         dm1_cc_mo = mycc.make_rdm1(ao_repr=False)
@@ -148,6 +151,7 @@ class CC_DFT_DATA:
             weights=grids.vector_to_matrix(weights),
             delta_ene_cc=e_cc - e_cc_dft,
             delta_ene_dft=e_cc - e_dft,
+            ene_dft=e_cc,
             exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
         )
 

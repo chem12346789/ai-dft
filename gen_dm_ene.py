@@ -60,7 +60,8 @@ for (
     else:
         FACTOR = 0.9
 
-    dft2cc.mrks(FACTOR, args.load_inv)
+    dft2cc.save_dm1(False)
+    # dft2cc.mrks(FACTOR, args.load_inv)
 
     del dft2cc
     gc.collect()
