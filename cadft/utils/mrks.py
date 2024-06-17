@@ -251,7 +251,7 @@ def mrks(self, frac_old, load_inv=True):
         dm1_inv = dm1_cc / 2
         vj_inv = mf.get_jk(self.mol, dm1_inv * 2, 1)[0]
         vxc_inv = pyscf.dft.libxc.eval_xc(
-            "B88,P86",
+            "b3lyp",
             pyscf.dft.numint.eval_rho(
                 self.mol,
                 ao_value[:4, :, :],
@@ -284,7 +284,7 @@ def mrks(self, frac_old, load_inv=True):
         diis = DIIS(len(vxc_inv))
         diis_mo = DIIS(len(mo))
 
-        for i in range(25000):
+        for i in range(2500):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -308,10 +308,9 @@ def mrks(self, frac_old, load_inv=True):
             vxc_inv_old = vxc_inv.copy()
             vxc_inv = v_vxc_e_taup + ebar_ks - taup_rho_ks / dm1_inv_r
             error_vxc = np.linalg.norm((vxc_inv - vxc_inv_old) * weights)
-
-            diis.add(vxc_inv - vxc_inv_old, vxc_inv)
-            vxc_inv = diis.hybrid()
-            # vxc_inv = hybrid(vxc_inv, vxc_inv_old)
+            # diis.add(vxc_inv - vxc_inv_old, vxc_inv)
+            # vxc_inv = diis.hybrid()
+            vxc_inv = hybrid(vxc_inv, vxc_inv_old)
 
             xc_v = oe_fock(vxc_inv, weights, backend="torch")
 
@@ -338,7 +337,7 @@ def mrks(self, frac_old, load_inv=True):
                     f"dm: {error_dm1::<10.5e}",
                     f"shift: {potential_shift::<10.5e}",
                 )
-            if (i > 0) and (error_vxc < 1e-7):
+            if (i > 0) and (error_vxc < 1e-8):
                 print(
                     f"step:{i:<8}",
                     f"error of vxc: {error_vxc::<10.5e}",
