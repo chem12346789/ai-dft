@@ -1,5 +1,5 @@
 [project]
-name = "aidft"
+name = "cadft"
 version = "0.1.0"
 description = "AIDFT: AI for density functional theory"
 
