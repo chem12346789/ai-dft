@@ -8,6 +8,8 @@ data
 checkpoint*/
 validate*/
 *.zip
+*map
+submit*
 out
 
 # ignore backup files

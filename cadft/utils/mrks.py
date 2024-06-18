@@ -7,7 +7,7 @@ import pyscf
 import scipy.linalg as LA
 import opt_einsum as oe
 
-from cadft.utils.gen_tau import gen_taup_rho, gen_tau_rho
+from cadft.utils.gen_tau import gen_taup_rho, gen_taul_rho, gen_tau_rho
 from cadft.utils.Grids import Grid
 
 AU2KJMOL = 2625.5
@@ -66,6 +66,14 @@ def mrks(self, frac_old, load_inv=True):
         ao_1,
         constants=[0, 3],
         optimize="optimal",
+    )
+
+    oe_taul_rho = oe.contract_expression(
+        "n,kpn->pk",
+        (norb,),
+        ao_1,
+        constants=[1],
+        optimize="auto",
     )
 
     oe_tau_rho = oe.contract_expression(
@@ -184,11 +192,21 @@ def mrks(self, frac_old, load_inv=True):
             f"data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy"
         )
     else:
-        generalized_fock = dm1_cc_mo @ h1_mo + oe.contract(
-            "rsnq,rsmq->mn", eri_mo, dm2_cc_mo
-        )
-        generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
+        # generalized_fock = dm1_cc_mo @ h1_mo + oe.contract(
+        #     "rsnq,rsmq->mn", eri_mo, dm2_cc_mo
+        # )
 
+        generalized_fock = oe.contract(
+            "pr,rq->pq",
+            h1_mo,
+            dm1_cc_mo,
+        ) + oe.contract(
+            "qrst,prst->pq",
+            dm2_cc_mo,
+            eri_mo,
+        )
+
+        generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
         eig_e, eig_v = np.linalg.eigh(generalized_fock)
         eig_v = mo @ eig_v
         eig_e = eig_e / 2
@@ -330,7 +348,7 @@ def mrks(self, frac_old, load_inv=True):
             dm1_inv = mo_inv[:, :nocc] @ mo_inv[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_inv - dm1_inv_old)
 
-            if i % 1 == 0:
+            if i % 100 == 0:
                 print(
                     f"step:{i:<8}",
                     f"error of vxc: {error_vxc::<10.5e}",
