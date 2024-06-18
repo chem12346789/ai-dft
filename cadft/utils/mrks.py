@@ -201,7 +201,7 @@ def mrks(self, frac_old, load_inv=True):
             h1_mo,
             dm1_cc_mo,
         ) + oe.contract(
-            "qsrt,psrt->pq",
+            "qrst,prst->pq",
             dm2_cc_mo,
             eri_mo,
         )

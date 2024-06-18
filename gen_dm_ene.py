@@ -53,14 +53,14 @@ for (
         if_basis_str=args.if_basis_str,
     )
 
-    if abs(distance) >= 0.5:
-        FACTOR = 0.999
-    elif abs(distance) >= 0.3:
-        FACTOR = 0.99
-    else:
-        FACTOR = 0.9
-
     dft2cc.save_dm1(False)
+
+    # if abs(distance) >= 0.5:
+    #     FACTOR = 0.999
+    # elif abs(distance) >= 0.3:
+    #     FACTOR = 0.99
+    # else:
+    #     FACTOR = 0.9
     # dft2cc.mrks(FACTOR, args.load_inv)
 
     del dft2cc

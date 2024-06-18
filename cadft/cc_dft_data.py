@@ -107,7 +107,7 @@ class CC_DFT_DATA:
 
             for i_atom in range(self.mol.natm):
                 distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
-                cut_off = 1e-3
+                cut_off = 5e-3
                 if distance < cut_off:
                     # distance = 2 / cut_off - 1 / cut_off / cut_off * distance
                     distance = cut_off
