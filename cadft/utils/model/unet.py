@@ -40,14 +40,14 @@ class UNet(nn.Module):
         self.in_channels = 1
         self.classes = 1
 
-        self.inc = DoubleConv(self.in_channels, 16)
-        self.down1 = Down(16, 32)
-        self.down2 = Down(32, 64)
-        self.down3 = Down(64, 128)
-        self.up3 = Up(128, 64)
-        self.up2 = Up(64, 32)
-        self.up1 = Up(32, 16)
-        self.outc = OutConv(16, self.classes)
+        self.inc = DoubleConv(self.in_channels, 64)
+        self.down1 = Down(64, 128)
+        self.down2 = Down(128, 256)
+        self.down3 = Down(256, 512)
+        self.up3 = Up(512, 256)
+        self.up2 = Up(256, 128)
+        self.up1 = Up(128, 64)
+        self.outc = OutConv(64, self.classes)
 
     def forward(self, x):
         x1 = self.inc(x)

@@ -114,7 +114,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 f"lr2: {Modeldict.optimizer_dict['2'].param_groups[0]['lr']:.1e}"
             )
 
-        if epoch % 2500 == 0:
+        if epoch % 500 == 0:
             save_csv_loss(
                 database_train.name_list,
                 Modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}.csv",

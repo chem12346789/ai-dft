@@ -8,9 +8,9 @@ import datetime
 import torch
 import torch.optim as optim
 
-from cadft.utils.model.fc_net import FCNet as Model
 from cadft.utils.model.unet import UNet as Model
 
+# from cadft.utils.model.fc_net import FCNet as Model
 # from cadft.utils.model.transformer import Transformer as Model
 
 
@@ -49,15 +49,11 @@ class ModelDict:
             self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
             (self.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
-        self.model_dict["1"] = Model(
-            None, None, None, self.residual, self.num_layers
-        ).to(device)
+        self.model_dict["1"] = Model(None, None, None, None, None).to(device)
         if dtype == "float64":
             self.model_dict["1"].double()
 
-        self.model_dict["2"] = Model(
-            None, None, None, self.residual, self.num_layers
-        ).to(device)
+        self.model_dict["2"] = Model(None, None, None, None, None).to(device)
         if dtype == "float64":
             self.model_dict["2"].double()
 
@@ -67,7 +63,8 @@ class ModelDict:
         )
         self.scheduler_dict["1"] = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer_dict["1"],
-            "min",
+            mode="min",
+            patience=5,
         )
 
         self.optimizer_dict["2"] = optim.Adam(
@@ -76,7 +73,8 @@ class ModelDict:
         )
         self.scheduler_dict["2"] = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer_dict["2"],
-            "min",
+            mode="min",
+            patience=5,
         )
 
         self.loss_fn1 = torch.nn.L1Loss(reduction="sum")
@@ -114,6 +112,7 @@ class ModelDict:
         Train the model, one epoch.
         """
         train_loss_1, train_loss_2, train_loss_3 = [], [], []
+        database_train.rng.shuffle(database_train.name_list)
 
         for key in ["1", "2"]:
             self.model_dict[key].train(True)
@@ -162,7 +161,6 @@ class ModelDict:
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
-        database_train.rng.shuffle(database_train.name_list)
         return train_loss_1, train_loss_2, train_loss_3
 
     def eval_model(self, database_eval):

@@ -21,10 +21,9 @@ class CC_DFT_DATA:
         self.basis = basis
         self.if_basis_str = if_basis_str
 
-        # rotate(molecular)
+        rotate(molecular)
 
         print(molecular)
-
         self.mol = pyscf.M(
             atom=molecular,
             basis=gen_basis(molecular, self.basis, self.if_basis_str),
@@ -51,6 +50,7 @@ class CC_DFT_DATA:
         Generate rho density of cc/dft and energy density of cc.
         After generating them, save them to data/grids/data_{self.name}.npz.
         """
+        print(f"Save_dm1 module. Generate {self.name}")
         save_dm1(self, cc_triple, xc_code=xc_code)
 
     def save_dm1_dft(
@@ -62,10 +62,12 @@ class CC_DFT_DATA:
         Generate rho density of cc/dft, energy density of cc and another type of energy density of dft.
         After generating them, save them to data/grids/data_{self.name}.npz.
         """
+        print(f"Save_dm1_dft module. Generate {self.name}")
         save_dm1_dft(self, cc_triple, xc_code=xc_code)
 
     def mrks(self, frac_old, load_inv):
         """
         Generate 1-RDM.
         """
+        print(f"Mrks module. Generate {self.name}")
         mrks(self, frac_old, load_inv)

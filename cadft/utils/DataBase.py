@@ -67,7 +67,7 @@ class DataBase:
             self.extend_xyz,
             self.distance_l,
         ):
-            name = f"{name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+            name = f"{name_mol}_cc-pvdz_{extend_atom}_{extend_xyz}_{distance:.4f}"
             if abs(distance) < 1e-3:
                 if (extend_atom != 0) or extend_xyz != 1:
                     print(f"Skip: {name:>40}")
