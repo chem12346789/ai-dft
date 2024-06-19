@@ -10,10 +10,11 @@ AU2KJMOL = 2625.5
 
 
 class CC_DFT_DATA:
+
     def __init__(
         self,
-        molecular=Mol["Methane"],
-        name="Methane",
+        molecular=Mol["methane"],
+        name="methane",
         basis="sto-3g",
         if_basis_str=False,
     ):
