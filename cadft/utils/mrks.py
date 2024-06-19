@@ -185,8 +185,8 @@ def mrks(self, frac_old, load_inv=True):
             exc_over_rho_grids,
         )
 
-    # if load_inv and Path(f"data/grids_mrks/saved_data/{self.name}/emax.npy").exists():
-    if False:
+    # if False:
+    if load_inv and Path(f"data/grids_mrks/saved_data/{self.name}/emax.npy").exists():
         emax = np.load(f"data/grids_mrks/saved_data/{self.name}/emax.npy")
         taup_rho_wf = np.load(f"data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy")
         tau_rho_wf = np.load(f"data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy")
