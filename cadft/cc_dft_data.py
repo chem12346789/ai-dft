@@ -22,7 +22,7 @@ class CC_DFT_DATA:
         self.basis = basis
         self.if_basis_str = if_basis_str
 
-        rotate(molecular)
+        # rotate(molecular)
 
         print(molecular)
 
