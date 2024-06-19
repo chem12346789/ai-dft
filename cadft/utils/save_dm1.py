@@ -110,7 +110,7 @@ def save_dm1(
         weights=grids.vector_to_matrix(weights),
         delta_ene_cc=e_cc - e_cc_dft,
         delta_ene_dft=e_cc - e_dft,
-        ene_dft=e_cc,
+        ene_cc=e_cc,
         exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
     )
 

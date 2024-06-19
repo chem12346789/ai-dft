@@ -168,13 +168,14 @@ def mrks(self, frac_old, load_inv=True):
                 exc_grids[i] += expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch")
 
         exc_over_rho_grids = exc_grids / rho_cc[0]
-        ene_vc = np.sum(exc_over_rho_grids * rho_cc[0] * weights)
-        error = ene_vc - (
-            np.einsum("pqrs,pqrs", eri, dm2_cc).real / 2
-            - np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc).real / 2
-        )
 
-        print(f"Error: {(1e3 * error):.5f} mHa")
+        # ene_vc = np.sum(exc_over_rho_grids * rho_cc[0] * weights)
+        # error = ene_vc - (
+        #     np.einsum("pqrs,pqrs", eri, dm2_cc).real / 2
+        #     - np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc).real / 2
+        # )
+        # print(f"Error: {(1e3 * error):.5f} mHa")
+
         np.save(
             f"data/grids_mrks/saved_data/{self.name}/exc_grids.npy",
             exc_grids,
@@ -184,7 +185,8 @@ def mrks(self, frac_old, load_inv=True):
             exc_over_rho_grids,
         )
 
-    if load_inv and Path(f"data/grids_mrks/saved_data/{self.name}/emax.npy").exists():
+    # if load_inv and Path(f"data/grids_mrks/saved_data/{self.name}/emax.npy").exists():
+    if False:
         emax = np.load(f"data/grids_mrks/saved_data/{self.name}/emax.npy")
         taup_rho_wf = np.load(f"data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy")
         tau_rho_wf = np.load(f"data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy")
@@ -195,32 +197,44 @@ def mrks(self, frac_old, load_inv=True):
         # generalized_fock = dm1_cc_mo @ h1_mo + oe.contract(
         #     "rsnq,rsmq->mn", eri_mo, dm2_cc_mo
         # )
-
-        generalized_fock = oe.contract(
+        expr_fock1 = oe.contract_expression(
             "pr,rq->pq",
-            h1_mo,
+            (self.mol.nao, self.mol.nao),
             dm1_cc_mo,
-        ) + oe.contract(
+            constants=[1],
+            optimize="optimal",
+        )
+        expr_fock2 = oe.contract_expression(
             "qrst,prst->pq",
-            dm2_cc_mo,
+            (self.mol.nao, self.mol.nao, self.mol.nao, self.mol.nao),
             eri_mo,
+            constants=[1],
+            optimize="optimal",
+        )
+
+        generalized_fock = expr_fock1(
+            h1_mo,
+            backend="torch",
+        ) + expr_fock2(
+            dm2_cc_mo,
+            backend="torch",
         )
 
         generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
         eig_e, eig_v = np.linalg.eigh(generalized_fock)
         eig_v = mo @ eig_v
         eig_e = eig_e / 2
-        e_bar_r_wf = (
-            oe.contract(
-                "i,mi,ni,pm,pn->p",
-                eig_e,
-                eig_v,
-                eig_v,
-                ao_0,
-                ao_0,
-            )
-            / rho_cc_half
+        expr_e_bar_r_wf = oe.contract_expression(
+            "i,mi,ni,pm,pn->p",
+            (self.mol.nao,),
+            eig_v,
+            eig_v,
+            ao_0,
+            ao_0,
+            constants=[1, 2, 3, 4],
+            optimize="optimal",
         )
+        e_bar_r_wf = expr_e_bar_r_wf(eig_e, backend="torch") / rho_cc_half
 
         emax = np.max(e_bar_r_wf)
         v_vxc_e_taup = -e_bar_r_wf
@@ -299,10 +313,10 @@ def mrks(self, frac_old, load_inv=True):
             optimize="optimal",
         )
 
-        diis = DIIS(len(vxc_inv))
-        diis_mo = DIIS(len(mo))
+        # diis = DIIS(len(vxc_inv))
+        # diis_mo = DIIS(len(mo))
 
-        for i in range(2500):
+        for i in range(25000):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -311,6 +325,7 @@ def mrks(self, frac_old, load_inv=True):
                     eigvecs_inv[:nocc] + potential_shift,
                     mo_inv[:, :nocc],
                     mo_inv[:, :nocc],
+                    backend="torch",
                 )
                 / dm1_inv_r
             )
@@ -383,33 +398,28 @@ def mrks(self, frac_old, load_inv=True):
     exc_over_rho_grids_fake = exc_over_rho_grids.copy()
     exc_grids_fake = exc_grids.copy()
 
-    if True:
-        expr_rinv_dm1_r = oe.contract_expression(
-            "ij,ij->",
-            dm1_cc,
-            (norb, norb),
-            constants=[0],
-            optimize="optimal",
-        )
+    expr_rinv_dm1_r = oe.contract_expression(
+        "ij,ij->",
+        dm1_cc,
+        (norb, norb),
+        constants=[0],
+        optimize="optimal",
+    )
 
-        for i, coord in enumerate(tqdm(coords)):
-            with self.mol.with_rinv_origin(coord):
-                rinv = self.mol.intor("int1e_rinv")
-                rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
-                exc_grids_fake[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
+    for i, coord in enumerate(tqdm(coords)):
+        with self.mol.with_rinv_origin(coord):
+            rinv = self.mol.intor("int1e_rinv")
+            rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
+            exc_grids_fake[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
 
-            for i_atom in range(self.mol.natm):
-                distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
-                cut_off = 1e-3
-                if distance < cut_off:
-                    # distance = 2 / cut_off - 1 / cut_off / cut_off * distance
-                    distance = cut_off
-                exc_grids_fake[i] -= (
-                    (rho_cc[0][i] - inv_r[i])
-                    * self.mol.atom_charges()[i_atom]
-                    / distance
-                )
-        exc_over_rho_grids_fake = exc_grids_fake / inv_r
+        for i_atom in range(self.mol.natm):
+            distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
+            exc_grids_fake[i] -= (
+                (rho_cc[0][i] - inv_r[i])
+                * self.mol.atom_charges()[i_atom]
+                / max(distance, 1e-3)
+            )
+    exc_over_rho_grids_fake = exc_grids_fake / inv_r
 
     save_data = {}
     save_data["energy"] = AU2KJMOL * e_cc
@@ -452,15 +462,33 @@ def mrks(self, frac_old, load_inv=True):
     save_data["error of dm1_inv"] = error_inv_r
     save_data["error of dm1_dft"] = error_dft_r
 
-    dipole_x = np.sum(rho_cc[0] * coords[:, 0] * weights)
-    dipole_x_inv = np.sum(inv_r * coords[:, 0] * weights)
-    dipole_x_dft = np.sum(dft_r * coords[:, 0] * weights)
-    dipole_y = np.sum(rho_cc[0] * coords[:, 1] * weights)
-    dipole_y_inv = np.sum(inv_r * coords[:, 1] * weights)
-    dipole_y_dft = np.sum(dft_r * coords[:, 1] * weights)
-    dipole_z = np.sum(rho_cc[0] * coords[:, 2] * weights)
-    dipole_z_inv = np.sum(inv_r * coords[:, 2] * weights)
-    dipole_z_dft = np.sum(dft_r * coords[:, 2] * weights)
+    dipole_x_core = 0
+    for i_atom in range(self.mol.natm):
+        dipole_x_core += (
+            self.mol.atom_charges()[i_atom] * self.mol.atom_coords()[i_atom][0]
+        )
+    dipole_x = dipole_x_core - np.sum(rho_cc[0] * coords[:, 0] * weights)
+    dipole_x_inv = dipole_x_core - np.sum(inv_r * coords[:, 0] * weights)
+    dipole_x_dft = dipole_x_core - np.sum(dft_r * coords[:, 0] * weights)
+
+    dipole_y_core = 0
+    for i_atom in range(self.mol.natm):
+        dipole_y_core += (
+            self.mol.atom_charges()[i_atom] * self.mol.atom_coords()[i_atom][1]
+        )
+    dipole_y = dipole_y_core - np.sum(rho_cc[0] * coords[:, 1] * weights)
+    dipole_y_inv = dipole_y_core - np.sum(inv_r * coords[:, 1] * weights)
+    dipole_y_dft = dipole_y_core - np.sum(dft_r * coords[:, 1] * weights)
+
+    dipole_z_core = 0
+    for i_atom in range(self.mol.natm):
+        dipole_z_core += (
+            self.mol.atom_charges()[i_atom] * self.mol.atom_coords()[i_atom][2]
+        )
+    dipole_z = dipole_z_core - np.sum(rho_cc[0] * coords[:, 2] * weights)
+    dipole_z_inv = dipole_z_core - np.sum(inv_r * coords[:, 2] * weights)
+    dipole_z_dft = dipole_z_core - np.sum(dft_r * coords[:, 2] * weights)
+
     save_data["dipole_x"] = dipole_x
     save_data["dipole_x_inv"] = dipole_x_inv
     save_data["dipole_x_dft"] = dipole_x_dft
@@ -481,11 +509,11 @@ def mrks(self, frac_old, load_inv=True):
     np.savez_compressed(
         Path("data/grids_mrks") / f"data_{self.name}.npz",
         rho_cc=grids.vector_to_matrix(rho_cc[0]),
+        rho_inv=grids.vector_to_matrix(inv_r),
         weights=grids.vector_to_matrix(weights),
-        exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         vxc=grids.vector_to_matrix(vxc_inv),
+        exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
-        coords=coords,
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
         coords_z=grids.vector_to_matrix(coords[:, 2]),

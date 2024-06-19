@@ -1,4 +1,5 @@
 import pyscf
+import basis_set_exchange
 
 BASIS = {
     # aug-cc-pwcv
@@ -37,14 +38,13 @@ BASIS = {
 def gen_basis(molecular, basis_name, if_basis_str):
     """
     Generate the basis set for the molecular system.
-    Use the basis_set_exchange basis and avoid no core correlation basis set (such as cc-pcvdz) for H atom; See https://github.com/pyscf/pyscf/issues/1795
+    Use the basis_set_exchange basis.
+    Avoid no core correlation basis set (such as cc-pcvdz) for H atom; See https://github.com/pyscf/pyscf/issues/1795
     """
     basis_name = basis_name.lower()
     basis = {}
     for i_atom in molecular:
         if if_basis_str:
-            import basis_set_exchange
-
             basis[i_atom[0]] = pyscf.gto.load(
                 (
                     basis_set_exchange.api.get_basis(
