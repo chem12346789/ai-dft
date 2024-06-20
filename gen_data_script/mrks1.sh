@@ -9,4 +9,4 @@ export PYSCF_TMPDIR=~/workdir/tmp
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
-nohup sh -c '~/anaconda3/bin/python gen_dm_ene.py -dl 0.1 0.5 5 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 1 2 --name_mol ethane ethylene acetylene methane >log/cc-pCVDZ1.out' >log/cc-pCVDZ1.log &
+nohup sh -c '~/anaconda3/bin/python gen_dm_ene.py -dl 0.1 0.5 5 -b cc-pCVTZ --extend_atom 0 --extend_xyz 0 1 2 --name_mol ethane ethylene acetylene methane >log/cc-pCVTZ1.out' >log/cc-pCVTZ1.log &
