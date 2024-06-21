@@ -32,33 +32,31 @@ for (
     print(f"Generate {name_mol}_{distance:.4f}")
     print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}")
 
+    name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
     if abs(distance) < 1e-3:
         if (extend_atom != 0) or extend_xyz != 1:
-            print(f"Skip {name_mol}_{extend_atom}_{extend_xyz}_{distance:.4f}")
+            print(f"Skip: {name:>40}")
             continue
 
     if extend_atom >= len(Mol[name_mol]):
-        print(
-            f"\rSkip: {name_mol:>20}_{extend_atom}_{extend_xyz}_{distance:.4f}",
-            end="",
-        )
+        print(f"Skip: {name:>40}")
         continue
 
     molecular[extend_atom][extend_xyz] += distance
 
     dft2cc = CC_DFT_DATA(
         molecular,
-        name=f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}",
+        name=name,
         basis=args.basis,
         if_basis_str=args.if_basis_str,
     )
 
     if abs(distance) >= 0.5:
-        FACTOR = 0.99
-    elif abs(distance) >= 0.3:
         FACTOR = 0.95
-    else:
+    elif abs(distance) >= 0.3:
         FACTOR = 0.9
+    else:
+        FACTOR = 0.8
     dft2cc.mrks(FACTOR, args.load_inv)
 
     del dft2cc

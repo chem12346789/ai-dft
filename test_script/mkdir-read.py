@@ -19,7 +19,7 @@ def clean_dir(pth):
 
 
 main_dir = Path(__file__).resolve().parents[0]
-template_bash = main_dir / "train-template.bash"
+template_bash = main_dir / "validate-template.bash"
 time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
 
 critical_time = arrow.now().shift(hours=-1)
@@ -39,22 +39,27 @@ if (main_dir / "out_mkdir").exists():
 
 work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
-work_bash = work_dir / "train-template.bash"
+work_bash = work_dir / "validate-template.bash"
 
 for (
     checkpoint,
     hidden_size,
+    ene_grid_factor,
 ) in itertools.product(
-    ["NEW"],
-    # ["2024-06-06-15-36-03"],
+    ["2024-06-09-11-41-40"],
     [302],
+    [1],
 ):
+    ene_grid_factor_str = (
+        f"--ene_grid_factor {ene_grid_factor}" if ene_grid_factor else ""
+    )
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/ENE_GRID_FACTOR/{ene_grid_factor_str}/g" {work_bash}"""
     cmd += (
         "&&"
-        + f"""mv {work_bash} {work_dir / f"train_{checkpoint}_{hidden_size}.bash"}"""
+        + f"""mv {work_bash} {work_dir / f"validate_{checkpoint}_{hidden_size}.bash"}"""
     )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
@@ -64,4 +69,4 @@ for child in (work_dir).glob("*.bash"):
         cmd = f"""sbatch < {child}"""
         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
             subprocess.call(cmd, shell=True, stdout=f)
-        time.sleep(6)  # enough time for sleep
+        time.sleep(0.01)

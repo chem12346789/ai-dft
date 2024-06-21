@@ -11,6 +11,7 @@ validate*/
 *map
 submit*
 out
+*.sh
 
 # ignore backup files
 .history

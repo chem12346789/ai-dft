@@ -1,14 +1,87 @@
 from pathlib import Path
 from itertools import product
 
-import torch
 import numpy as np
+import torch
+from torch.utils.data import DataLoader
 
-from cadft.utils.BasicDataset import BasicDataset
 from cadft.utils.mol import Mol
 
-# perprocess factor, can be imported from other files.
-MIDDLE_SCALE, OUTPUT_SCALE = 1000.0, 1000.0
+
+def process(data, dtype):
+    """
+    Load the whole data to the gpu.
+    """
+    if len(data.shape) == 4:
+        return data.to(
+            device="cuda",
+            dtype=dtype,
+            memory_format=torch.channels_last,
+        )
+    else:
+        return data.to(
+            device="cuda",
+            dtype=dtype,
+        )
+
+
+class BasicDataset:
+    """
+    Documentation for a class.
+    """
+
+    def __init__(self, input_, middle_, output_, weight_, batch_size, dtype):
+        self.input = input_
+        self.middle = middle_
+        self.output = output_
+        self.weight = weight_
+        self.ids = list(input_.keys())
+        self.batch_size = batch_size
+        if dtype == "float32":
+            self.dtype = torch.float32
+        else:
+            self.dtype = torch.float64
+
+    def __len__(self):
+        return len(self.ids)
+
+    def __getitem__(self, idx):
+        return {
+            "input": self.input[self.ids[idx]],
+            "middle": self.middle[self.ids[idx]],
+            "output": self.output[self.ids[idx]],
+            "weight": self.weight[self.ids[idx]],
+        }
+
+    def load_to_gpu(self):
+        """
+        Load the whole data to the device.
+        """
+        dataloader = DataLoader(
+            self,
+            shuffle=False,
+            batch_size=self.batch_size,
+            num_workers=1,
+            pin_memory=True,
+        )
+
+        dataloader_gpu = []
+        for batch in dataloader:
+            batch_gpu = {}
+            # move images and labels to correct device and type
+            (
+                batch_gpu["input"],
+                batch_gpu["middle"],
+                batch_gpu["output"],
+                batch_gpu["weight"],
+            ) = (
+                process(batch["input"], self.dtype),
+                process(batch["middle"], self.dtype),
+                process(batch["output"], self.dtype),
+                process(batch["weight"], self.dtype),
+            )
+            dataloader_gpu.append(batch_gpu)
+        return dataloader_gpu
 
 
 def gen_logger(distance_list):
@@ -33,8 +106,8 @@ class DataBase:
         extend_atom,
         extend_xyz,
         distance_list,
+        basis,
         batch_size,
-        ene_grid_factor,
         device,
         dtype,
     ):
@@ -43,9 +116,9 @@ class DataBase:
         self.extend_xyz = extend_xyz
         self.distance_list = distance_list
         self.batch_size = batch_size
-        self.ene_grid_factor = ene_grid_factor
         self.device = device
         self.dtype = dtype
+        self.basis = basis
 
         self.distance_l = gen_logger(self.distance_list)
         self.data = {}
@@ -67,7 +140,7 @@ class DataBase:
             self.extend_xyz,
             self.distance_l,
         ):
-            name = f"{name_mol}_cc-pvdz_{extend_atom}_{extend_xyz}_{distance:.4f}"
+            name = f"{name_mol}_{self.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
             if abs(distance) < 1e-3:
                 if (extend_atom != 0) or extend_xyz != 1:
                     print(f"Skip: {name:>40}")
@@ -77,31 +150,24 @@ class DataBase:
                 print(f"Skip: {name:>40}")
                 continue
 
-            self.name_list.append(name)
-
-        for name in self.name_list:
-            if not (Path("data/grids/") / f"data_{name}.npz").exists():
+            if not (Path("data/grids_mrks/") / f"data_{name}.npz").exists():
                 print(f"No file: {name:>40}")
                 continue
+
+            self.name_list.append(name)
             self.load_data(name)
 
     def load_data(self, name):
         """
         Load the data.
         """
-        data = np.load(Path("data/grids/") / f"data_{name}.npz")
+        data = np.load(Path("data/grids_mrks/") / f"data_{name}.npz")
 
         weight = data["weights"]
-        input_mat = data["rho_dft"]
-        middle_mat = (data["rho_cc"] - data["rho_dft"]) * MIDDLE_SCALE
-        ene = data["delta_ene_dft"] * OUTPUT_SCALE
+        input_mat = data["rho_inv"]
+        middle_mat = data["vxc"]
+        output_mat = data["exc_tr_real"]
 
-        if (self.ene_grid_factor) and ("exc_over_dm_cc_grids" in data.files):
-            output_mat = data["exc_over_dm_cc_grids"] * OUTPUT_SCALE
-        else:
-            output_mat = np.array([])
-
-        self.ene[name] = ene
         self.shape[name] = input_mat.shape
         input_ = {}
         middle_ = {}
@@ -109,21 +175,11 @@ class DataBase:
         output_ = {}
 
         for i_atom in range(input_mat.shape[0]):
-            # skip the zero input (compare to the error of the float number)
-            # if np.logical_not(
-            #     (np.mean(np.abs(input_i * weight_i)) > 1e-8)
-            #     & (np.mean(np.abs(input_i)) > 1e-5)
-            # ):
-            #     continue
-
             key_ = f"{i_atom}"
-            input_[key_] = input_mat[i_atom, 6:-5, :][np.newaxis, :, :]
-            middle_[key_] = middle_mat[i_atom, 6:-5, :][np.newaxis, :, :]
-            weight_[key_] = weight[i_atom, 6:-5, :][np.newaxis, :, :]
-            if output_mat.size != 0:
-                output_[key_] = output_mat[i_atom, 6:-5, :][np.newaxis, :, :]
-            else:
-                output_[key_] = np.array([])
+            input_[key_] = input_mat[i_atom, :, :][np.newaxis, :, :]
+            middle_[key_] = middle_mat[i_atom, :, :][np.newaxis, :, :]
+            weight_[key_] = weight[i_atom, :, :][np.newaxis, :, :]
+            output_[key_] = output_mat[i_atom, :, :][np.newaxis, :, :]
 
         self.data_gpu[name] = BasicDataset(
             input_,
@@ -141,5 +197,5 @@ class DataBase:
         }
 
         print(
-            f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, mean middle: {np.mean(middle_mat):7.4f}, mean output: {ene:7.4f}."
+            f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, mean middle: {np.mean(middle_mat):7.4f}, max middle: {np.max(np.abs(middle_mat)):7.4f}, mean output: {np.mean(output_mat):7.4f}, max output: {np.max(np.abs(output_mat)):7.4f}."
         )

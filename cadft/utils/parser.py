@@ -108,13 +108,6 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--ene_grid_factor",
-        type=float,
-        default=0,
-        help="Weather to use the energy grid label. 0 for not using. Default is 0.",
-    )
-
-    parser.add_argument(
         "--batch_size",
         type=int,
         default=100000,

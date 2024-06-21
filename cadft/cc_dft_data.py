@@ -1,10 +1,13 @@
 import pyscf
 
+from scipy import linalg as LA
+
 from cadft.utils import gen_basis
 from cadft.utils import rotate
 from cadft.utils import mrks
 from cadft.utils import save_dm1, save_dm1_dft
 from cadft.utils import Mol
+from cadft.utils.Grids import Grid
 
 AU2KJMOL = 2625.5
 
@@ -72,3 +75,34 @@ class CC_DFT_DATA:
         """
         print(f"Mrks module. Generate {self.name}")
         mrks(self, frac_old, load_inv)
+
+    def test_mol(self):
+        """
+        Generate 1-RDM.
+        """
+        mdft = pyscf.scf.RKS(self.mol)
+        mdft.xc = "b3lyp"
+        mdft.kernel()
+
+        mf = pyscf.scf.RHF(self.mol)
+        mf.kernel()
+        mycc = pyscf.cc.CCSD(mf)
+        mycc.direct = True
+        mycc.incore_complete = True
+        mycc.async_io = False
+        mycc.kernel()
+
+        self.h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
+        self.eri = self.mol.intor("int2e")
+
+        mat_s = self.mol.intor("int1e_ovlp")
+        self.mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
+
+        self.grids = Grid(self.mol)
+        self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
+
+        self.dm1_cc = mycc.make_rdm1(ao_repr=True)
+        self.e_cc = mycc.e_tot
+
+        self.dm1_dft = mdft.make_rdm1(ao_repr=True)
+        self.e_dft = mdft.e_tot

@@ -514,6 +514,9 @@ def mrks(self, frac_old, load_inv=True):
         vxc=grids.vector_to_matrix(vxc_inv),
         exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
+        exc_tr_real=grids.vector_to_matrix(
+            exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
+        ),
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
         coords_z=grids.vector_to_matrix(coords[:, 2]),
