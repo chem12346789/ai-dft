@@ -45,50 +45,6 @@ Cyclopropene = [
     ["H", 1.023, 1.588, 0.000],
     ["H", 1.024, -1.588, 0.000],
 ]
-Propyne = [
-    ["C", -1.375, 0.000, -0.000],
-    ["C", 0.085, 0.000, 0.000],
-    ["C", 1.297, 0.000, -0.000],
-    ["H", -1.772, 0.066, 1.026],
-    ["H", -1.772, 0.856, -0.570],
-    ["H", -1.772, -0.922, -0.456],
-    ["H", 2.369, 0.000, -0.000],
-]
-Cyclopropane = [
-    ["C", 0.321, 0.811, 0.000],
-    ["C", -0.863, -0.128, -0.000],
-    ["C", 0.543, -0.684, -0.000],
-    ["H", 0.539, 1.363, -0.918],
-    ["H", 0.539, 1.363, 0.918],
-    ["H", -1.450, -0.215, 0.918],
-    ["H", -1.449, -0.215, -0.918],
-    ["H", 0.911, -1.148, -0.918],
-    ["H", 0.911, -1.148, 0.918],
-]
-Propylene = [
-    ["C", 1.289, -0.200, -0.000],
-    ["C", -0.073, 0.430, -0.000],
-    ["C", -1.233, -0.233, 0.000],
-    ["H", 1.872, 0.113, -0.884],
-    ["H", 1.229, -1.300, -0.000],
-    ["H", 1.872, 0.113, 0.884],
-    ["H", -0.094, 1.528, -0.000],
-    ["H", -2.192, 0.291, 0.000],
-    ["H", -1.265, -1.328, 0.000],
-]
-Propane = [
-    ["C", 0.000, -0.565, -0.000],
-    ["C", -1.277, 0.279, -0.000],
-    ["C", 1.277, 0.279, 0.000],
-    ["H", 0.000, -1.231, 0.882],
-    ["H", 0.000, -1.231, -0.882],
-    ["H", -1.324, 0.932, 0.889],
-    ["H", -1.324, 0.932, -0.889],
-    ["H", -2.181, -0.351, -0.000],
-    ["H", 2.181, -0.351, 0.000],
-    ["H", 1.324, 0.932, 0.889],
-    ["H", 1.324, 0.932, -0.889],
-]
 Bicyclobutane = [
     ["C", 0.000, 0.749, -0.344],
     ["C", -0.000, -0.749, -0.344],
@@ -103,33 +59,17 @@ Bicyclobutane = [
 ]
 
 Mol = {
-    "H_2": H_2,
-    "HH": H_2,
-    "Be": Be,
-    "He": He,
-    "Ne": Ne,
-    "HOH": HOH,
-    "HOOH": HOOH,
-    "HNHH": HNHH,
-    "HNH2": HNHH,
+    "hh": H_2,
+    "be": Be,
+    "he": He,
+    "ne": Ne,
+    "hoh": HOH,
+    "hooh": HOOH,
+    "hnhh": HNHH,
+    "hnh2": HNHH,
     "allene": Allene,
     "cyclopropene": Cyclopropene,
-    "propyne": Propyne,
-    "cyclopropane": Cyclopropane,
-    "propylene": Propylene,
-    "propane": Propane,
-    # "isobutane": Isobutane,
-    # "butane": Butane,
-    # "butadiene": Butadiene,
-    # "butyne": Butyne,
     "bicyclobutane": Bicyclobutane,
-    # "cyclopropylmethyl": Cyclopropylmethyl,
-    # "cyclobutane": Cyclobutane,
-    # "spiropentane": Spiropentane,
-    # "benzene": Benzene,
-    # "pentane": Pentane,
-    # "isopentane": Isopentane,
-    # "neopentane": Neopentane,
 }
 
 with importlib.resources.path("cadft", "utils") as resource_path:
