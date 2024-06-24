@@ -240,36 +240,41 @@ if __name__ == "__main__":
 
         # 2.3 check the difference of energy (total)
 
-        # input_mat = dft2cc.grids.vector_to_matrix(
-        #     pyscf.dft.numint.eval_rho(
-        #         dft2cc.mol,
-        #         dft2cc.ao_0,
-        #         dm1_scf,
-        #     )
-        #     + 1e-14
-        # )
-        # input_mat = torch.tensor(
-        #     input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-        # ).to("cuda")
-        # output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
-        # output_mat = dft2cc.grids.matrix_to_vector(output_mat.squeeze(1) / OUTPUT_SCALE)
-
-        output_mat = dft2cc.grids.matrix_to_vector(
-            data_real["exc_tr_b3lyp"] * data_real["rho_inv"]
+        input_mat = dft2cc.grids.vector_to_matrix(
+            pyscf.dft.numint.eval_rho(
+                dft2cc.mol,
+                dft2cc.ao_0,
+                dm1_scf,
+            )
+            + 1e-14
         )
+        input_mat = torch.tensor(
+            input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
+        ).to("cuda")
+        output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
+        output_mat = output_mat.squeeze(1)
+
+        output_mat_exc_real = data_real["exc_tr_b3lyp"] * dft2cc.grids.vector_to_matrix(
+            scf_rho_r * dft2cc.grids.weights
+        )
+        output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
+            scf_rho_r * dft2cc.grids.weights
+        )
+        print((output_mat_exc_real - output_mat_exc))
 
         inv_r_3 = pyscf.dft.numint.eval_rho(
             dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
         exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
-        exc_over_rho_grids = output_mat + exc_b3lyp * scf_rho_r
+        b3lyp_ene = np.sum(exc_b3lyp * scf_rho_r * dft2cc.grids.weights)
         error_ene_scf = AU2KCALMOL * (
             (
                 oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
                 + 0.5 * oe.contract("pqrs,pq,rs->", dft2cc.eri, dm1_scf, dm1_scf)
                 + dft2cc.mol.energy_nuc()
-                + np.sum(exc_over_rho_grids * dft2cc.grids.weights)
+                + np.sum(output_mat_exc)
+                + b3lyp_ene
             )
             - dft2cc.e_cc
         )

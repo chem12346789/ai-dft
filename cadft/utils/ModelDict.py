@@ -49,12 +49,12 @@ class ModelDict:
         self.scheduler_dict = {}
         if load != "":
             self.dir_checkpoint = Path(
-                f"checkpoints/checkpoint-ccdft-{load}-{self.hidden_size}-{self.num_layers}-{self.residual}/"
+                f"../checkpoints/checkpoint-ccdft-{load}-{self.hidden_size}-{self.num_layers}-{self.residual}/"
             ).resolve()
             if self.dir_checkpoint.exists():
                 print(f"Load checkpoint directory: {self.dir_checkpoint}")
             else:
-                print("Load checkpoint directory not found.")
+                print("Load checkpoint directory {self.dir_checkpoint} not found.")
                 raise FileNotFoundError
         else:
             self.dir_checkpoint = Path(
