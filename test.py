@@ -18,6 +18,7 @@ from cadft import CC_DFT_DATA, add_args, gen_logger
 from cadft.utils import Mol
 from cadft.utils import ModelDict
 
+from cadft.utils.DataBase import MIDDLE_SCALE, OUTPUT_SCALE
 
 AU2KCALMOL = 627.5096080306
 
@@ -252,7 +253,7 @@ if __name__ == "__main__":
         #     input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
         # ).to("cuda")
         # output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
-        # output_mat = output_mat.squeeze(1)
+        # output_mat = output_mat.squeeze(1) / OUTPUT_SCALE
 
         output_mat = data_real["exc_tr_b3lyp"]
 

@@ -73,7 +73,7 @@ class ModelDict:
 
         self.optimizer_dict["1"] = optim.Adam(
             self.model_dict["1"].parameters(),
-            lr=1e-3,
+            lr=1e-4,
         )
         # self.scheduler_dict["1"] = optim.lr_scheduler.ExponentialLR(
         #     self.optimizer_dict["1"],
@@ -93,7 +93,7 @@ class ModelDict:
 
         self.optimizer_dict["2"] = optim.Adam(
             self.model_dict["2"].parameters(),
-            lr=1e-3,
+            lr=1e-4,
         )
         # self.scheduler_dict["2"] = optim.lr_scheduler.ExponentialLR(
         #     self.optimizer_dict["2"],
@@ -105,10 +105,11 @@ class ModelDict:
             patience=5,
         )
 
-        self.loss_fn1 = torch.nn.L1Loss()
-        self.loss_fn2 = torch.nn.L1Loss()
-        # self.loss_fn1 = torch.nn.L1Loss(reduction="sum")
-        # self.loss_fn2 = torch.nn.L1Loss(reduction="sum")
+        # self.loss_fn1 = torch.nn.L1Loss()
+        self.loss_fn1 = torch.nn.L1Loss(reduction="sum")
+
+        # self.loss_fn2 = torch.nn.L1Loss()
+        self.loss_fn2 = torch.nn.L1Loss(reduction="sum")
 
     def load_model(self):
         """
@@ -163,7 +164,7 @@ class ModelDict:
                 weight = batch["weight"]
 
                 middle_mat = self.model_dict["1"](input_mat)
-                loss_1 += self.loss_fn1(middle_mat * weight, middle_mat_real * weight)
+                loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
 
                 output_mat = self.model_dict["2"](input_mat)
                 loss_2 += self.loss_fn2(output_mat * weight, output_mat_real * weight)
@@ -205,9 +206,7 @@ class ModelDict:
 
                 with torch.no_grad():
                     middle_mat = self.model_dict["1"](input_mat)
-                    loss_1 += self.loss_fn1(
-                        middle_mat * weight, middle_mat_real * weight
-                    )
+                    loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
 
                     output_mat = self.model_dict["2"](input_mat)
                     loss_2 += self.loss_fn2(
