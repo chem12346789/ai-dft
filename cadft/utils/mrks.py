@@ -124,11 +124,7 @@ def mrks(self, frac_old, load_inv=True):
                 c = np.linalg.solve(
                     mat[-(self.step + 1) :, -(self.step + 1) :], b[-(self.step + 1) :]
                 )
-                print(mat)
-                print(c)
-                print(self.v_xc)
                 v_xc = np.sum(c[:-1, np.newaxis] * self.v_xc[-self.step :], axis=0)
-                print(v_xc)
                 return v_xc
             else:
                 c = np.linalg.solve(mat, b)
@@ -268,11 +264,11 @@ def mrks(self, frac_old, load_inv=True):
             f"data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy", v_vxc_e_taup
         )
 
-    # if (
-    #     load_inv
-    #     and Path(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy").exists()
-    # ):
-    if False:
+    # if False:
+    if (
+        load_inv
+        and Path(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy").exists()
+    ):
         dm1_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
         vxc_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/vxc_inv.npy")
         tau_rho_ks = np.load(f"data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy")
@@ -499,6 +495,9 @@ def mrks(self, frac_old, load_inv=True):
     save_data["dipole_z_inv"] = dipole_z_inv
     save_data["dipole_z_dft"] = dipole_z_dft
 
+    inv_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv * 2, xctype="GGA")
+    exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
+
     with open(
         Path("data/grids_mrks") / f"save_data_{self.name}.json",
         "w",
@@ -508,16 +507,52 @@ def mrks(self, frac_old, load_inv=True):
 
     np.savez_compressed(
         Path("data/grids_mrks") / f"data_{self.name}.npz",
+        dm_cc=dm1_cc,
+        dm_inv=dm1_inv,
         rho_cc=grids.vector_to_matrix(rho_cc[0]),
         rho_inv=grids.vector_to_matrix(inv_r),
         weights=grids.vector_to_matrix(weights),
         vxc=grids.vector_to_matrix(vxc_inv),
         exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
-        exc_tr_real=grids.vector_to_matrix(
+        exc_tr_b3lyp=grids.vector_to_matrix(
+            exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
+        ),
+        exc_tr=grids.vector_to_matrix(
             exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
         ),
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
         coords_z=grids.vector_to_matrix(coords[:, 2]),
+    )
+
+
+def mrks_append(self, frac_old, load_inv=True):
+    data = np.load(Path("data/grids_mrks") / f"data_{self.name}.npz")
+
+    mdft = pyscf.scf.RKS(self.mol)
+    mdft.xc = "b3lyp"
+    mdft.kernel()
+
+    grids = Grid(self.mol)
+    coords = grids.coords
+    ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
+
+    dm1_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
+    inv_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_inv * 2, xctype="GGA")
+    exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
+
+    np.savez_compressed(
+        Path("data/grids_mrks") / f"data_{self.name}.npz",
+        rho_cc=data["rho_cc"],
+        rho_inv=data["rho_inv"],
+        weights=data["weights"],
+        vxc=data["vxc"],
+        exc=data["exc"],
+        exc_real=data["exc_real"],
+        exc_tr_b3lyp=data["exc_tr_real"] - grids.vector_to_matrix(exc_b3lyp),
+        exc_tr=data["exc_tr_real"],
+        coords_x=data["coords_x"],
+        coords_y=data["coords_y"],
+        coords_z=data["coords_z"],
     )

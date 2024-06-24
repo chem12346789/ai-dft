@@ -4,7 +4,7 @@ from scipy import linalg as LA
 
 from cadft.utils import gen_basis
 from cadft.utils import rotate
-from cadft.utils import mrks
+from cadft.utils import mrks, mrks_append
 from cadft.utils import save_dm1, save_dm1_dft
 from cadft.utils import Mol
 from cadft.utils.Grids import Grid
@@ -76,6 +76,13 @@ class CC_DFT_DATA:
         print(f"Mrks module. Generate {self.name}")
         mrks(self, frac_old, load_inv)
 
+    def mrks_append(self, frac_old, load_inv):
+        """
+        Generate 1-RDM.
+        """
+        print(f"Mrks_append module. Generate {self.name}")
+        mrks_append(self, frac_old, load_inv)
+
     def test_mol(self):
         """
         Generate 1-RDM.
@@ -100,6 +107,7 @@ class CC_DFT_DATA:
 
         self.grids = Grid(self.mol)
         self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
+        self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
 
         self.dm1_cc = mycc.make_rdm1(ao_repr=True)
         self.e_cc = mycc.e_tot

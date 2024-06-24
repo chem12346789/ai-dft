@@ -29,21 +29,21 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
     experiment = wandb.init(
         project="DFT2CC",
         resume="allow",
-        name=f"ccdft-{args.hidden_size}",
+        name=f"ccdft-{args.hidden_size}-{args.num_layers}-{args.residual}",
         dir="/home/chenzihao/workdir/tmp",
     )
     wandb.define_metric("*", step_metric="global_step")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    Modeldict = ModelDict(
+    modeldict = ModelDict(
+        args.load,
         args.hidden_size,
         args.num_layers,
         args.residual,
         device,
         args.precision,
     )
-    (Modeldict.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
-    Modeldict.load_model(args.load)
+    modeldict.load_model()
 
     database_train = DataBase(
         TRAIN_STR_DICT,
@@ -75,36 +75,36 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             "num_layers": args.num_layers,
             "residual": args.residual,
             "jobid": os.environ.get("SLURM_JOB_ID"),
-            "checkpoint": Modeldict.dir_checkpoint,
+            "checkpoint": modeldict.dir_checkpoint,
         }
     )
 
     pbar = trange(args.epoch + 1)
     for epoch in pbar:
-        train_loss_1, train_loss_2 = Modeldict.train_model(database_train)
+        train_loss_1, train_loss_2 = modeldict.train_model(database_train)
         if not isinstance(
-            Modeldict.scheduler_dict["1"],
+            modeldict.scheduler_dict["1"],
             torch.optim.lr_scheduler.ReduceLROnPlateau,
         ):
-            Modeldict.scheduler_dict["1"].step()
+            modeldict.scheduler_dict["1"].step()
         if not isinstance(
-            Modeldict.scheduler_dict["2"],
+            modeldict.scheduler_dict["2"],
             torch.optim.lr_scheduler.ReduceLROnPlateau,
         ):
-            Modeldict.scheduler_dict["2"].step()
+            modeldict.scheduler_dict["2"].step()
 
         if epoch % args.eval_step == 0:
-            eval_loss_1, eval_loss_2 = Modeldict.eval_model(database_eval)
+            eval_loss_1, eval_loss_2 = modeldict.eval_model(database_eval)
             if isinstance(
-                Modeldict.scheduler_dict["1"],
+                modeldict.scheduler_dict["1"],
                 torch.optim.lr_scheduler.ReduceLROnPlateau,
             ):
-                Modeldict.scheduler_dict["1"].step(np.mean(eval_loss_1))
+                modeldict.scheduler_dict["1"].step(np.mean(eval_loss_1))
             if isinstance(
-                Modeldict.scheduler_dict["2"],
+                modeldict.scheduler_dict["2"],
                 torch.optim.lr_scheduler.ReduceLROnPlateau,
             ):
-                Modeldict.scheduler_dict["2"].step(np.mean(eval_loss_2))
+                modeldict.scheduler_dict["2"].step(np.mean(eval_loss_2))
 
             experiment.log(
                 {
@@ -114,30 +114,30 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                     "mean train2 loss": np.mean(train_loss_2),
                     "mean eval1 loss": np.mean(eval_loss_1),
                     "mean eval2 loss": np.mean(eval_loss_2),
-                    "lr1": Modeldict.optimizer_dict["1"].param_groups[0]["lr"],
-                    "lr2": Modeldict.optimizer_dict["2"].param_groups[0]["lr"],
+                    "lr1": modeldict.optimizer_dict["1"].param_groups[0]["lr"],
+                    "lr2": modeldict.optimizer_dict["2"].param_groups[0]["lr"],
                 }
             )
 
             pbar.set_description(
                 f"t/e1: {np.mean(train_loss_1):.1e}/{np.mean(eval_loss_1):.1e}, "
                 f"t/e2: {np.mean(train_loss_2):.1e}/{np.mean(eval_loss_2):.1e}, "
-                f"lr1: {Modeldict.optimizer_dict['1'].param_groups[0]['lr']:.1e}"
-                f"lr2: {Modeldict.optimizer_dict['2'].param_groups[0]['lr']:.1e}"
+                f"lr1: {modeldict.optimizer_dict['1'].param_groups[0]['lr']:.1e}"
+                f"lr2: {modeldict.optimizer_dict['2'].param_groups[0]['lr']:.1e}"
             )
 
         if epoch % 500 == 0:
             save_csv_loss(
                 database_train.name_list,
-                Modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}.csv",
+                modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}.csv",
                 train_loss_1,
                 train_loss_2,
             )
             save_csv_loss(
                 database_eval.name_list,
-                Modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}.csv",
+                modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}.csv",
                 eval_loss_1,
                 eval_loss_2,
             )
-            Modeldict.save_model(epoch)
+            modeldict.save_model(epoch)
     pbar.close()

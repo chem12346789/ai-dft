@@ -100,6 +100,7 @@ if __name__ == "__main__":
 
     # 1. Init the model
     modeldict = ModelDict(
+        args.load,
         args.hidden_size,
         args.num_layers,
         args.residual,
@@ -107,7 +108,7 @@ if __name__ == "__main__":
         args.precision,
         if_mkdir=False,
     )
-    modeldict.load_model(args.load)
+    modeldict.load_model()
 
     # 2. Test loop
     distance_l = gen_logger(args.distance_list)
@@ -123,6 +124,7 @@ if __name__ == "__main__":
         distance_l,
     ):
         # 2.0 Prepare
+
         molecular = copy.deepcopy(Mol[name_mol])
         print(f"Generate {name_mol}_{distance:.4f}")
         print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}")
@@ -138,7 +140,11 @@ if __name__ == "__main__":
             continue
 
         molecular[extend_atom][extend_xyz] += distance
-        # data_real = np.load(Path("data/grids_mrks/") / f"data_{name}.npz")
+        if (Path("data/grids_mrks/") / f"data_{name}.npz").exists():
+            data_real = np.load(Path("data/grids_mrks/") / f"data_{name}.npz")
+        else:
+            print(f"No file: {name:>40}")
+            data_real = None
 
         dft2cc = CC_DFT_DATA(
             molecular,
@@ -150,6 +156,7 @@ if __name__ == "__main__":
         nocc = dft2cc.mol.nelec[0]
 
         # 2.1 SCF loop to get the density matrix
+
         dm1_scf = dft2cc.dm1_dft
         oe_fock = oe.contract_expression(
             "p,p,pa,pb->ab",
@@ -196,7 +203,7 @@ if __name__ == "__main__":
             error_dm1 = np.linalg.norm(dm1_scf - dm1_scf_old)
             dm1_scf = hybrid(dm1_scf, dm1_scf_old)
 
-            if i % 1 == 0:
+            if i % 10 == 0:
                 print(
                     f"step:{i:<8}",
                     f"dm: {error_dm1::<10.5e}",
@@ -209,6 +216,7 @@ if __name__ == "__main__":
                 break
 
         # 2.2 check the difference of density (on grids)
+
         scf_rho_r = pyscf.dft.numint.eval_rho(
             dft2cc.mol,
             dft2cc.ao_0,
@@ -231,22 +239,29 @@ if __name__ == "__main__":
         )
 
         # 2.3 check the difference of energy (total)
-        input_mat = dft2cc.grids.vector_to_matrix(
-            pyscf.dft.numint.eval_rho(
-                dft2cc.mol,
-                dft2cc.ao_0,
-                dm1_scf,
-            )
-            + 1e-14
+
+        # input_mat = dft2cc.grids.vector_to_matrix(
+        #     pyscf.dft.numint.eval_rho(
+        #         dft2cc.mol,
+        #         dft2cc.ao_0,
+        #         dm1_scf,
+        #     )
+        #     + 1e-14
+        # )
+        # input_mat = torch.tensor(
+        #     input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
+        # ).to("cuda")
+        # output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
+        # output_mat = output_mat.squeeze(1)
+
+        output_mat = data_real["exc_tr_b3lyp"]
+
+        inv_r_3 = pyscf.dft.numint.eval_rho(
+            dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
-        input_mat = torch.tensor(
-            input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-        ).to("cuda")
-        output_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
-        output_mat = output_mat.squeeze(1)
-        # output_mat = data_real["exc_tr_real"]
-        
-        exc_over_rho_grids = dft2cc.grids.matrix_to_vector(output_mat)
+        exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
+
+        exc_over_rho_grids = dft2cc.grids.matrix_to_vector(output_mat) + exc_b3lyp
         error_ene_scf = AU2KCALMOL * (
             (
                 oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)

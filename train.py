@@ -9,10 +9,10 @@ TRAIN_STR_DICT = [
 EVAL_STR_DICT = [
     "propane",
     # "propyne",
-    # "allene",
+    # "propylene",
     # "cyclopropene",
     # "cyclopropane",
-    # "propylene",
+    # "allene",
     # "butane",
     # "isobutane",
     # "Butadiene",

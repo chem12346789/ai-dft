@@ -37,25 +37,59 @@ class UNet(nn.Module):
 
     def __init__(self, input_size, hidden_size, output_size, residual, num_layers):
         super().__init__()
-        self.in_channels = 1
-        self.classes = 1
+        self.in_channels = input_size
+        self.classes = output_size
+        if residual == 0:
+            norm_layer = "BatchNorm2d"
+            affine = True
+        if residual == 1:
+            norm_layer = "InstanceNorm2d"
+            affine = True
+        if residual == 2:
+            norm_layer = "BatchNorm2d"
+            affine = False
+        if residual == 3:
+            norm_layer = "InstanceNorm2d"
+            affine = False
 
-        self.inc = DoubleConv(self.in_channels, 16)
-        self.down1 = Down(16, 32)
-        self.down2 = Down(32, 64)
-        self.down3 = Down(64, 128)
-        self.up3 = Up(128, 64)
-        self.up2 = Up(64, 32)
-        self.up1 = Up(32, 16)
-        self.outc = OutConv(16, self.classes)
+        self.inc = DoubleConv(
+            self.in_channels,
+            hidden_size,
+            norm_layer=norm_layer,
+            affine=affine,
+        )
+
+        self.down_layers = nn.ModuleList(
+            [
+                Down(
+                    hidden_size * 2**i,
+                    hidden_size * 2 ** (i + 1),
+                    norm_layer=norm_layer,
+                    affine=affine,
+                )
+                for i in range(num_layers)
+            ]
+        )
+        self.up_layers = nn.ModuleList(
+            [
+                Up(
+                    hidden_size * 2 ** (i + 1),
+                    hidden_size * 2**i,
+                    norm_layer=norm_layer,
+                    affine=affine,
+                )
+                for i in range(num_layers)[::-1]
+            ]
+        )
+        self.outc = OutConv(hidden_size, self.classes)
 
     def forward(self, x):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x = self.up3(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up1(x, x1)
+        x = self.inc(x)
+        x_down = []
+        for down in self.down_layers:
+            x_down.append(x)
+            x = down(x)
+        for i, up in enumerate(self.up_layers):
+            x = up(x, x_down[-i - 1])
         logits = self.outc(x)
         return logits
