@@ -20,7 +20,16 @@ class ModelDict:
     """
 
     def __init__(
-        self, load, hidden_size, num_layers, residual, device, dtype, if_mkdir=True
+        self,
+        load,
+        hidden_size,
+        num_layers,
+        residual,
+        device,
+        precision,
+        with_eval=True,
+        ene_weight=0.0,
+        if_mkdir=True,
     ):
         """
         input:
@@ -37,8 +46,11 @@ class ModelDict:
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.residual = residual
+        self.ene_weight = ene_weight
+        self.with_eval = with_eval
+
         self.device = device
-        if dtype == "float32":
+        if precision == "float32":
             self.dtype = torch.float32
         else:
             self.dtype = torch.float64
@@ -49,7 +61,7 @@ class ModelDict:
         self.scheduler_dict = {}
         if load != "":
             self.dir_checkpoint = Path(
-                f"../checkpoints/checkpoint-ccdft-{load}-{self.hidden_size}-{self.num_layers}-{self.residual}/"
+                f"checkpoints/checkpoint-ccdft-{load}-{self.hidden_size}-{self.num_layers}-{self.residual}/"
             ).resolve()
             if self.dir_checkpoint.exists():
                 print(f"Load checkpoint directory: {self.dir_checkpoint}")
@@ -68,48 +80,51 @@ class ModelDict:
         self.model_dict["1"] = Model(
             1, self.hidden_size, 1, self.residual, self.num_layers
         ).to(device)
-        if dtype == "float64":
+        self.model_dict["2"] = Model(
+            1, self.hidden_size, 1, self.residual, self.num_layers
+        ).to(device)
+
+        if precision == "float64":
             self.model_dict["1"].double()
+            self.model_dict["2"].double()
 
         self.optimizer_dict["1"] = optim.Adam(
             self.model_dict["1"].parameters(),
             lr=1e-4,
         )
-        # self.scheduler_dict["1"] = optim.lr_scheduler.ExponentialLR(
-        #     self.optimizer_dict["1"],
-        #     gamma=0.9999,
-        # )
-        self.scheduler_dict["1"] = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer_dict["1"],
-            mode="min",
-            patience=5,
-        )
-
-        self.model_dict["2"] = Model(
-            1, self.hidden_size, 1, self.residual, self.num_layers
-        ).to(device)
-        if dtype == "float64":
-            self.model_dict["2"].double()
-
         self.optimizer_dict["2"] = optim.Adam(
             self.model_dict["2"].parameters(),
             lr=1e-4,
         )
-        # self.scheduler_dict["2"] = optim.lr_scheduler.ExponentialLR(
-        #     self.optimizer_dict["2"],
-        #     gamma=0.9999,
-        # )
-        self.scheduler_dict["2"] = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer_dict["2"],
-            mode="min",
-            patience=5,
-        )
+
+        if self.with_eval:
+            self.scheduler_dict["1"] = optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer_dict["1"],
+                mode="min",
+                patience=5,
+                factor=0.5,
+            )
+            self.scheduler_dict["2"] = optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer_dict["2"],
+                mode="min",
+                patience=5,
+                factor=0.5,
+            )
+        else:
+            self.scheduler_dict["1"] = optim.lr_scheduler.ExponentialLR(
+                self.optimizer_dict["1"],
+                gamma=0.9995,
+            )
+            self.scheduler_dict["2"] = optim.lr_scheduler.ExponentialLR(
+                self.optimizer_dict["2"],
+                gamma=0.9995,
+            )
 
         self.loss_fn1 = torch.nn.L1Loss()
-        # self.loss_fn1 = torch.nn.L1Loss(reduction="sum")
+        self.loss_fn2 = torch.nn.L1Loss()
 
-        # self.loss_fn2 = torch.nn.L1Loss()
-        self.loss_fn2 = torch.nn.L1Loss(reduction="sum")
+        # self.loss_fn1 = torch.nn.L1Loss(reduction="sum")
+        # self.loss_fn2 = torch.nn.L1Loss(reduction="sum")
 
     def load_model(self):
         """
@@ -152,7 +167,9 @@ class ModelDict:
             (
                 loss_1,
                 loss_2,
+                loss_3,
             ) = (
+                torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
             )
@@ -167,8 +184,12 @@ class ModelDict:
                 loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
 
                 output_mat = self.model_dict["2"](input_mat)
-                loss_2 += self.loss_fn2(output_mat * weight, output_mat_real * weight)
+                loss_2 += self.loss_fn2(output_mat, output_mat_real)
+                loss_3 += torch.sum(output_mat_real * input_mat * weight) - torch.sum(
+                    output_mat * input_mat * weight
+                )
 
+            loss_2 += torch.abs(loss_3) * self.ene_weight
             train_loss_1.append(loss_1.item())
             train_loss_2.append(loss_2.item())
 
@@ -193,7 +214,9 @@ class ModelDict:
             (
                 loss_1,
                 loss_2,
+                loss_3,
             ) = (
+                torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
             )
@@ -209,11 +232,12 @@ class ModelDict:
                     loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
 
                     output_mat = self.model_dict["2"](input_mat)
-                    loss_2 += self.loss_fn2(
-                        output_mat * weight, output_mat_real * weight
-                    )
+                    loss_2 += self.loss_fn2(output_mat, output_mat_real)
+                    loss_3 += torch.sum(
+                        output_mat_real * input_mat * weight
+                    ) - torch.sum(output_mat * input_mat * weight)
 
-            loss_2 = torch.abs(loss_2)
+            loss_2 += torch.abs(loss_3) * self.ene_weight
             eval_loss_1.append(loss_1.item())
             eval_loss_2.append(loss_2.item())
 

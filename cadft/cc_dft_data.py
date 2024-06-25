@@ -1,5 +1,8 @@
-import pyscf
+from pathlib import Path
+from timeit import default_timer as timer
 
+import pyscf
+import numpy as np
 from scipy import linalg as LA
 
 from cadft.utils import gen_basis
@@ -27,7 +30,7 @@ class CC_DFT_DATA:
 
         rotate(molecular)
 
-        print(molecular)
+        # print(molecular)
         self.mol = pyscf.M(
             atom=molecular,
             basis=gen_basis(molecular, self.basis, self.if_basis_str),
@@ -91,13 +94,29 @@ class CC_DFT_DATA:
         mdft.xc = "b3lyp"
         mdft.kernel()
 
-        mf = pyscf.scf.RHF(self.mol)
-        mf.kernel()
-        mycc = pyscf.cc.CCSD(mf)
-        mycc.direct = True
-        mycc.incore_complete = True
-        mycc.async_io = False
-        mycc.kernel()
+        if Path(f"data/test/data_{self.name}.npz").exists():
+            data_saved = np.load(f"data/test/data_{self.name}.npz")
+            self.dm1_cc = data_saved["dm1_cc"]
+            self.e_cc = data_saved["e_cc"]
+            self.time_cc = data_saved["time_cc"]
+        else:
+            time_start = timer()
+            mf = pyscf.scf.RHF(self.mol)
+            mf.kernel()
+            mycc = pyscf.cc.CCSD(mf)
+            mycc.direct = True
+            mycc.incore_complete = True
+            mycc.async_io = False
+            mycc.kernel()
+            self.dm1_cc = mycc.make_rdm1(ao_repr=True)
+            self.e_cc = mycc.e_tot
+            self.time_cc = timer() - time_start
+            np.savez_compressed(
+                Path(f"data/test/data_{self.name}.npz"),
+                dm1_cc=self.dm1_cc,
+                e_cc=self.e_cc,
+                time_cc=self.time_cc,
+            )
 
         self.h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
         self.eri = self.mol.intor("int2e")
@@ -108,9 +127,6 @@ class CC_DFT_DATA:
         self.grids = Grid(self.mol)
         self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
         self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
-
-        self.dm1_cc = mycc.make_rdm1(ao_repr=True)
-        self.e_cc = mycc.e_tot
 
         self.dm1_dft = mdft.make_rdm1(ao_repr=True)
         self.e_dft = mdft.e_tot

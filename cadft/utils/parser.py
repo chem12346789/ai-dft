@@ -136,6 +136,28 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--precision",
+        type=str,
+        default="float64",
+        choices=["float32", "float64"],
+        help="Precision for the training. Default is float64.",
+    )
+
+    parser.add_argument(
+        "--ene_weight",
+        type=float,
+        default=1.0,
+        help="Weight for the energy. Default is 1.0.",
+    )
+
+    parser.add_argument(
+        "--with_eval",
+        type=str2bool,
+        default=True,       
+        help="Weather to use the reduce on plateau for the learning rate. Default is True. This will use the data from the eval set.",
+    )
+
+    parser.add_argument(
         "--eval_step",
         type=int,
         default=100,
@@ -154,14 +176,6 @@ def add_args(parser: argparse.ArgumentParser):
         type=str2bool,
         default=False,
         help="Weather to load the inversed potential. Default is False.",
-    )
-
-    parser.add_argument(
-        "--precision",
-        type=str,
-        default="float64",
-        choices=["float32", "float64"],
-        help="Precision for the training. Default is float64.",
     )
 
     args = parser.parse_args()

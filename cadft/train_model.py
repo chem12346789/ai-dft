@@ -42,6 +42,8 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.residual,
         device,
         args.precision,
+        with_eval=args.with_eval,
+        ene_weight=args.ene_weight,
     )
     modeldict.load_model()
 
@@ -74,8 +76,11 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             "hidden_size": args.hidden_size,
             "num_layers": args.num_layers,
             "residual": args.residual,
+            "ene_weight": args.ene_weight,
+            "precision": args.precision,
+            "with_eval": args.with_eval,
             "jobid": os.environ.get("SLURM_JOB_ID"),
-            "checkpoint": modeldict.dir_checkpoint,
+            "checkpoint": modeldict.dir_checkpoint.stem,
         }
     )
 

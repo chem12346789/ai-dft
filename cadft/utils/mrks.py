@@ -3,6 +3,7 @@ from tqdm import tqdm
 from pathlib import Path
 
 import numpy as np
+import torch
 import pyscf
 import scipy.linalg as LA
 import opt_einsum as oe
@@ -154,7 +155,7 @@ def mrks(self, frac_old, load_inv=True):
             (self.mol.nao,),
             (self.mol.nao, self.mol.nao),
             constants=[0],
-            optimize="optimal",
+            optimize="auto-hq",
         )
 
         for i, coord in enumerate(tqdm(coords)):
@@ -205,16 +206,17 @@ def mrks(self, frac_old, load_inv=True):
             (self.mol.nao, self.mol.nao, self.mol.nao, self.mol.nao),
             eri_mo,
             constants=[1],
-            optimize="optimal",
+            optimize="auto-hq",
         )
 
-        generalized_fock = expr_fock1(
-            h1_mo,
-            backend="torch",
-        ) + expr_fock2(
-            dm2_cc_mo,
-            backend="torch",
-        )
+        with torch.device("cuda:0,1"):
+            generalized_fock = expr_fock1(
+                h1_mo,
+                backend="torch",
+            ) + expr_fock2(
+                dm2_cc_mo,
+                backend="torch",
+            )
 
         generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
         eig_e, eig_v = np.linalg.eigh(generalized_fock)
@@ -495,7 +497,8 @@ def mrks(self, frac_old, load_inv=True):
     save_data["dipole_z_inv"] = dipole_z_inv
     save_data["dipole_z_dft"] = dipole_z_dft
 
-    inv_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv * 2, xctype="GGA")
+    ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
+    inv_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_inv * 2, xctype="GGA")
     exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
     with open(
