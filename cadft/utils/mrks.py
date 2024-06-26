@@ -1,8 +1,11 @@
 import json
-from tqdm import tqdm
+import gc
 from pathlib import Path
+from itertools import product
 
 import numpy as np
+from tqdm import tqdm
+import torch
 import pyscf
 import scipy.linalg as LA
 import opt_einsum as oe
@@ -18,6 +21,7 @@ def mrks(self, frac_old, load_inv=True):
     Generate 1-RDM.
     """
     Path(f"data/grids_mrks/saved_data/{self.name}").mkdir(parents=True, exist_ok=True)
+    n_slices = 80
 
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
@@ -49,7 +53,7 @@ def mrks(self, frac_old, load_inv=True):
     dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
     e_cc = mycc.e_tot
 
-    grids = Grid(self.mol)
+    grids = Grid(self.mol, level=0)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
@@ -68,13 +72,13 @@ def mrks(self, frac_old, load_inv=True):
         optimize="optimal",
     )
 
-    oe_taul_rho = oe.contract_expression(
-        "n,kpn->pk",
-        (norb,),
-        ao_1,
-        constants=[1],
-        optimize="optimal",
-    )
+    # oe_taul_rho = oe.contract_expression(
+    #     "n,kpn->pk",
+    #     (norb,),
+    #     ao_1,
+    #     constants=[1],
+    #     optimize="optimal",
+    # )
 
     oe_tau_rho = oe.contract_expression(
         "pm,m,n,pn->p",
@@ -148,26 +152,66 @@ def mrks(self, frac_old, load_inv=True):
     else:
         print("Calculating exc_grids")
         dm12 = 0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc))
-        expr_rinv_dm2_r = oe.contract_expression(
-            "ijkl,i,j,kl->",
-            (self.mol.nao, self.mol.nao, self.mol.nao, self.mol.nao),
-            (self.mol.nao,),
-            (self.mol.nao,),
-            (self.mol.nao, self.mol.nao),
-            optimize="optimal",
-        )
 
-        for i, coord in enumerate(tqdm(coords)):
-            ao_0_i = ao_value[0][i]
-            with self.mol.with_rinv_origin(coord):
-                rinv = self.mol.intor("int1e_rinv")
-                exc_grids[i] += expr_rinv_dm2_r(
-                    dm12,
-                    ao_0_i,
-                    ao_0_i,
-                    rinv,
-                    backend="torch",
-                )
+        n_batchs = self.mol.nao // n_slices + 1
+        for i_batch, j_batch, k_batch, l_batch in product(
+            range(n_batchs),
+            range(n_batchs),
+            range(n_batchs),
+            range(n_batchs),
+        ):
+            nao_slice_i = (
+                n_slices
+                if i_batch != n_batchs - 1
+                else self.mol.nao - n_slices * i_batch
+            )
+            nao_slice_j = (
+                n_slices
+                if j_batch != n_batchs - 1
+                else self.mol.nao - n_slices * j_batch
+            )
+            nao_slice_k = (
+                n_slices
+                if k_batch != n_batchs - 1
+                else self.mol.nao - n_slices * k_batch
+            )
+            nao_slice_l = (
+                n_slices
+                if l_batch != n_batchs - 1
+                else self.mol.nao - n_slices * l_batch
+            )
+
+            i_slice = slice(n_slices * i_batch, n_slices * i_batch + nao_slice_i)
+            j_slice = slice(n_slices * j_batch, n_slices * j_batch + nao_slice_j)
+            k_slice = slice(n_slices * k_batch, n_slices * k_batch + nao_slice_k)
+            l_slice = slice(n_slices * l_batch, n_slices * l_batch + nao_slice_l)
+
+            expr_rinv_dm2_r = oe.contract_expression(
+                "ijkl,i,j,kl->",
+                dm12[i_slice, j_slice, k_slice, l_slice],
+                (nao_slice_i,),
+                (nao_slice_j,),
+                (nao_slice_k, nao_slice_l),
+                constants=[0],
+                optimize="optimal",
+            )
+
+            for i, coord in enumerate(tqdm(coords)):
+                ao_0_i = ao_value[0][i]
+                with self.mol.with_rinv_origin(coord):
+                    rinv = self.mol.intor("int1e_rinv")
+                    exc_grids[i] += expr_rinv_dm2_r(
+                        ao_0_i[i_slice],
+                        ao_0_i[j_slice],
+                        rinv[k_slice, l_slice],
+                        backend="torch",
+                    )
+
+            del expr_rinv_dm2_r
+            gc.collect()
+            torch.cuda.empty_cache()
+
+        print(f"After 2Rdm,\n {torch.cuda.memory_summary()}.\n")
 
         exc_over_rho_grids = exc_grids / rho_cc[0]
 
@@ -196,25 +240,63 @@ def mrks(self, frac_old, load_inv=True):
             f"data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy"
         )
     else:
-        # generalized_fock = dm1_cc_mo @ h1_mo + oe.contract(
-        #     "rsnq,rsmq->mn", eri_mo, dm2_cc_mo
-        # )
-        expr_fock1 = oe.contract_expression(
-            "pr,rq->pq",
-            (self.mol.nao, self.mol.nao),
-            dm1_cc_mo,
-            constants=[1],
-            optimize="optimal",
-        )
-        expr_fock2 = oe.contract_expression(
-            "qrst,prst->pq",
-            (self.mol.nao, self.mol.nao, self.mol.nao, self.mol.nao),
-            eri_mo,
-            constants=[1],
-            optimize="optimal",
-        )
+        generalized_fock = dm1_cc_mo @ h1_mo
+        for a_batch, b_batch, i_batch, j_batch, k_batch in product(
+            range(n_batchs),
+            range(n_batchs),
+            range(n_batchs),
+            range(n_batchs),
+            range(n_batchs),
+        ):
+            print(f"Batch: {a_batch, b_batch, i_batch, j_batch, k_batch}")
+            nao_slice_a = (
+                n_slices
+                if a_batch != n_batchs - 1
+                else self.mol.nao - n_slices * a_batch
+            )
+            nao_slice_b = (
+                n_slices
+                if b_batch != n_batchs - 1
+                else self.mol.nao - n_slices * b_batch
+            )
+            nao_slice_i = (
+                n_slices
+                if i_batch != n_batchs - 1
+                else self.mol.nao - n_slices * i_batch
+            )
+            nao_slice_j = (
+                n_slices
+                if j_batch != n_batchs - 1
+                else self.mol.nao - n_slices * j_batch
+            )
+            nao_slice_k = (
+                n_slices
+                if k_batch != n_batchs - 1
+                else self.mol.nao - n_slices * k_batch
+            )
 
-        generalized_fock = expr_fock1(h1_mo) + expr_fock2(dm2_cc_mo)
+            a_slice = slice(n_slices * a_batch, n_slices * a_batch + nao_slice_a)
+            b_slice = slice(n_slices * b_batch, n_slices * b_batch + nao_slice_b)
+            i_slice = slice(n_slices * i_batch, n_slices * i_batch + nao_slice_i)
+            j_slice = slice(n_slices * j_batch, n_slices * j_batch + nao_slice_j)
+            k_slice = slice(n_slices * k_batch, n_slices * k_batch + nao_slice_k)
+
+            expr_dm2_cc = oe.contract_expression(
+                "aijk,bijk->ba",
+                (nao_slice_a, nao_slice_i, nao_slice_j, nao_slice_k),
+                (nao_slice_b, nao_slice_i, nao_slice_j, nao_slice_k),
+                optimize="optimal",
+            )
+
+            generalized_fock[b_slice, a_slice] += expr_dm2_cc(
+                dm2_cc_mo[a_slice, i_slice, j_slice, k_slice],
+                eri_mo[b_slice, i_slice, j_slice, k_slice],
+                backend="torch",
+            )
+
+            del expr_dm2_cc
+            gc.collect()
+            torch.cuda.empty_cache()
 
         generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
         eig_e, eig_v = np.linalg.eigh(generalized_fock)
@@ -230,7 +312,11 @@ def mrks(self, frac_old, load_inv=True):
             constants=[1, 2, 3, 4],
             optimize="optimal",
         )
-        e_bar_r_wf = expr_e_bar_r_wf(eig_e) / rho_cc_half
+        e_bar_r_wf = expr_e_bar_r_wf(eig_e, backend="torch") / rho_cc_half
+
+        del expr_e_bar_r_wf
+        gc.collect()
+        torch.cuda.empty_cache()
 
         emax = np.max(e_bar_r_wf)
         v_vxc_e_taup = -e_bar_r_wf
@@ -244,6 +330,7 @@ def mrks(self, frac_old, load_inv=True):
             eigs_v_dm1,
             eigs_e_dm1,
             oe_taup_rho,
+            backend="torch",
         )
 
         tau_rho_wf = gen_tau_rho(
@@ -251,9 +338,12 @@ def mrks(self, frac_old, load_inv=True):
             eigs_v_dm1,
             eigs_e_dm1,
             oe_tau_rho,
+            backend="torch",
         )
 
         v_vxc_e_taup += exc_over_rho_grids * 2 + taup_rho_wf / rho_cc_half
+
+        print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
 
         np.save(f"data/grids_mrks/saved_data/{self.name}/emax.npy", emax)
         np.save(f"data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy", taup_rho_wf)
@@ -319,6 +409,7 @@ def mrks(self, frac_old, load_inv=True):
                     eigvecs_inv[:nocc] + potential_shift,
                     mo_inv[:, :nocc],
                     mo_inv[:, :nocc],
+                    backend="torch",
                 )
                 / dm1_inv_r
             )
@@ -328,6 +419,7 @@ def mrks(self, frac_old, load_inv=True):
                 mo_inv[:, :nocc],
                 np.ones(nocc),
                 oe_taup_rho,
+                backend="torch",
             )
 
             vxc_inv_old = vxc_inv.copy()
@@ -337,7 +429,7 @@ def mrks(self, frac_old, load_inv=True):
             # vxc_inv = diis.hybrid()
             vxc_inv = hybrid(vxc_inv, vxc_inv_old)
 
-            xc_v = oe_fock(vxc_inv, weights)
+            xc_v = oe_fock(vxc_inv, weights, backend="torch")
 
             vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv)
             # vj_inv = mf.get_jk(self.mol, 2 * dm1_inv, 1)[0]
@@ -376,7 +468,15 @@ def mrks(self, frac_old, load_inv=True):
             mo_inv[:, :nocc],
             np.ones(nocc),
             oe_tau_rho,
+            backend="torch",
         )
+
+        del oe_tau_rho, oe_taup_rho, oe_ebar_r_ks, oe_fock
+        gc.collect()
+        torch.cuda.empty_cache()
+
+        print(f"After inv,\n {torch.cuda.memory_summary()}.\n")
+
         np.save(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy", dm1_inv)
         np.save(f"data/grids_mrks/saved_data/{self.name}/vxc_inv.npy", vxc_inv)
         np.save(f"data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy", tau_rho_ks)
@@ -400,7 +500,7 @@ def mrks(self, frac_old, load_inv=True):
     for i, coord in enumerate(tqdm(coords)):
         with self.mol.with_rinv_origin(coord):
             rinv = self.mol.intor("int1e_rinv")
-            rinv_dm1_r = expr_rinv_dm1_r(rinv)
+            rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
             exc_grids_fake[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
 
         for i_atom in range(self.mol.natm):
