@@ -3,7 +3,6 @@ from tqdm import tqdm
 from pathlib import Path
 
 import numpy as np
-import torch
 import pyscf
 import scipy.linalg as LA
 import opt_einsum as oe
@@ -74,7 +73,7 @@ def mrks(self, frac_old, load_inv=True):
         (norb,),
         ao_1,
         constants=[1],
-        optimize="auto",
+        optimize="optimal",
     )
 
     oe_tau_rho = oe.contract_expression(
@@ -148,21 +147,27 @@ def mrks(self, frac_old, load_inv=True):
         )
     else:
         print("Calculating exc_grids")
+        dm12 = 0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc))
         expr_rinv_dm2_r = oe.contract_expression(
             "ijkl,i,j,kl->",
-            0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)),
+            (self.mol.nao, self.mol.nao, self.mol.nao, self.mol.nao),
             (self.mol.nao,),
             (self.mol.nao,),
             (self.mol.nao, self.mol.nao),
-            constants=[0],
-            optimize="auto-hq",
+            optimize="optimal",
         )
 
         for i, coord in enumerate(tqdm(coords)):
             ao_0_i = ao_value[0][i]
             with self.mol.with_rinv_origin(coord):
                 rinv = self.mol.intor("int1e_rinv")
-                exc_grids[i] += expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch")
+                exc_grids[i] += expr_rinv_dm2_r(
+                    dm12,
+                    ao_0_i,
+                    ao_0_i,
+                    rinv,
+                    backend="torch",
+                )
 
         exc_over_rho_grids = exc_grids / rho_cc[0]
 
@@ -206,17 +211,10 @@ def mrks(self, frac_old, load_inv=True):
             (self.mol.nao, self.mol.nao, self.mol.nao, self.mol.nao),
             eri_mo,
             constants=[1],
-            optimize="auto-hq",
+            optimize="optimal",
         )
 
-        with torch.device("cuda:0,1"):
-            generalized_fock = expr_fock1(
-                h1_mo,
-                backend="torch",
-            ) + expr_fock2(
-                dm2_cc_mo,
-                backend="torch",
-            )
+        generalized_fock = expr_fock1(h1_mo) + expr_fock2(dm2_cc_mo)
 
         generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
         eig_e, eig_v = np.linalg.eigh(generalized_fock)
@@ -232,7 +230,7 @@ def mrks(self, frac_old, load_inv=True):
             constants=[1, 2, 3, 4],
             optimize="optimal",
         )
-        e_bar_r_wf = expr_e_bar_r_wf(eig_e, backend="torch") / rho_cc_half
+        e_bar_r_wf = expr_e_bar_r_wf(eig_e) / rho_cc_half
 
         emax = np.max(e_bar_r_wf)
         v_vxc_e_taup = -e_bar_r_wf
@@ -246,7 +244,6 @@ def mrks(self, frac_old, load_inv=True):
             eigs_v_dm1,
             eigs_e_dm1,
             oe_taup_rho,
-            backend="torch",
         )
 
         tau_rho_wf = gen_tau_rho(
@@ -254,7 +251,6 @@ def mrks(self, frac_old, load_inv=True):
             eigs_v_dm1,
             eigs_e_dm1,
             oe_tau_rho,
-            backend="torch",
         )
 
         v_vxc_e_taup += exc_over_rho_grids * 2 + taup_rho_wf / rho_cc_half
@@ -323,7 +319,6 @@ def mrks(self, frac_old, load_inv=True):
                     eigvecs_inv[:nocc] + potential_shift,
                     mo_inv[:, :nocc],
                     mo_inv[:, :nocc],
-                    backend="torch",
                 )
                 / dm1_inv_r
             )
@@ -333,7 +328,6 @@ def mrks(self, frac_old, load_inv=True):
                 mo_inv[:, :nocc],
                 np.ones(nocc),
                 oe_taup_rho,
-                backend="torch",
             )
 
             vxc_inv_old = vxc_inv.copy()
@@ -343,7 +337,7 @@ def mrks(self, frac_old, load_inv=True):
             # vxc_inv = diis.hybrid()
             vxc_inv = hybrid(vxc_inv, vxc_inv_old)
 
-            xc_v = oe_fock(vxc_inv, weights, backend="torch")
+            xc_v = oe_fock(vxc_inv, weights)
 
             vj_inv = hybrid(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0], vj_inv)
             # vj_inv = mf.get_jk(self.mol, 2 * dm1_inv, 1)[0]
@@ -382,7 +376,6 @@ def mrks(self, frac_old, load_inv=True):
             mo_inv[:, :nocc],
             np.ones(nocc),
             oe_tau_rho,
-            backend="torch",
         )
         np.save(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy", dm1_inv)
         np.save(f"data/grids_mrks/saved_data/{self.name}/vxc_inv.npy", vxc_inv)
@@ -407,7 +400,7 @@ def mrks(self, frac_old, load_inv=True):
     for i, coord in enumerate(tqdm(coords)):
         with self.mol.with_rinv_origin(coord):
             rinv = self.mol.intor("int1e_rinv")
-            rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
+            rinv_dm1_r = expr_rinv_dm1_r(rinv)
             exc_grids_fake[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
 
         for i_atom in range(self.mol.natm):
