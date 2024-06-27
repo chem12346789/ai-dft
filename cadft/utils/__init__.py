@@ -14,6 +14,7 @@ from cadft.utils.Grids import Grid
 from cadft.utils.ModelDict import ModelDict
 
 from cadft.utils.mol import Mol
+from cadft.utils.env_var import MAIN_PATH
 
 
 def save_csv_loss(name_list, path, loss_rho, loss_ene):

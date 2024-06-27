@@ -17,8 +17,9 @@ import opt_einsum as oe
 from torch.utils.data import DataLoader
 
 from cadft import CC_DFT_DATA, add_args, gen_logger
-from cadft.utils import Mol
 from cadft.utils import ModelDict
+from cadft.utils import Mol
+from cadft.utils import MAIN_PATH
 
 
 AU2KCALMOL = 627.5096080306
@@ -151,8 +152,10 @@ if __name__ == "__main__":
             continue
 
         molecular[extend_atom][extend_xyz] += distance
-        if (Path("data/grids_mrks/") / f"data_{name}.npz").exists():
-            data_real = np.load(Path("data/grids_mrks/") / f"data_{name}.npz")
+        if (Path(f"{MAIN_PATH}/data/grids_mrks/") / f"data_{name}.npz").exists():
+            data_real = np.load(
+                Path(f"{MAIN_PATH}/data/grids_mrks/") / f"data_{name}.npz"
+            )
         else:
             print(f"No file: {name:>40}")
             data_real = None
@@ -389,7 +392,7 @@ if __name__ == "__main__":
     )
     df.to_csv(
         Path(
-            f"validate/ccdft-{args.load}-{args.hidden_size}-{args.num_layers}-{args.residual}"
+            f"{MAIN_PATH}/validate/ccdft-{args.load}-{args.hidden_size}-{args.num_layers}-{args.residual}"
         ),
         index=False,
     )

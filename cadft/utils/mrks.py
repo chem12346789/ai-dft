@@ -12,6 +12,7 @@ import opt_einsum as oe
 
 from cadft.utils.gen_tau import gen_taup_rho, gen_taul_rho, gen_tau_rho
 from cadft.utils.Grids import Grid
+from cadft.utils.env_var import MAIN_PATH
 
 AU2KJMOL = 2625.5
 
@@ -20,7 +21,9 @@ def mrks(self, frac_old, load_inv=True):
     """
     Generate 1-RDM.
     """
-    Path(f"data/grids_mrks/saved_data/{self.name}").mkdir(parents=True, exist_ok=True)
+    Path(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}").mkdir(
+        parents=True, exist_ok=True
+    )
     n_slices = 80
 
     mdft = pyscf.scf.RKS(self.mol)
@@ -143,11 +146,13 @@ def mrks(self, frac_old, load_inv=True):
 
     if (
         load_inv
-        and Path(f"data/grids_mrks/saved_data/{self.name}/exc_grids.npy").exists()
+        and Path(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy"
+        ).exists()
     ):
-        exc_grids = np.load(f"data/grids_mrks/saved_data/{self.name}/exc_grids.npy")
+        exc_grids = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy")
         exc_over_rho_grids = np.load(
-            f"data/grids_mrks/saved_data/{self.name}/exc_over_rho_grids.npy"
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_over_rho_grids.npy"
         )
     else:
         print("Calculating exc_grids")
@@ -223,21 +228,21 @@ def mrks(self, frac_old, load_inv=True):
         # print(f"Error: {(1e3 * error):.5f} mHa")
 
         np.save(
-            f"data/grids_mrks/saved_data/{self.name}/exc_grids.npy",
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy",
             exc_grids,
         )
         np.save(
-            f"data/grids_mrks/saved_data/{self.name}/exc_over_rho_grids.npy",
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_over_rho_grids.npy",
             exc_over_rho_grids,
         )
 
     # if False:
-    if load_inv and Path(f"data/grids_mrks/saved_data/{self.name}/emax.npy").exists():
-        emax = np.load(f"data/grids_mrks/saved_data/{self.name}/emax.npy")
-        taup_rho_wf = np.load(f"data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy")
-        tau_rho_wf = np.load(f"data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy")
+    if load_inv and Path(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy").exists():
+        emax = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy")
+        taup_rho_wf = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy")
+        tau_rho_wf = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy")
         v_vxc_e_taup = np.load(
-            f"data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy"
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy"
         )
     else:
         generalized_fock = dm1_cc_mo @ h1_mo
@@ -345,22 +350,22 @@ def mrks(self, frac_old, load_inv=True):
 
         print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
 
-        np.save(f"data/grids_mrks/saved_data/{self.name}/emax.npy", emax)
-        np.save(f"data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy", taup_rho_wf)
-        np.save(f"data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy", tau_rho_wf)
+        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy", emax)
+        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy", taup_rho_wf)
+        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy", tau_rho_wf)
         np.save(
-            f"data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy", v_vxc_e_taup
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy", v_vxc_e_taup
         )
 
     # if False:
     if (
         load_inv
-        and Path(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy").exists()
+        and Path(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy").exists()
     ):
-        dm1_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
-        vxc_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/vxc_inv.npy")
-        tau_rho_ks = np.load(f"data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy")
-        taup_rho_ks = np.load(f"data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy")
+        dm1_inv = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
+        vxc_inv = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/vxc_inv.npy")
+        tau_rho_ks = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy")
+        taup_rho_ks = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy")
     else:
         eigvecs_inv = mf.mo_energy.copy()
         mo_inv = mo.copy()
@@ -477,10 +482,10 @@ def mrks(self, frac_old, load_inv=True):
 
         print(f"After inv,\n {torch.cuda.memory_summary()}.\n")
 
-        np.save(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy", dm1_inv)
-        np.save(f"data/grids_mrks/saved_data/{self.name}/vxc_inv.npy", vxc_inv)
-        np.save(f"data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy", tau_rho_ks)
-        np.save(f"data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy", taup_rho_ks)
+        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy", dm1_inv)
+        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/vxc_inv.npy", vxc_inv)
+        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy", tau_rho_ks)
+        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy", taup_rho_ks)
 
     kin_correct = 2 * np.sum((tau_rho_wf - tau_rho_ks) * weights)
     kin_correct1 = 2 * np.sum((taup_rho_wf - taup_rho_ks) * weights)
@@ -595,14 +600,14 @@ def mrks(self, frac_old, load_inv=True):
     exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
     with open(
-        Path("data/grids_mrks") / f"save_data_{self.name}.json",
+        Path(f"{MAIN_PATH}/data/grids_mrks") / f"save_data_{self.name}.json",
         "w",
         encoding="utf-8",
     ) as f:
         json.dump(save_data, f, indent=4)
 
     np.savez_compressed(
-        Path("data/grids_mrks") / f"data_{self.name}.npz",
+        Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz",
         dm_cc=dm1_cc,
         dm_inv=dm1_inv,
         rho_cc=grids.vector_to_matrix(rho_cc[0]),
@@ -624,7 +629,7 @@ def mrks(self, frac_old, load_inv=True):
 
 
 def mrks_append(self, frac_old, load_inv=True):
-    data = np.load(Path("data/grids_mrks") / f"data_{self.name}.npz")
+    data = np.load(Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz")
 
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
@@ -634,12 +639,12 @@ def mrks_append(self, frac_old, load_inv=True):
     coords = grids.coords
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
 
-    dm1_inv = np.load(f"data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
+    dm1_inv = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
     inv_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_inv * 2, xctype="GGA")
     exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
     np.savez_compressed(
-        Path("data/grids_mrks") / f"data_{self.name}.npz",
+        Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz",
         rho_cc=data["rho_cc"],
         rho_inv=data["rho_inv"],
         weights=data["weights"],

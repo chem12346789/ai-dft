@@ -11,6 +11,7 @@ from cadft.utils import mrks, mrks_append
 from cadft.utils import save_dm1, save_dm1_dft
 from cadft.utils import Mol
 from cadft.utils.Grids import Grid
+from cadft.utils import MAIN_PATH
 
 AU2KJMOL = 2625.5
 
@@ -94,8 +95,8 @@ class CC_DFT_DATA:
         mdft.xc = "b3lyp"
         mdft.kernel()
 
-        if Path(f"data/test/data_{self.name}.npz").exists():
-            data_saved = np.load(f"data/test/data_{self.name}.npz")
+        if Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz").exists():
+            data_saved = np.load(f"{MAIN_PATH}/data/test/data_{self.name}.npz")
             self.dm1_cc = data_saved["dm1_cc"]
             self.e_cc = data_saved["e_cc"]
             self.time_cc = data_saved["time_cc"]
@@ -112,7 +113,7 @@ class CC_DFT_DATA:
             self.e_cc = mycc.e_tot
             self.time_cc = timer() - time_start
             np.savez_compressed(
-                Path(f"data/test/data_{self.name}.npz"),
+                Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
                 dm1_cc=self.dm1_cc,
                 e_cc=self.e_cc,
                 time_cc=self.time_cc,
