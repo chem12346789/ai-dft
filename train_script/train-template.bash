@@ -7,9 +7,9 @@
 #SBATCH --exclude=gpu[001,003-007]
 
 ## user's own commands below
-export OMP_NUM_THREADS=12
-export MKL_NUM_THREADS=12
-export OPENBLAS_NUM_THREADS=12
+export OMP_NUM_THREADS=4
+export MKL_NUM_THREADS=4
+export OPENBLAS_NUM_THREADS=4
 
 export NVIDIA_VISIBLE_DEVICES=1
 export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')

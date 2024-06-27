@@ -94,6 +94,9 @@ class CC_DFT_DATA:
         mdft.xc = "b3lyp"
         mdft.kernel()
 
+        self.mf = pyscf.scf.RHF(self.mol)
+        self.mf.kernel()
+
         if Path(f"data/test/data_{self.name}.npz").exists():
             data_saved = np.load(f"data/test/data_{self.name}.npz")
             self.dm1_cc = data_saved["dm1_cc"]
@@ -101,9 +104,7 @@ class CC_DFT_DATA:
             self.time_cc = data_saved["time_cc"]
         else:
             time_start = timer()
-            mf = pyscf.scf.RHF(self.mol)
-            mf.kernel()
-            mycc = pyscf.cc.CCSD(mf)
+            mycc = pyscf.cc.CCSD(self.mf)
             mycc.direct = True
             mycc.incore_complete = True
             mycc.async_io = False
@@ -119,7 +120,6 @@ class CC_DFT_DATA:
             )
 
         self.h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
-        self.eri = self.mol.intor("int2e")
 
         mat_s = self.mol.intor("int1e_ovlp")
         self.mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real

@@ -21,7 +21,7 @@ def mrks(self, frac_old, load_inv=True):
     Generate 1-RDM.
     """
     Path(f"data/grids_mrks/saved_data/{self.name}").mkdir(parents=True, exist_ok=True)
-    n_slices = 80
+    n_slices = 150
 
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
@@ -53,7 +53,7 @@ def mrks(self, frac_old, load_inv=True):
     dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
     e_cc = mycc.e_tot
 
-    grids = Grid(self.mol, level=0)
+    grids = Grid(self.mol)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
