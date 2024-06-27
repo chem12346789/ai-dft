@@ -56,7 +56,7 @@ def mrks(self, frac_old, load_inv=True):
     dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
     e_cc = mycc.e_tot
 
-    grids = Grid(self.mol, level=0)
+    grids = Grid(self.mol)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)

@@ -78,6 +78,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             "residual": args.residual,
             "ene_weight": args.ene_weight,
             "precision": args.precision,
+            "basis": args.basis,
             "with_eval": args.with_eval,
             "jobid": os.environ.get("SLURM_JOB_ID"),
             "checkpoint": modeldict.dir_checkpoint.stem,

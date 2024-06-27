@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
             vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights, backend="torch")
-            vj_scf = np.einsum("qprs,rs->pq", dft2cc.eri, dm1_scf)
+            vj_scf = dft2cc.mf.get_jk(dft2cc.mol, dm1_scf)[0]
             _, mo_scf = np.linalg.eigh(
                 dft2cc.mat_hs @ (dft2cc.h1e + vj_scf + vxc_mat) @ dft2cc.mat_hs
             )
@@ -233,6 +233,7 @@ if __name__ == "__main__":
                     f"step:{i:<8}",
                     f"dm: {error_dm1::<10.5e}",
                 )
+                dm1_scf = dm1_scf_old.copy()
                 break
 
         # 2.2 check the difference of density (on grids) and dipole
@@ -357,7 +358,7 @@ if __name__ == "__main__":
         error_ene_scf = AU2KCALMOL * (
             (
                 oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
-                + 0.5 * oe.contract("pqrs,pq,rs->", dft2cc.eri, dm1_scf, dm1_scf)
+                + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
                 + dft2cc.mol.energy_nuc()
                 + np.sum(output_mat_exc)
                 + b3lyp_ene
