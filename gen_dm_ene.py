@@ -5,8 +5,8 @@ import copy
 from itertools import product
 
 from cadft import CC_DFT_DATA, Mol, add_args, gen_logger
+from cadft import MAIN_PATH
 
-path = Path("./data")
 parser = argparse.ArgumentParser(
     description="Generate the inversed potential and energy."
 )
@@ -14,7 +14,7 @@ args = add_args(parser)
 
 distance_l = gen_logger(args.distance_list)
 
-grids_path = Path("data") / "grids"
+grids_path = Path(f"{MAIN_PATH}/data") / "grids"
 grids_path.mkdir(parents=True, exist_ok=True)
 
 for (

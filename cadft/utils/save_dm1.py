@@ -6,6 +6,7 @@ import pyscf
 import opt_einsum as oe
 
 from cadft.utils.Grids import Grid
+from cadft.utils.env_var import MAIN_PATH
 
 
 def save_dm1(
@@ -104,7 +105,7 @@ def save_dm1(
     print(f"Error: {(1e3 * error):.5f} mHa")
 
     np.savez_compressed(
-        Path("data") / "grids" / (f"data_{self.name}.npz"),
+        Path(f"{MAIN_PATH}/data") / "grids" / (f"data_{self.name}.npz"),
         rho_dft=grids.vector_to_matrix(rho_dft[0]),
         rho_cc=grids.vector_to_matrix(rho_cc[0]),
         weights=grids.vector_to_matrix(weights),
@@ -113,6 +114,7 @@ def save_dm1(
         ene_cc=e_cc,
         exc_over_dm_cc_grids=grids.vector_to_matrix(exc_over_dm_cc_grids),
     )
+
 
 def save_dm1_dft(
     self,
@@ -184,12 +186,10 @@ def save_dm1_dft(
         with self.mol.with_rinv_origin(coord):
             rinv = self.mol.intor("int1e_rinv")
             exc_over_dm_cc_grids[i] += (
-                expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch")
-                / rho_cc[0][i]
+                expr_rinv_dm2_r(ao_0_i, ao_0_i, rinv, backend="torch") / rho_cc[0][i]
             )
             hf_over_dm_cc_grids[i] += (
-                expr_rinv_dm1_r(ao_0_i, ao_0_i, rinv, backend="torch")
-                / rho_cc[0][i]
+                expr_rinv_dm1_r(ao_0_i, ao_0_i, rinv, backend="torch") / rho_cc[0][i]
             )
 
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
@@ -220,10 +220,10 @@ def save_dm1_dft(
         f"Error DFT: {(1e3 * error_dft):.5f} mHa, Error CC: {(1e3 * error_cc):.5f} mHa"
     )
 
-    data = np.load(Path("data") / "grids" / (f"data_{self.name}.npz"))
+    data = np.load(Path(f"{MAIN_PATH}/data") / "grids" / (f"data_{self.name}.npz"))
 
     np.savez_compressed(
-        Path("data") / "grids" / (f"data_{self.name}.npz"),
+        Path(f"{MAIN_PATH}/data") / "grids" / (f"data_{self.name}.npz"),
         rho_cc=data["rho_cc"],
         weights=data["weights"],
         exc_over_dm_cc_grids=data["exc_over_dm_cc_grids"],
