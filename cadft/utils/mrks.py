@@ -24,7 +24,7 @@ def mrks(self, frac_old, load_inv=True):
     Path(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}").mkdir(
         parents=True, exist_ok=True
     )
-    n_slices = 80
+    n_slices = 150
 
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
@@ -150,7 +150,9 @@ def mrks(self, frac_old, load_inv=True):
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy"
         ).exists()
     ):
-        exc_grids = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy")
+        exc_grids = np.load(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy"
+        )
         exc_over_rho_grids = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_over_rho_grids.npy"
         )
@@ -237,10 +239,19 @@ def mrks(self, frac_old, load_inv=True):
         )
 
     # if False:
-    if load_inv and Path(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy").exists():
+    if (
+        load_inv
+        and Path(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy"
+        ).exists()
+    ):
         emax = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy")
-        taup_rho_wf = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy")
-        tau_rho_wf = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy")
+        taup_rho_wf = np.load(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy"
+        )
+        tau_rho_wf = np.load(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy"
+        )
         v_vxc_e_taup = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy"
         )
@@ -351,21 +362,38 @@ def mrks(self, frac_old, load_inv=True):
         print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
 
         np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy", emax)
-        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy", taup_rho_wf)
-        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy", tau_rho_wf)
         np.save(
-            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy", v_vxc_e_taup
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy",
+            taup_rho_wf,
+        )
+        np.save(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_wf.npy",
+            tau_rho_wf,
+        )
+        np.save(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy",
+            v_vxc_e_taup,
         )
 
     # if False:
     if (
         load_inv
-        and Path(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy").exists()
+        and Path(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
+        ).exists()
     ):
-        dm1_inv = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
-        vxc_inv = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/vxc_inv.npy")
-        tau_rho_ks = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy")
-        taup_rho_ks = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy")
+        dm1_inv = np.load(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
+        )
+        vxc_inv = np.load(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/vxc_inv.npy"
+        )
+        tau_rho_ks = np.load(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy"
+        )
+        taup_rho_ks = np.load(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy"
+        )
     else:
         eigvecs_inv = mf.mo_energy.copy()
         mo_inv = mo.copy()
@@ -482,10 +510,20 @@ def mrks(self, frac_old, load_inv=True):
 
         print(f"After inv,\n {torch.cuda.memory_summary()}.\n")
 
-        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy", dm1_inv)
-        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/vxc_inv.npy", vxc_inv)
-        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy", tau_rho_ks)
-        np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy", taup_rho_ks)
+        np.save(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy", dm1_inv
+        )
+        np.save(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/vxc_inv.npy", vxc_inv
+        )
+        np.save(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/tau_rho_ks.npy",
+            tau_rho_ks,
+        )
+        np.save(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_ks.npy",
+            taup_rho_ks,
+        )
 
     kin_correct = 2 * np.sum((tau_rho_wf - tau_rho_ks) * weights)
     kin_correct1 = 2 * np.sum((taup_rho_wf - taup_rho_ks) * weights)

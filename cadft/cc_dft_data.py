@@ -94,6 +94,8 @@ class CC_DFT_DATA:
         mdft = pyscf.scf.RKS(self.mol)
         mdft.xc = "b3lyp"
         mdft.kernel()
+        self.mf = pyscf.scf.RHF(self.mol)
+        self.mf.kernel()
 
         if Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz").exists():
             data_saved = np.load(f"{MAIN_PATH}/data/test/data_{self.name}.npz")
