@@ -25,6 +25,7 @@ def mrks(self, frac_old, load_inv=True):
         parents=True, exist_ok=True
     )
     n_slices = 150
+    n_batchs = self.mol.nao // n_slices + 1
 
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
@@ -160,7 +161,6 @@ def mrks(self, frac_old, load_inv=True):
         print("Calculating exc_grids")
         dm12 = 0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc))
 
-        n_batchs = self.mol.nao // n_slices + 1
         for i_batch, j_batch, k_batch, l_batch in product(
             range(n_batchs),
             range(n_batchs),

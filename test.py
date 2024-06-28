@@ -113,6 +113,9 @@ if __name__ == "__main__":
     )
     modeldict.load_model()
 
+    # for key in ["1", "2"]:
+    #     modeldict.model_dict[key].eval()
+
     # 2. Test loop
     name_list = []
     time_cc_l, time_dft_l = [], []
@@ -194,7 +197,7 @@ if __name__ == "__main__":
         else:
             max_error_scf = 1e-8
 
-        for i in range(2500):
+        for i in range(100):
             input_mat = dft2cc.grids.vector_to_matrix(
                 pyscf.dft.numint.eval_rho(
                     dft2cc.mol,
@@ -206,7 +209,8 @@ if __name__ == "__main__":
             input_mat = torch.tensor(
                 input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
             ).to("cuda")
-            middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
+            with torch.no_grad():
+                middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
             middle_mat = middle_mat.squeeze(1)
             # middle_mat = data_real["vxc"]
 
@@ -338,7 +342,8 @@ if __name__ == "__main__":
         input_mat = torch.tensor(
             input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
         ).to("cuda")
-        output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
+        with torch.no_grad():
+            output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
         output_mat = output_mat.squeeze(1)
 
         if data_real is not None:

@@ -114,11 +114,11 @@ class ModelDict:
         else:
             self.scheduler_dict["1"] = optim.lr_scheduler.ExponentialLR(
                 self.optimizer_dict["1"],
-                gamma=0.9995,
+                gamma=0.9999,
             )
             self.scheduler_dict["2"] = optim.lr_scheduler.ExponentialLR(
                 self.optimizer_dict["2"],
-                gamma=0.9995,
+                gamma=0.9999,
             )
 
         self.loss_fn1 = torch.nn.L1Loss()
@@ -208,8 +208,8 @@ class ModelDict:
         """
         eval_loss_1, eval_loss_2 = [], []
 
-        for key in ["1", "2"]:
-            self.model_dict[key].eval()
+        # for key in ["1", "2"]:
+        #     self.model_dict[key].eval()
 
         for name in database_eval.name_list:
             (
