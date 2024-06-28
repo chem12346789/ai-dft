@@ -98,11 +98,13 @@ class CC_DFT_DATA:
         self.mf.kernel()
 
         if Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz").exists():
+            print(f"Load data from {MAIN_PATH}/data/test/data_{self.name}.npz")
             data_saved = np.load(f"{MAIN_PATH}/data/test/data_{self.name}.npz")
             self.dm1_cc = data_saved["dm1_cc"]
             self.e_cc = data_saved["e_cc"]
             self.time_cc = data_saved["time_cc"]
         else:
+            print(f"Generate data for {self.name}")
             time_start = timer()
             mycc = pyscf.cc.CCSD(self.mf)
             mycc.direct = True

@@ -5,6 +5,7 @@ Other parameter are from the argparse.
 
 import argparse
 import copy
+import gc
 from itertools import product
 from pathlib import Path
 from timeit import default_timer as timer
@@ -245,6 +246,10 @@ if __name__ == "__main__":
         time_cc_l.append(dft2cc.time_cc)
         time_dft_l.append(timer() - time_start)
 
+        del oe_fock
+        gc.collect()
+        torch.cuda.empty_cache()
+
         scf_rho_r = pyscf.dft.numint.eval_rho(
             dft2cc.mol,
             dft2cc.ao_0,
@@ -346,10 +351,6 @@ if __name__ == "__main__":
             output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
         output_mat = output_mat.squeeze(1)
 
-        if data_real is not None:
-            output_mat_exc_real = data_real[
-                "exc_tr_b3lyp"
-            ] * dft2cc.grids.vector_to_matrix(scf_rho_r * dft2cc.grids.weights)
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
             scf_rho_r * dft2cc.grids.weights
         )
@@ -373,9 +374,54 @@ if __name__ == "__main__":
         error_ene_dft = AU2KCALMOL * (dft2cc.e_dft - dft2cc.e_cc)
         print(f"error_scf_ene: {error_ene_scf:.2e}, error_dft_ene: {error_ene_dft:.2e}")
         if data_real is not None:
+
+            dm_inv = 2 * np.load(
+                f"{MAIN_PATH}/data/grids_mrks/saved_data/{name}/dm1_inv.npy"
+            )
+
+            error_scf_inv_h1e = AU2KCALMOL * (
+                oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
+                - oe.contract("ij,ji->", dft2cc.h1e, dm_inv)
+            )
+
+            vj_inv = dft2cc.mf.get_jk(dft2cc.mol, dm_inv)[0]
+            error_scf_inv_vj = AU2KCALMOL * (
+                0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
+                - 0.5 * oe.contract("ij,ji->", vj_inv, dm_inv)
+            )
+
+            inv_r_3_inv = pyscf.dft.numint.eval_rho(
+                dft2cc.mol, dft2cc.ao_1, dm_inv, xctype="GGA"
+            )
+            exc_b3lyp_inv = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3_inv)[0]
+            b3lyp_ene_inv = np.sum(
+                exc_b3lyp_inv * inv_r_3_inv[0] * dft2cc.grids.weights
+            )
+            error_scf_inv_b3lyp_ene = AU2KCALMOL * (b3lyp_ene - b3lyp_ene_inv)
+
+            print(
+                f"error_scf_cc_h1e: {error_scf_inv_h1e:.2e}, error_scf_inv_vj: {error_scf_inv_vj:.2e}, error_scf_inv_b3lyp_enegy: {error_scf_inv_b3lyp_ene:.2e}, total:{error_scf_inv_h1e + error_scf_inv_vj + error_scf_inv_b3lyp_ene:.2e}"
+            )
+
+            output_mat_exc_real = data_real[
+                "exc_tr_b3lyp"
+            ] * dft2cc.grids.vector_to_matrix(inv_r_3_inv[0] * dft2cc.grids.weights)
             print(
                 f"error_exc: {(AU2KCALMOL * np.sum(output_mat_exc - output_mat_exc_real)):.2e}"
             )
+
+            error_ene_inv = AU2KCALMOL * (
+                (
+                    oe.contract("ij,ji->", dft2cc.h1e, dm_inv)
+                    + 0.5 * oe.contract("ij,ji->", vj_inv, dm_inv)
+                    + dft2cc.mol.energy_nuc()
+                    + np.sum(output_mat_exc_real)
+                    + b3lyp_ene_inv
+                )
+                - dft2cc.e_cc
+            )
+            print(f"error_scf_inv_ene: {error_ene_inv:.2e}")
+
         error_scf_ene_l.append(error_ene_scf)
         error_dft_ene_l.append(error_ene_dft)
 
