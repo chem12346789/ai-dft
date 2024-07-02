@@ -140,8 +140,8 @@ if __name__ == "__main__":
         # 2.0 Prepare
 
         molecular = copy.deepcopy(Mol[name_mol])
-        print(f"Generate {name_mol}_{distance:.4f}")
-        print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}")
+        print(f"Generate {name_mol}_{distance:.4f}", flush=True)
+        print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)
 
         name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
         name_list.append(name)
@@ -242,7 +242,7 @@ if __name__ == "__main__":
                 break
 
         # 2.2 check the difference of density (on grids) and dipole
-        print(f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s")
+        print(f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s", flush=True)
         time_cc_l.append(dft2cc.time_cc)
         time_dft_l.append(timer() - time_start)
 
@@ -268,7 +268,7 @@ if __name__ == "__main__":
         error_scf_rho_r = np.sum(np.abs(scf_rho_r - cc_rho_r) * dft2cc.grids.weights)
         error_dft_rho_r = np.sum(np.abs(dft_rho_r - cc_rho_r) * dft2cc.grids.weights)
         print(
-            f"error_scf_rho_r: {error_scf_rho_r:.2e}, error_dft_rho_r: {error_dft_rho_r:.2e}"
+            f"error_scf_rho_r: {error_scf_rho_r:.2e}, error_dft_rho_r: {error_dft_rho_r:.2e}", flush=True,
         )
         error_scf_rho_r_l.append(error_scf_rho_r)
         error_dft_rho_r_l.append(error_dft_rho_r)
@@ -325,7 +325,7 @@ if __name__ == "__main__":
             f"dipole_y, cc: {dipole_y:.4f}, scf {dipole_y_scf:.4f}, dft {dipole_y_dft:.4f}"
         )
         print(
-            f"dipole_z, cc: {dipole_z:.4f}, scf {dipole_z_scf:.4f}, dft {dipole_z_dft:.4f}"
+            f"dipole_z, cc: {dipole_z:.4f}, scf {dipole_z_scf:.4f}, dft {dipole_z_dft:.4f}", flush=True
         )
         dipole_x_diff_scf_l.append(dipole_x_scf - dipole_x)
         dipole_y_diff_scf_l.append(dipole_y_scf - dipole_y)
@@ -372,7 +372,7 @@ if __name__ == "__main__":
             - dft2cc.e_cc
         )
         error_ene_dft = AU2KCALMOL * (dft2cc.e_dft - dft2cc.e_cc)
-        print(f"error_scf_ene: {error_ene_scf:.2e}, error_dft_ene: {error_ene_dft:.2e}")
+        print(f"error_scf_ene: {error_ene_scf:.2e}, error_dft_ene: {error_ene_dft:.2e}", flush=True)
         if data_real is not None:
 
             dm_inv = 2 * np.load(
@@ -400,14 +400,14 @@ if __name__ == "__main__":
             error_scf_inv_b3lyp_ene = AU2KCALMOL * (b3lyp_ene - b3lyp_ene_inv)
 
             print(
-                f"error_scf_cc_h1e: {error_scf_inv_h1e:.2e}, error_scf_inv_vj: {error_scf_inv_vj:.2e}, error_scf_inv_b3lyp_enegy: {error_scf_inv_b3lyp_ene:.2e}, total:{error_scf_inv_h1e + error_scf_inv_vj + error_scf_inv_b3lyp_ene:.2e}"
+                f"error_scf_cc_h1e: {error_scf_inv_h1e:.2e}, error_scf_inv_vj: {error_scf_inv_vj:.2e}, error_scf_inv_b3lyp_enegy: {error_scf_inv_b3lyp_ene:.2e}, total:{error_scf_inv_h1e + error_scf_inv_vj + error_scf_inv_b3lyp_ene:.2e}", flush=True
             )
 
             output_mat_exc_real = data_real[
                 "exc_tr_b3lyp"
             ] * dft2cc.grids.vector_to_matrix(inv_r_3_inv[0] * dft2cc.grids.weights)
             print(
-                f"error_exc: {(AU2KCALMOL * np.sum(output_mat_exc - output_mat_exc_real)):.2e}"
+                f"error_exc: {(AU2KCALMOL * np.sum(output_mat_exc - output_mat_exc_real)):.2e}", flush=True
             )
 
             error_ene_inv = AU2KCALMOL * (
@@ -420,7 +420,7 @@ if __name__ == "__main__":
                 )
                 - dft2cc.e_cc
             )
-            print(f"error_scf_inv_ene: {error_ene_inv:.2e}")
+            print(f"error_scf_inv_ene: {error_ene_inv:.2e}", flush=True)
 
         error_scf_ene_l.append(error_ene_scf)
         error_dft_ene_l.append(error_ene_dft)
