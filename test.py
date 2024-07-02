@@ -199,23 +199,29 @@ if __name__ == "__main__":
             max_error_scf = 1e-8
 
         for i in range(100):
-            input_mat = dft2cc.grids.vector_to_matrix(
-                pyscf.dft.numint.eval_rho(
-                    dft2cc.mol,
-                    dft2cc.ao_0,
-                    dm1_scf,
-                )
-                + 1e-14
-            )
-            input_mat = torch.tensor(
-                input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-            ).to("cuda")
-            with torch.no_grad():
-                middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
-            middle_mat = middle_mat.squeeze(1)
-            # middle_mat = data_real["vxc"]
+            # input_mat = dft2cc.grids.vector_to_matrix(
+            #     pyscf.dft.numint.eval_rho(
+            #         dft2cc.mol,
+            #         dft2cc.ao_0,
+            #         dm1_scf,
+            #     )
+            #     + 1e-14
+            # )
+            # input_mat = torch.tensor(
+            #     input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
+            # ).to("cuda")
+            # with torch.no_grad():
+            #     middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
+            # middle_mat = middle_mat.squeeze(1)
+            middle_mat = data_real["vxc_b3lyp"]
 
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
+
+            inv_r_3 = pyscf.dft.numint.eval_rho(
+                dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
+            )
+            exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
+            vxc_scf += exc_b3lyp
             vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights, backend="torch")
             vj_scf = dft2cc.mf.get_jk(dft2cc.mol, dm1_scf)[0]
             _, mo_scf = np.linalg.eigh(
@@ -336,20 +342,21 @@ if __name__ == "__main__":
 
         # 2.3 check the difference of energy (total)
 
-        input_mat = dft2cc.grids.vector_to_matrix(
-            pyscf.dft.numint.eval_rho(
-                dft2cc.mol,
-                dft2cc.ao_0,
-                dm1_scf,
-            )
-            + 1e-14
-        )
-        input_mat = torch.tensor(
-            input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-        ).to("cuda")
-        with torch.no_grad():
-            output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
-        output_mat = output_mat.squeeze(1)
+        # input_mat = dft2cc.grids.vector_to_matrix(
+        #     pyscf.dft.numint.eval_rho(
+        #         dft2cc.mol,
+        #         dft2cc.ao_0,
+        #         dm1_scf,
+        #     )
+        #     + 1e-14
+        # )
+        # input_mat = torch.tensor(
+        #     input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
+        # ).to("cuda")
+        # with torch.no_grad():
+        #     output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
+        # output_mat = output_mat.squeeze(1)
+        output_mat = data_real["exc_tr_b3lyp"]
 
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
             scf_rho_r * dft2cc.grids.weights
@@ -373,8 +380,8 @@ if __name__ == "__main__":
         )
         error_ene_dft = AU2KCALMOL * (dft2cc.e_dft - dft2cc.e_cc)
         print(f"error_scf_ene: {error_ene_scf:.2e}, error_dft_ene: {error_ene_dft:.2e}", flush=True)
-        if data_real is not None:
 
+        if data_real is not None:
             dm_inv = 2 * np.load(
                 f"{MAIN_PATH}/data/grids_mrks/saved_data/{name}/dm1_inv.npy"
             )
