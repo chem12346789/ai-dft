@@ -42,19 +42,30 @@ work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
 for (
-    checkpoint,
     hidden_size,
+    eval_step,
+    batch_size,
+    num_layer,
+    residual,
+    ene_weight,
 ) in itertools.product(
-    ["NEW"],
-    # ["2024-06-06-15-36-03"],
-    [302],
+    [32],
+    [100],
+    [64],
+    [4],
+    [0],
+    [0.5],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/CHECKPOINT/{eval_step}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/BATCH_SIZE/{batch_size}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/NUM_LAYER/{num_layer}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/RESIDUAL/{residual}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/ENE_WEIGHT/{ene_weight}/g" {work_bash}"""
     cmd += (
         "&&"
-        + f"""mv {work_bash} {work_dir / f"train_{checkpoint}_{hidden_size}.bash"}"""
+        + f"""mv {work_bash} {work_dir / f"train_{hidden_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}.bash"}"""
     )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)

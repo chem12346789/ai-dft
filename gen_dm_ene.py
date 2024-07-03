@@ -57,8 +57,8 @@ for (
         FACTOR = 0.9
     else:
         FACTOR = 0.8
-    # dft2cc.mrks(FACTOR, args.load_inv)
-    dft2cc.mrks_append(FACTOR, args.load_inv)
+    dft2cc.mrks(FACTOR, args.load_inv)
+    # dft2cc.mrks_append(FACTOR, args.load_inv)
 
     del dft2cc
     gc.collect()
