@@ -94,6 +94,48 @@ class BasicDataset:
         return dataloader_gpu
 
 
+class DIIS:
+    """
+    DIIS for the Fock matrix.
+    """
+
+    def __init__(self, nao, n=50):
+        self.n = n
+        self.errors = np.zeros((n, nao, nao))
+        self.mat_fock = np.zeros((n, nao, nao))
+        self.step = 0
+
+    def add(self, mat_fock, error):
+        self.mat_fock = np.roll(self.mat_fock, -1, axis=0)
+        self.mat_fock[-1, :, :] = mat_fock
+        self.errors = np.roll(self.errors, -1, axis=0)
+        self.errors[-1, :, :] = error
+
+    def hybrid(self):
+        self.step += 1
+        mat = np.zeros((self.n + 1, self.n + 1))
+        mat[:-1, :-1] = np.einsum("inm,jnm->ij", self.errors, self.errors)
+        mat[-1, :] = -1
+        mat[:, -1] = -1
+        mat[-1, -1] = 0
+
+        b = np.zeros(self.n + 1)
+        b[-1] = -1
+
+        if self.step < self.n:
+            c = np.linalg.solve(
+                mat[-(self.step + 1) :, -(self.step + 1) :], b[-(self.step + 1) :]
+            )
+            mat_fock = np.sum(
+                c[:-1, np.newaxis, np.newaxis] * self.mat_fock[-self.step :], axis=0
+            )
+            return mat_fock
+        else:
+            c = np.linalg.solve(mat, b)
+            mat_fock = np.sum(c[:-1, np.newaxis, np.newaxis] * self.mat_fock, axis=0)
+            return mat_fock
+
+
 if __name__ == "__main__":
     # 0. Prepare the args
     parser = argparse.ArgumentParser(
@@ -198,6 +240,8 @@ if __name__ == "__main__":
         else:
             max_error_scf = 1e-8
 
+        diis = DIIS(dft2cc.mol.nao, n=8)
+
         for i in range(100):
             input_mat = dft2cc.grids.vector_to_matrix(
                 pyscf.dft.numint.eval_rho(
@@ -216,7 +260,6 @@ if __name__ == "__main__":
             # middle_mat = data_real["vxc_b3lyp"]
 
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
-
             # inv_r_3 = pyscf.dft.numint.eval_rho(
             #     dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
             # )
@@ -225,9 +268,15 @@ if __name__ == "__main__":
 
             vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights, backend="torch")
             vj_scf = dft2cc.mf.get_jk(dft2cc.mol, dm1_scf)[0]
-            _, mo_scf = np.linalg.eigh(
-                dft2cc.mat_hs @ (dft2cc.h1e + vj_scf + vxc_mat) @ dft2cc.mat_hs
+            mat_fock = dft2cc.h1e + vj_scf + vxc_mat
+
+            diis.add(
+                mat_fock,
+                dft2cc.mat_s @ dm1_scf @ mat_fock - mat_fock @ dm1_scf @ dft2cc.mat_s,
             )
+            mat_fock = diis.hybrid()
+
+            _, mo_scf = np.linalg.eigh(dft2cc.mat_hs @ mat_fock @ dft2cc.mat_hs)
             mo_scf = dft2cc.mat_hs @ mo_scf
 
             dm1_scf_old = dm1_scf.copy()

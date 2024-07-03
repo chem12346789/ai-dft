@@ -123,8 +123,8 @@ class CC_DFT_DATA:
 
         self.h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
 
-        mat_s = self.mol.intor("int1e_ovlp")
-        self.mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
+        self.mat_s = self.mol.intor("int1e_ovlp")
+        self.mat_hs = LA.fractional_matrix_power(self.mat_s, -0.5).real
 
         self.grids = Grid(self.mol)
         self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)

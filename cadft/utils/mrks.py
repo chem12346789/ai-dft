@@ -100,45 +100,6 @@ def mrks(self, frac_old, load_inv=True):
         """
         return new * (1 - frac_old_) + old * frac_old_
 
-    class DIIS:
-        """
-        DIIS for the potential.
-        """
-
-        def __init__(self, len_vec, n=50):
-            self.n = n
-            self.errors = np.zeros((n, len_vec))
-            self.v_xc = np.zeros((n, len_vec))
-            self.step = 0
-
-        def add(self, error, v_xc):
-            self.errors = np.roll(self.errors, -1, axis=0)
-            self.v_xc = np.roll(self.v_xc, -1, axis=0)
-            self.errors[-1, :] = error
-            self.v_xc[-1, :] = v_xc
-
-        def hybrid(self):
-            self.step += 1
-            mat = np.zeros((self.n + 1, self.n + 1))
-            mat[:-1, :-1] = np.einsum("ik,jk->ij", self.errors, self.errors)
-            mat[-1, :] = -1
-            mat[:, -1] = -1
-            mat[-1, -1] = 0
-
-            b = np.zeros(self.n + 1)
-            b[-1] = -1
-
-            if self.step < self.n:
-                c = np.linalg.solve(
-                    mat[-(self.step + 1) :, -(self.step + 1) :], b[-(self.step + 1) :]
-                )
-                v_xc = np.sum(c[:-1, np.newaxis] * self.v_xc[-self.step :], axis=0)
-                return v_xc
-            else:
-                c = np.linalg.solve(mat, b)
-                v_xc = np.sum(c[:-1, np.newaxis] * self.v_xc, axis=0)
-                return v_xc
-
     rho_cc = (
         pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_cc, xctype="mGGA") + 1e-14
     )
@@ -429,9 +390,6 @@ def mrks(self, frac_old, load_inv=True):
             constants=[2, 3],
             optimize="optimal",
         )
-
-        # diis = DIIS(len(vxc_inv))
-        # diis_mo = DIIS(len(mo))
 
         for i in range(12500):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
