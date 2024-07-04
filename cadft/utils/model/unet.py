@@ -15,7 +15,7 @@ class UNet(nn.Module):
         self.in_channels = input_size
         self.classes = output_size
         self.residual = residual
-        
+
         if self.residual <= 4:
             if residual == 0:
                 norm_layer = "BatchNorm2d"
@@ -67,12 +67,21 @@ class UNet(nn.Module):
 
             if self.residual == 5:
                 self.model = smp.UnetPlusPlus(
-                encoder_name="timm-mobilenetv3_small_minimal_100",
-                encoder_depth=num_layers,
-                decoder_channels=decoder_channels,
-                in_channels=1,
-                classes=1,
-                # decoder_use_batchnorm=False,
+                    encoder_name="mobilenet_v2",
+                    encoder_depth=num_layers,
+                    decoder_channels=decoder_channels,
+                    in_channels=1,
+                    classes=1,
+                    # decoder_use_batchnorm=False,
+                )
+            if self.residual == 6:
+                self.model = smp.UnetPlusPlus(
+                    encoder_name="efficientnet-b0",
+                    encoder_depth=num_layers,
+                    decoder_channels=decoder_channels,
+                    in_channels=1,
+                    classes=1,
+                    # decoder_use_batchnorm=False,
                 )
 
     def forward(self, x):

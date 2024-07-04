@@ -260,6 +260,7 @@ if __name__ == "__main__":
             # middle_mat = data_real["vxc_b3lyp"]
 
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
+
             # inv_r_3 = pyscf.dft.numint.eval_rho(
             #     dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
             # )
