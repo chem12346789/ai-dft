@@ -49,16 +49,16 @@ for (
     residual,
     ene_weight,
 ) in itertools.product(
-    [32],
+    [32, 64],
     [100],
     [64],
     [4],
-    [0],
-    [0.5],
+    [0, 5],
+    [1],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/CHECKPOINT/{eval_step}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/EVAL_STEP/{eval_step}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BATCH_SIZE/{batch_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/NUM_LAYER/{num_layer}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/RESIDUAL/{residual}/g" {work_bash}"""

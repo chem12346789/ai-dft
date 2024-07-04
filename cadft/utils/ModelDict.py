@@ -62,7 +62,7 @@ class ModelDict:
         self.scheduler_dict = {}
         if load != "":
             self.dir_checkpoint = Path(
-                f"{MAIN_PATH}/checkpoints/checkpoint-ccdft-{load}-{self.hidden_size}-{self.num_layers}-{self.residual}/"
+                f"{MAIN_PATH}/checkpoints/checkpoint-ccdft_{load}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
             ).resolve()
             if self.dir_checkpoint.exists():
                 print(f"Load checkpoint directory: {self.dir_checkpoint}")
@@ -71,7 +71,7 @@ class ModelDict:
                 raise FileNotFoundError
         else:
             self.dir_checkpoint = Path(
-                f"{MAIN_PATH}/checkpoints/checkpoint-ccdft-{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}-{self.hidden_size}-{self.num_layers}-{self.residual}/"
+                f"{MAIN_PATH}/checkpoints/checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
             ).resolve()
             if if_mkdir:
                 print(f"Create checkpoint directory: {self.dir_checkpoint}")
@@ -185,7 +185,10 @@ class ModelDict:
                 loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
 
                 output_mat = self.model_dict["2"](input_mat)
-                loss_2 += self.loss_fn2(output_mat, output_mat_real)
+                loss_2 += self.loss_fn2(
+                    output_mat,
+                    output_mat_real,
+                )
                 loss_3 += torch.sum(output_mat_real * input_mat * weight) - torch.sum(
                     output_mat * input_mat * weight
                 )
@@ -233,7 +236,10 @@ class ModelDict:
                     loss_1 += self.loss_fn1(middle_mat, middle_mat_real)
 
                     output_mat = self.model_dict["2"](input_mat)
-                    loss_2 += self.loss_fn2(output_mat, output_mat_real)
+                    loss_2 += self.loss_fn2(
+                        output_mat,
+                        output_mat_real,
+                    )
                     loss_3 += torch.sum(
                         output_mat_real * input_mat * weight
                     ) - torch.sum(output_mat * input_mat * weight)

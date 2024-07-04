@@ -41,22 +41,26 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "validate-template.bash"
 
-for (
-    checkpoint,
-    hidden_size,
-    ene_grid_factor,
-) in itertools.product(
-    ["2024-06-09-11-41-40"],
-    [302],
-    [1],
+for (checkpoint_hidden_size,) in itertools.product(
+    [
+        "checkpoint-ccdft_2024-06-26-00-16-07_64_4_0",
+        "checkpoint-ccdft_2024-06-25-16-15-04_64_4_0",
+        # "2024-07-04-01-11-14_64",
+        # "2024-07-04-01-15-57_64",
+        # "2024-07-04-01-30-54_64",
+        # "2024-07-04-01-30-50_32",
+        # "2024-07-04-01-15-51_32",
+        # "2024-07-04-01-11-10_32",
+    ],
 ):
-    ene_grid_factor_str = (
-        f"--ene_grid_factor {ene_grid_factor}" if ene_grid_factor else ""
+    (_, checkpoint, hidden_size, num_layers, residual) = checkpoint_hidden_size.split(
+        "_"
     )
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/ENE_GRID_FACTOR/{ene_grid_factor_str}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/NUM_LAYER/{num_layers}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/RESIDUAL/{residual}/g" {work_bash}"""
     cmd += (
         "&&"
         + f"""mv {work_bash} {work_dir / f"validate_{checkpoint}_{hidden_size}.bash"}"""
@@ -69,4 +73,4 @@ for child in (work_dir).glob("*.bash"):
         cmd = f"""sbatch < {child}"""
         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
             subprocess.call(cmd, shell=True, stdout=f)
-        time.sleep(0.01)
+        time.sleep(1)
