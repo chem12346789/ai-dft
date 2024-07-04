@@ -25,7 +25,6 @@ def mrks(self, frac_old, load_inv=True):
         parents=True, exist_ok=True
     )
     n_slices = 150
-    n_batchs = self.mol.nao // n_slices + 1
 
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
@@ -40,21 +39,19 @@ def mrks(self, frac_old, load_inv=True):
     mycc.kernel()
 
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
-    eri = self.mol.intor("int2e")
     mo = mf.mo_coeff
     nocc = self.mol.nelec[0]
     h1_mo = np.einsum("ab,ai,bj->ij", h1e, mo, mo)
-    eri_mo = pyscf.ao2mo.kernel(eri, mo, compact=False)
     norb = mo.shape[1]
     print(h1e.shape)
+
+    n_batchs = self.mol.nao // n_slices + 1
 
     mat_s = self.mol.intor("int1e_ovlp")
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
 
     dm1_cc = mycc.make_rdm1(ao_repr=True)
     dm1_cc_mo = mycc.make_rdm1(ao_repr=False)
-    dm2_cc = mycc.make_rdm2(ao_repr=True)
-    dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
     e_cc = mycc.e_tot
 
     grids = Grid(self.mol)
@@ -66,6 +63,11 @@ def mrks(self, frac_old, load_inv=True):
     ao_1 = ao_value[1:4, :, :]
     ao_2_diag = ao_value[4, :, :] + ao_value[7, :, :] + ao_value[9, :, :]
 
+    n_slice_grids = (
+        8 * 1024**3 // 8 // (self.mol.nao * self.mol.nao)
+    )  # 8 GB memory for int1egrids
+    n_batchs_grids = len(coords) // n_slice_grids + 1
+
     oe_taup_rho = oe.contract_expression(
         "pm,m,n,kpn->pk",
         ao_0,
@@ -76,13 +78,13 @@ def mrks(self, frac_old, load_inv=True):
         optimize="optimal",
     )
 
-    # oe_taul_rho = oe.contract_expression(
-    #     "n,kpn->pk",
-    #     (norb,),
-    #     ao_1,
-    #     constants=[1],
-    #     optimize="optimal",
-    # )
+    oe_taul_rho = oe.contract_expression(
+        "n,kpn->pk",
+        (norb,),
+        ao_1,
+        constants=[1],
+        optimize="optimal",
+    )
 
     oe_tau_rho = oe.contract_expression(
         "pm,m,n,pn->p",
@@ -112,6 +114,7 @@ def mrks(self, frac_old, load_inv=True):
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy"
         ).exists()
     ):
+        print("Load data from saved_data: exc_grids, exc_over_rho_grids.")
         exc_grids = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy"
         )
@@ -120,7 +123,10 @@ def mrks(self, frac_old, load_inv=True):
         )
     else:
         print("Calculating exc_grids")
+        dm2_cc = mycc.make_rdm2(ao_repr=True)
         dm12 = 0.5 * (dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc))
+        del dm2_cc
+        gc.collect()
 
         for i_batch, j_batch, k_batch, l_batch in product(
             range(n_batchs),
@@ -179,9 +185,11 @@ def mrks(self, frac_old, load_inv=True):
             gc.collect()
             torch.cuda.empty_cache()
 
+        exc_over_rho_grids = exc_grids / rho_cc[0]
         print(f"After 2Rdm,\n {torch.cuda.memory_summary()}.\n")
 
-        exc_over_rho_grids = exc_grids / rho_cc[0]
+        del dm12
+        gc.collect()
 
         # ene_vc = np.sum(exc_over_rho_grids * rho_cc[0] * weights)
         # error = ene_vc - (
@@ -206,6 +214,7 @@ def mrks(self, frac_old, load_inv=True):
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy"
         ).exists()
     ):
+        print("Load data from saved_data , emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
         emax = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy")
         taup_rho_wf = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy"
@@ -217,6 +226,10 @@ def mrks(self, frac_old, load_inv=True):
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/v_vxc_e_taup.npy"
         )
     else:
+        dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
+        eri = self.mol.intor("int2e")
+        eri_mo = pyscf.ao2mo.kernel(eri, mo, compact=False)
+
         generalized_fock = dm1_cc_mo @ h1_mo
         for a_batch, b_batch, i_batch, j_batch, k_batch in product(
             range(n_batchs),
@@ -321,6 +334,8 @@ def mrks(self, frac_old, load_inv=True):
         v_vxc_e_taup += exc_over_rho_grids * 2 + taup_rho_wf / rho_cc_half
 
         print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
+        del dm2_cc_mo
+        gc.collect()
 
         np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy", emax)
         np.save(
@@ -336,13 +351,14 @@ def mrks(self, frac_old, load_inv=True):
             v_vxc_e_taup,
         )
 
-    # if False:
-    if (
-        load_inv
-        and Path(
-            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
-        ).exists()
-    ):
+    # if (
+    #     load_inv
+    #     and Path(
+    #         f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
+    #     ).exists()
+    # ):
+    if False:
+        print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
         dm1_inv = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
         )
@@ -415,6 +431,23 @@ def mrks(self, frac_old, load_inv=True):
 
             vxc_inv_old = vxc_inv.copy()
             vxc_inv = v_vxc_e_taup + ebar_ks - taup_rho_ks / dm1_inv_r
+
+            for i_batch_grids in range(n_batchs_grids):
+                ngrids_slice_i = (
+                    n_slice_grids
+                    if i_batch_grids != n_slice_grids - 1
+                    else len(coords) - n_slice_grids * i_batch_grids
+                )
+                i_slice_grids = slice(
+                    n_slice_grids * i_batch_grids,
+                    n_slice_grids * i_batch_grids + ngrids_slice_i,
+                )
+                int1e_grids = self.mol.intor("int1e_grids", grids=coords[i_slice_grids])
+                vele = np.einsum("pij,ij->p", int1e_grids, dm1_cc / 2) - np.einsum(
+                    "pij,ij->p", int1e_grids, dm1_inv
+                )
+                vxc_inv[i_slice_grids] -= vele
+
             error_vxc = np.linalg.norm((vxc_inv - vxc_inv_old) * weights)
             # diis.add(vxc_inv - vxc_inv_old, vxc_inv)
             # vxc_inv = diis.hybrid()
@@ -462,7 +495,7 @@ def mrks(self, frac_old, load_inv=True):
             backend="torch",
         )
 
-        del oe_tau_rho, oe_taup_rho, oe_ebar_r_ks, oe_fock
+        del oe_tau_rho, oe_ebar_r_ks, oe_fock
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -489,63 +522,108 @@ def mrks(self, frac_old, load_inv=True):
     dft_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, mdft.make_rdm1()) + 1e-14
     exc_over_rho_grids_fake = exc_over_rho_grids.copy()
     exc_grids_fake = exc_grids.copy()
+    exc_grids_fake1 = exc_grids.copy()
 
-    expr_rinv_dm1_r = oe.contract_expression(
-        "ij,ij->",
-        dm1_cc,
-        (norb, norb),
-        constants=[0],
-        optimize="optimal",
-    )
+    # expr_rinv_dm1_r = oe.contract_expression(
+    #     "ij,ij->",
+    #     dm1_cc,
+    #     (norb, norb),
+    #     constants=[0],
+    #     optimize="optimal",
+    # )
+
+    for i_batch_grids in range(n_batchs_grids):
+        ngrids_slice_i = (
+            n_slice_grids
+            if i_batch_grids != n_slice_grids - 1
+            else len(coords) - n_slice_grids * i_batch_grids
+        )
+        i_slice_grids = slice(
+            n_slice_grids * i_batch_grids,
+            n_slice_grids * i_batch_grids + ngrids_slice_i,
+        )
+        vele = np.einsum(
+            "pij,ij->p",
+            self.mol.intor("int1e_grids", grids=coords[i_slice_grids]),
+            dm1_cc,
+        )
+        exc_grids_fake[i_slice_grids] += vele * (
+            rho_cc[0][i_slice_grids] - inv_r[i_slice_grids]
+        )
+        exc_grids_fake1[i_slice_grids] += vele * (
+            rho_cc[0][i_slice_grids] - inv_r[i_slice_grids]
+        )
 
     for i, coord in enumerate(tqdm(coords)):
-        with self.mol.with_rinv_origin(coord):
-            rinv = self.mol.intor("int1e_rinv")
-            rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
-            exc_grids_fake[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
+        # with self.mol.with_rinv_origin(coord):
+        #     rinv = self.mol.intor("int1e_rinv")
+        #     rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
+        #     exc_grids_fake[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
+        #     exc_grids_fake1[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
 
         for i_atom in range(self.mol.natm):
             distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
-            exc_grids_fake[i] -= (
-                (rho_cc[0][i] - inv_r[i])
-                * self.mol.atom_charges()[i_atom]
-                / max(distance, 1e-3)
-            )
+            if distance > 1e-3:
+                exc_grids_fake[i] -= (
+                    (rho_cc[0][i] - inv_r[i])
+                    * self.mol.atom_charges()[i_atom]
+                    / distance
+                )
+            else:
+                exc_grids_fake[i] -= (
+                    (rho_cc[0][i] - inv_r[i]) * self.mol.atom_charges()[i_atom] / 1e-3
+                )
+
+            if distance > 1e-2:
+                exc_grids_fake1[i] -= (
+                    (rho_cc[0][i] - inv_r[i])
+                    * self.mol.atom_charges()[i_atom]
+                    / distance
+                )
+            else:
+                exc_grids_fake1[i] -= (
+                    (rho_cc[0][i] - inv_r[i])
+                    * self.mol.atom_charges()[i_atom]
+                    / ((distance + 5e-2) / 6)
+                )
+
     exc_over_rho_grids_fake = exc_grids_fake / inv_r
+    exc_over_rho_grids_fake1 = exc_grids_fake1 / inv_r
 
     save_data = {}
     save_data["energy"] = AU2KJMOL * e_cc
     save_data["correct kinetic energy"] = AU2KJMOL * kin_correct
     save_data["correct kinetic energy1"] = AU2KJMOL * kin_correct1
     save_data["energy_dft"] = AU2KJMOL * (mdft.e_tot - e_cc)
+
+    hcore_vj_energy = (
+        np.sum(h1e * 2 * dm1_inv)
+        + 0.5 * np.sum(mf.get_jk(self.mol, 2 * dm1_inv, 1)[0] * dm1_inv * 2)
+        + self.mol.energy_nuc()
+    )
+
     save_data["energy_inv"] = AU2KJMOL * (
         (
-            oe.contract("ij,ji->", h1e, dm1_inv * 2)
-            + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
-            + self.mol.energy_nuc()
+            hcore_vj_energy
             + np.sum(exc_over_rho_grids_fake * inv_r * weights)
             + kin_correct
         )
         - e_cc
     )
-    save_data["energy_inv_real"] = AU2KJMOL * (
+    save_data["energy_inv1"] = AU2KJMOL * (
         (
-            oe.contract("ij,ji->", h1e, dm1_inv * 2)
-            + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
-            + self.mol.energy_nuc()
-            + np.sum(exc_over_rho_grids * inv_r * weights)
+            hcore_vj_energy
+            + np.sum(exc_over_rho_grids_fake1 * inv_r * weights)
             + kin_correct
         )
         - e_cc
     )
+    save_data["energy_inv_real"] = AU2KJMOL * (
+        (hcore_vj_energy + np.sum(exc_over_rho_grids * inv_r * weights) + kin_correct)
+        - e_cc
+    )
     save_data["energy_inv_real1"] = AU2KJMOL * (
-        (
-            oe.contract("ij,ji->", h1e, dm1_inv * 2)
-            + 0.5 * oe.contract("pqrs,pq,rs->", eri, dm1_inv * 2, dm1_inv * 2)
-            + self.mol.energy_nuc()
-            + np.sum(exc_over_rho_grids * inv_r * weights)
-            + kin_correct1
-        )
+        (hcore_vj_energy + np.sum(exc_over_rho_grids * inv_r * weights) + kin_correct1)
         - e_cc
     )
 
@@ -616,6 +694,9 @@ def mrks(self, frac_old, load_inv=True):
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
         exc_tr_b3lyp=grids.vector_to_matrix(
             exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
+        ),
+        exc1_tr_b3lyp=grids.vector_to_matrix(
+            exc_over_rho_grids_fake1 + 2 * (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
         ),
         exc_tr=grids.vector_to_matrix(
             exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
