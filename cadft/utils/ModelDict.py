@@ -211,8 +211,8 @@ class ModelDict:
         """
         eval_loss_1, eval_loss_2 = [], []
 
-        # for key in ["1", "2"]:
-        #     self.model_dict[key].eval()
+        for key in ["1", "2"]:
+            self.model_dict[key].eval()
 
         for name in database_eval.name_list:
             (

@@ -63,9 +63,8 @@ def mrks(self, frac_old, load_inv=True):
     ao_1 = ao_value[1:4, :, :]
     ao_2_diag = ao_value[4, :, :] + ao_value[7, :, :] + ao_value[9, :, :]
 
-    n_slice_grids = (
-        8 * 1024**3 // 8 // (self.mol.nao * self.mol.nao)
-    )  # 8 GB memory for int1egrids
+    # 8 GB memory for int1egrids
+    n_slice_grids = torch.cuda.mem_get_info()[0] // 8 // 8 // self.mol.nao**2
     n_batchs_grids = len(coords) // n_slice_grids + 1
 
     oe_taup_rho = oe.contract_expression(
@@ -188,15 +187,13 @@ def mrks(self, frac_old, load_inv=True):
         exc_over_rho_grids = exc_grids / rho_cc[0]
         print(f"After 2Rdm,\n {torch.cuda.memory_summary()}.\n")
 
+        # eri = self.mol.intor("int2e")
+        # ene_vc = np.sum(exc_over_rho_grids * rho_cc[0] * weights)
+        # error = ene_vc - np.einsum("pqrs,pqrs", eri, dm12).real
+        # print(f"Error: {(1e3 * error):.5f} mHa")
+
         del dm12
         gc.collect()
-
-        # ene_vc = np.sum(exc_over_rho_grids * rho_cc[0] * weights)
-        # error = ene_vc - (
-        #     np.einsum("pqrs,pqrs", eri, dm2_cc).real / 2
-        #     - np.einsum("pqrs,pq,rs", eri, dm1_cc, dm1_cc).real / 2
-        # )
-        # print(f"Error: {(1e3 * error):.5f} mHa")
 
         np.save(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/exc_grids.npy",
@@ -351,13 +348,13 @@ def mrks(self, frac_old, load_inv=True):
             v_vxc_e_taup,
         )
 
-    # if False:
-    if (
-        load_inv
-        and Path(
-            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
-        ).exists()
-    ):
+    # if (
+    #     load_inv
+    #     and Path(
+    #         f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
+    #     ).exists()
+    # ):
+    if False:
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
         dm1_inv = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
@@ -443,10 +440,9 @@ def mrks(self, frac_old, load_inv=True):
                     n_slice_grids * i_batch_grids + ngrids_slice_i,
                 )
                 int1e_grids = self.mol.intor("int1e_grids", grids=coords[i_slice_grids])
-                vele = np.einsum("pij,ij->p", int1e_grids, dm1_cc / 2) - np.einsum(
-                    "pij,ij->p", int1e_grids, dm1_inv
-                )
-                vxc_inv[i_slice_grids] -= vele
+                vxc_inv[i_slice_grids] -= np.einsum(
+                    "pij,ij->p", int1e_grids, dm1_cc / 2
+                ) - np.einsum("pij,ij->p", int1e_grids, dm1_inv)
 
             error_vxc = np.linalg.norm((vxc_inv - vxc_inv_old) * weights)
             # diis.add(vxc_inv - vxc_inv_old, vxc_inv)
