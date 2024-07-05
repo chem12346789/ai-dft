@@ -16,4 +16,4 @@ export HDF5_USE_FILE_LOCKING=FALSE
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
-nohup sh -c '~/anaconda3/bin/python gen_dm_ene.py -dl -0.5 0 6 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 1 2 --name_mol propane propyne propylene allene cyclopropene cyclopropane butane butyne isobutane butadiene --load_inv True >log/cc-pCVDZ2.out' &
+nohup sh -c '~/anaconda3/bin/python gen_dm_ene.py -dl -0.5 0.5 11 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 1 2 --name_mol methane ethane ethylene acetylene propane propyne propylene allene cyclopropene cyclopropane butane butyne isobutane butadiene --load_inv True >log/cc-pCVDZ2.out' > log/cc-pCVDZ2.sbatch &

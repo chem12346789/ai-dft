@@ -214,7 +214,7 @@ def mrks(self, frac_old, load_inv=True):
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy"
         ).exists()
     ):
-        print("Load data from saved_data , emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
+        print("Load data from saved_data: emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
         emax = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy")
         taup_rho_wf = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/taup_rho_wf.npy"
@@ -351,13 +351,13 @@ def mrks(self, frac_old, load_inv=True):
             v_vxc_e_taup,
         )
 
-    # if (
-    #     load_inv
-    #     and Path(
-    #         f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
-    #     ).exists()
-    # ):
-    if False:
+    # if False:
+    if (
+        load_inv
+        and Path(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
+        ).exists()
+    ):
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
         dm1_inv = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
@@ -708,6 +708,9 @@ def mrks(self, frac_old, load_inv=True):
 
 
 def mrks_append(self, frac_old, load_inv=True):
+    """
+    Append the data to the existing npz file.
+    """
     data = np.load(Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz")
 
     mdft = pyscf.scf.RKS(self.mol)
