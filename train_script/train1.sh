@@ -16,4 +16,4 @@ export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
-nohup sh -c '~/anaconda3/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 --eval_step 100 --batch_size 64 --epoch 100000 --hidden_size 64 --num_layer 4 --residual 5 --precision float32 --ene_weight 1.0 --with_eval True >log/train1.log' >log/train1.sbath &
+nohup sh -c '~/anaconda3/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 --eval_step 100 --batch_size 64 --epoch 100000 --hidden_size 64 --num_layer 4 --residual 3 --precision float32 --ene_weight 1.0 --with_eval True >log/train1.log' >log/train1.sbath &
