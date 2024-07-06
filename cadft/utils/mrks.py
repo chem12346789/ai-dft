@@ -482,6 +482,7 @@ def mrks(self, frac_old, load_inv=True):
                     f"error of vxc: {error_vxc::<10.5e}",
                     f"dm: {error_dm1::<10.5e}",
                     f"shift: {potential_shift::<10.5e}",
+                    flush=True,
                 )
             if (i > 0) and (error_vxc < 1e-8):
                 print(
@@ -489,6 +490,7 @@ def mrks(self, frac_old, load_inv=True):
                     f"error of vxc: {error_vxc::<10.5e}",
                     f"dm: {error_dm1::<10.5e}",
                     f"shift: {potential_shift::<10.5e}",
+                    flush=True,
                 )
                 break
 

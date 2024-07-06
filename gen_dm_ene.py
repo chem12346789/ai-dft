@@ -52,11 +52,11 @@ for (
     )
 
     if abs(distance) >= 0.5:
-        FACTOR = 0.85
+        FACTOR = 0.9
     elif abs(distance) >= 0.3:
-        FACTOR = 0.8
+        FACTOR = 0.85
     else:
-        FACTOR = 0.75
+        FACTOR = 0.8
     dft2cc.mrks(FACTOR, args.load_inv)
     # dft2cc.mrks_append(FACTOR, args.load_inv)
 
