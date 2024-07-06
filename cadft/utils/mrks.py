@@ -63,12 +63,12 @@ def mrks(self, frac_old, load_inv=True):
     ao_1 = ao_value[1:4, :, :]
     ao_2_diag = ao_value[4, :, :] + ao_value[7, :, :] + ao_value[9, :, :]
 
-    # 8 GB memory for int1egrids
-    n_slice_grids = torch.cuda.mem_get_info()[0] // 8 // 8 // self.mol.nao**2
-    print(
-        f"n_slice_grids: {n_slice_grids}, will consume about {n_slice_grids * self.mol.nao**2 * 8 / 1024**3:.2f} GB memory."
-    )
+    # 25% total memory for int1egrids
+    n_slice_grids = torch.cuda.mem_get_info()[0] // 4 // 8 // self.mol.nao**2
     n_batchs_grids = len(coords) // n_slice_grids + 1
+    print(
+        f"n_batchs_grids: {n_batchs_grids}. n_slice_grids: {n_slice_grids}, will consume about {n_slice_grids * self.mol.nao**2 * 8 / 1024**3:.2f} GB memory."
+    )
 
     oe_taup_rho = oe.contract_expression(
         "pm,m,n,kpn->pk",
@@ -328,33 +328,10 @@ def mrks(self, frac_old, load_inv=True):
             backend="torch",
         )
 
-        # e_bar_r_wf = tau_rho_wf / rho_cc_half + exc_over_rho_grids * 2
-        # for i_batch_grids in range(n_batchs_grids):
-        #     ngrids_slice_i = (
-        #         n_slice_grids
-        #         if i_batch_grids != n_slice_grids - 1
-        #         else len(coords) - n_slice_grids * i_batch_grids
-        #     )
-        #     i_slice_grids = slice(
-        #         n_slice_grids * i_batch_grids,
-        #         n_slice_grids * i_batch_grids + ngrids_slice_i,
-        #     )
-        #     int1e_grids = self.mol.intor("int1e_grids", grids=coords[i_slice_grids])
-        #     e_bar_r_wf[i_slice_grids] -= np.einsum("pij,ij->p", int1e_grids, dm1_cc)
-        # for i, coord in enumerate(tqdm(coords)):
-        #     for i_atom in range(self.mol.natm):
-        #         distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
-        #         if distance > 1e-2:
-        #             e_bar_r_wf[i] += self.mol.atom_charges()[i_atom] / distance
-        #         else:
-        #             e_bar_r_wf[i] += self.mol.atom_charges()[i_atom] / (
-        #                 (distance + 5e-2) / 6
-        #             )
-
         emax = np.max(e_bar_r_wf)
         v_vxc_e_taup = exc_over_rho_grids * 2 + taup_rho_wf / rho_cc_half - e_bar_r_wf
 
-        # print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
+        print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
 
         np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy", emax)
         np.save(
@@ -462,9 +439,19 @@ def mrks(self, frac_old, load_inv=True):
                     n_slice_grids * i_batch_grids + ngrids_slice_i,
                 )
                 int1e_grids = self.mol.intor("int1e_grids", grids=coords[i_slice_grids])
-                vxc_inv[i_slice_grids] -= np.einsum(
-                    "pij,ij->p", int1e_grids, dm1_cc
-                ) - np.einsum("pij,ij->p", int1e_grids, dm1_inv * 2)
+                exp_int1e_grids = oe.contract_expression(
+                    "pij,ij->p",
+                    int1e_grids,
+                    (norb, norb),
+                    constants=[0],
+                    optimize="optimal",
+                )
+                vxc_inv[i_slice_grids] -= exp_int1e_grids(
+                    dm1_cc - dm1_inv * 2, backend="torch"
+                )
+                del exp_int1e_grids, int1e_grids
+                gc.collect()
+                torch.cuda.empty_cache()
 
             error_vxc = np.linalg.norm((vxc_inv - vxc_inv_old) * weights)
             # diis.add(vxc_inv - vxc_inv_old, vxc_inv)
@@ -489,7 +476,7 @@ def mrks(self, frac_old, load_inv=True):
             dm1_inv = mo_inv[:, :nocc] @ mo_inv[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_inv - dm1_inv_old)
 
-            if i % 100 == 0:
+            if i % 1 == 0:
                 print(
                     f"step:{i:<8}",
                     f"error of vxc: {error_vxc::<10.5e}",
