@@ -200,5 +200,5 @@ class DataBase:
         }
 
         print(
-            f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, mean middle: {np.mean(middle_mat):7.4f}, max middle: {np.max(np.abs(middle_mat)):7.4f}, mean output: {np.mean(output_mat):7.4f}, max output: {np.max(np.abs(output_mat)):7.4f}."
+            f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, max input: {np.max(input_mat):7.4f}, var input: {np.var(input_mat):7.4f}, mean middle: {np.mean(middle_mat):7.4f}, max middle: {np.max(np.abs(middle_mat)):7.4f}, var middle: {np.var(middle_mat):7.4f}, mean output: {np.mean(output_mat):7.4f}, max output: {np.max(np.abs(output_mat)):7.4f} var output: {np.var(output_mat):7.4f}"
         )

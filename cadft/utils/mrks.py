@@ -65,6 +65,9 @@ def mrks(self, frac_old, load_inv=True):
 
     # 8 GB memory for int1egrids
     n_slice_grids = torch.cuda.mem_get_info()[0] // 8 // 8 // self.mol.nao**2
+    print(
+        f"n_slice_grids: {n_slice_grids}, will consume about {n_slice_grids * self.mol.nao**2 * 8 / 1024**3:.2f} GB memory."
+    )
     n_batchs_grids = len(coords) // n_slice_grids + 1
 
     oe_taup_rho = oe.contract_expression(
@@ -301,12 +304,9 @@ def mrks(self, frac_old, load_inv=True):
         )
         e_bar_r_wf = expr_e_bar_r_wf(eig_e, backend="torch") / rho_cc_half
 
-        del expr_e_bar_r_wf
+        del expr_e_bar_r_wf, dm2_cc_mo, eri, eri_mo
         gc.collect()
         torch.cuda.empty_cache()
-
-        emax = np.max(e_bar_r_wf)
-        v_vxc_e_taup = -e_bar_r_wf
 
         eigs_e_dm1, eigs_v_dm1 = np.linalg.eigh(dm1_cc_mo)
         eigs_v_dm1 = mo @ eigs_v_dm1
@@ -328,11 +328,33 @@ def mrks(self, frac_old, load_inv=True):
             backend="torch",
         )
 
-        v_vxc_e_taup += exc_over_rho_grids * 2 + taup_rho_wf / rho_cc_half
+        # e_bar_r_wf = tau_rho_wf / rho_cc_half + exc_over_rho_grids * 2
+        # for i_batch_grids in range(n_batchs_grids):
+        #     ngrids_slice_i = (
+        #         n_slice_grids
+        #         if i_batch_grids != n_slice_grids - 1
+        #         else len(coords) - n_slice_grids * i_batch_grids
+        #     )
+        #     i_slice_grids = slice(
+        #         n_slice_grids * i_batch_grids,
+        #         n_slice_grids * i_batch_grids + ngrids_slice_i,
+        #     )
+        #     int1e_grids = self.mol.intor("int1e_grids", grids=coords[i_slice_grids])
+        #     e_bar_r_wf[i_slice_grids] -= np.einsum("pij,ij->p", int1e_grids, dm1_cc)
+        # for i, coord in enumerate(tqdm(coords)):
+        #     for i_atom in range(self.mol.natm):
+        #         distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
+        #         if distance > 1e-2:
+        #             e_bar_r_wf[i] += self.mol.atom_charges()[i_atom] / distance
+        #         else:
+        #             e_bar_r_wf[i] += self.mol.atom_charges()[i_atom] / (
+        #                 (distance + 5e-2) / 6
+        #             )
 
-        print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
-        del dm2_cc_mo
-        gc.collect()
+        emax = np.max(e_bar_r_wf)
+        v_vxc_e_taup = exc_over_rho_grids * 2 + taup_rho_wf / rho_cc_half - e_bar_r_wf
+
+        # print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
 
         np.save(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/emax.npy", emax)
         np.save(
@@ -404,7 +426,7 @@ def mrks(self, frac_old, load_inv=True):
             optimize="optimal",
         )
 
-        for i in range(12500):
+        for i in range(2500):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -441,8 +463,8 @@ def mrks(self, frac_old, load_inv=True):
                 )
                 int1e_grids = self.mol.intor("int1e_grids", grids=coords[i_slice_grids])
                 vxc_inv[i_slice_grids] -= np.einsum(
-                    "pij,ij->p", int1e_grids, dm1_cc / 2
-                ) - np.einsum("pij,ij->p", int1e_grids, dm1_inv)
+                    "pij,ij->p", int1e_grids, dm1_cc
+                ) - np.einsum("pij,ij->p", int1e_grids, dm1_inv * 2)
 
             error_vxc = np.linalg.norm((vxc_inv - vxc_inv_old) * weights)
             # diis.add(vxc_inv - vxc_inv_old, vxc_inv)
@@ -520,14 +542,6 @@ def mrks(self, frac_old, load_inv=True):
     exc_grids_fake = exc_grids.copy()
     exc_grids_fake1 = exc_grids.copy()
 
-    # expr_rinv_dm1_r = oe.contract_expression(
-    #     "ij,ij->",
-    #     dm1_cc,
-    #     (norb, norb),
-    #     constants=[0],
-    #     optimize="optimal",
-    # )
-
     for i_batch_grids in range(n_batchs_grids):
         ngrids_slice_i = (
             n_slice_grids
@@ -551,12 +565,6 @@ def mrks(self, frac_old, load_inv=True):
         )
 
     for i, coord in enumerate(tqdm(coords)):
-        # with self.mol.with_rinv_origin(coord):
-        #     rinv = self.mol.intor("int1e_rinv")
-        #     rinv_dm1_r = expr_rinv_dm1_r(rinv, backend="torch")
-        #     exc_grids_fake[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
-        #     exc_grids_fake1[i] += rinv_dm1_r * (rho_cc[0][i] - inv_r[i])
-
         for i_atom in range(self.mol.natm):
             distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
             if distance > 1e-3:
