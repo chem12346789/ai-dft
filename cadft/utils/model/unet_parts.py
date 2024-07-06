@@ -25,12 +25,12 @@ class DoubleConv(nn.Module):
                 nn.Conv2d(
                     in_channels, mid_channels, kernel_size=3, padding=1, bias=False
                 ),
-                nn.BatchNorm2d(mid_channels, affine=affine),
+                nn.BatchNorm2d(mid_channels, affine=affine, track_running_stats=False),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(
                     mid_channels, out_channels, kernel_size=3, padding=1, bias=False
                 ),
-                nn.BatchNorm2d(out_channels, affine=affine),
+                nn.BatchNorm2d(out_channels, affine=affine, track_running_stats=False),
                 nn.ReLU(inplace=True),
             )
         elif norm_layer == "InstanceNorm2d":
