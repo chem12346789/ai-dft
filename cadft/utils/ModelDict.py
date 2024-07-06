@@ -44,6 +44,7 @@ class ModelDict:
         output:
             model_dict: dictionary of models
         """
+        self.load = load
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.residual = residual
@@ -60,23 +61,13 @@ class ModelDict:
         self.model_dict["size"] = {}
         self.optimizer_dict = {}
         self.scheduler_dict = {}
-        if load != "":
-            self.dir_checkpoint = Path(
-                f"{MAIN_PATH}/checkpoints/checkpoint-ccdft_{load}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
-            ).resolve()
-            if self.dir_checkpoint.exists():
-                print(f"Load checkpoint directory: {self.dir_checkpoint}")
-            else:
-                print(f"Load checkpoint directory {self.dir_checkpoint} not found.")
-                raise FileNotFoundError
-        else:
-            self.dir_checkpoint = Path(
-                f"{MAIN_PATH}/checkpoints/checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
-            ).resolve()
-            if if_mkdir:
-                print(f"Create checkpoint directory: {self.dir_checkpoint}")
-                self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
-                (self.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
+        self.dir_checkpoint = Path(
+            f"{MAIN_PATH}/checkpoints/checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
+        ).resolve()
+        if if_mkdir:
+            print(f"Create checkpoint directory: {self.dir_checkpoint}")
+            self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
+            (self.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
         self.model_dict["1"] = Model(
             1, self.hidden_size, 1, self.residual, self.num_layers
@@ -131,16 +122,23 @@ class ModelDict:
         """
         Load the model from the checkpoint.
         """
-        print(f"Loading from {self.dir_checkpoint}")
-        for i_str in ["1", "2"]:
-            list_of_path = list(self.dir_checkpoint.glob(f"{i_str}-*.pth"))
-            if len(list_of_path) == 0:
-                print(f"No model found for {i_str}, use random initialization.")
-                continue
-            load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
-            state_dict = torch.load(load_path, map_location=self.device)
-            self.model_dict[i_str].load_state_dict(state_dict)
-            print(f"Model loaded from {load_path}")
+        if self.load != "":
+            load_checkpoint = Path(
+                f"{MAIN_PATH}/checkpoints/checkpoint-ccdft_{self.load}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
+            ).resolve()
+            if load_checkpoint.exists():
+                print(f"Loading from {load_checkpoint}")
+                for i_str in ["1", "2"]:
+                    list_of_path = list(load_checkpoint.glob(f"{i_str}-*.pth"))
+                    if len(list_of_path) == 0:
+                        print(f"No model found for {i_str}, use random initialization.")
+                        continue
+                    load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
+                    state_dict = torch.load(load_path, map_location=self.device)
+                    self.model_dict[i_str].load_state_dict(state_dict)
+                    print(f"Model loaded from {load_path}")
+            else:
+                print(f"Load checkpoint directory {load_checkpoint} not found.")
 
     def save_model(self, epoch):
         """

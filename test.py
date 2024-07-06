@@ -156,8 +156,8 @@ if __name__ == "__main__":
     )
     modeldict.load_model()
 
-    # for key in ["1", "2"]:
-    #     modeldict.model_dict[key].eval()
+    for key in ["1", "2"]:
+        modeldict.model_dict[key].eval()
 
     # 2. Test loop
     name_list = []
@@ -261,11 +261,11 @@ if __name__ == "__main__":
 
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
 
-            # inv_r_3 = pyscf.dft.numint.eval_rho(
-            #     dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
-            # )
-            # exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
-            # vxc_scf += exc_b3lyp
+            inv_r_3 = pyscf.dft.numint.eval_rho(
+                dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
+            )
+            exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
+            vxc_scf += exc_b3lyp
 
             vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights, backend="torch")
             vj_scf = dft2cc.mf.get_jk(dft2cc.mol, dm1_scf)[0]

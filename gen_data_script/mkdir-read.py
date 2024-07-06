@@ -31,7 +31,7 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "gen_data_template.bash"
 
-critical_time = arrow.now().shift(hours=-1)
+critical_time = arrow.now().shift(hours=-72)
 for item in Path(main_dir).glob("*"):
     if not item.is_file():
         ITEM_TIME = arrow.get(item.stat().st_mtime)
