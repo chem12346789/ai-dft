@@ -22,7 +22,7 @@ main_dir = Path(__file__).resolve().parents[0]
 template_bash = main_dir / "validate-template.bash"
 time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
 
-critical_time = arrow.now().shift(hours=-1)
+critical_time = arrow.now().shift(hours=-72)
 for item in Path(main_dir).glob("*"):
     if not item.is_file():
         ITEM_TIME = arrow.get(item.stat().st_mtime)
@@ -44,13 +44,9 @@ work_bash = work_dir / "validate-template.bash"
 for (checkpoint_hidden_size,) in itertools.product(
     [
         "checkpoint-ccdft_2024-06-26-00-16-07_64_4_0",
-        "checkpoint-ccdft_2024-06-25-16-15-04_64_4_0",
-        # "2024-07-04-01-11-14_64",
-        # "2024-07-04-01-15-57_64",
-        # "2024-07-04-01-30-54_64",
-        # "2024-07-04-01-30-50_32",
-        # "2024-07-04-01-15-51_32",
-        # "2024-07-04-01-11-10_32",
+        # "checkpoint-ccdft_2024-06-25-16-15-04_64_4_0",
+        # "checkpoint-ccdft_2024-07-06-18-38-57_64_4_0",
+        # "checkpoint-ccdft_2024-07-06-18-39-03_64_4_0",
     ],
 ):
     (_, checkpoint, hidden_size, num_layers, residual) = checkpoint_hidden_size.split(

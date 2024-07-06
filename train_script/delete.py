@@ -5,7 +5,7 @@ import arrow
 
 main_dir = Path(__file__).resolve().parents[0]
 
-critical_time = arrow.now().shift(hours=-1)
+critical_time = arrow.now().shift(hours=-72)
 for item in Path(main_dir.parents[0] / "log").glob("*"):
     if item.is_file():
         ITEM_TIME = arrow.get(item.stat().st_mtime)

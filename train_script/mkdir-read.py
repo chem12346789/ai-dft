@@ -22,7 +22,7 @@ main_dir = Path(__file__).resolve().parents[0]
 template_bash = main_dir / "train-template.bash"
 time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
 
-critical_time = arrow.now().shift(hours=-1)
+critical_time = arrow.now().shift(hours=-72)
 for item in Path(main_dir).glob("*"):
     if not item.is_file():
         ITEM_TIME = arrow.get(item.stat().st_mtime)
@@ -49,12 +49,12 @@ for (
     residual,
     ene_weight,
 ) in itertools.product(
-    [32, 64],
+    [64],
     [100],
     [64],
     [4],
-    [0, 5],
-    [1],
+    [0],
+    [0, 1.0],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""

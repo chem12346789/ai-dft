@@ -156,8 +156,8 @@ if __name__ == "__main__":
     )
     modeldict.load_model()
 
-    # for key in ["1", "2"]:
-    #     modeldict.model_dict[key].eval()
+    for key in ["1", "2"]:
+        modeldict.model_dict[key].eval()
 
     # 2. Test loop
     name_list = []
