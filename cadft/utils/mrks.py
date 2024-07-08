@@ -347,13 +347,13 @@ def mrks(self, frac_old, load_inv=True):
             v_vxc_e_taup,
         )
 
-    # if (
-    #     load_inv
-    #     and Path(
-    #         f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
-    #     ).exists()
-    # ):
-    if False:
+    # if False:
+    if (
+        load_inv
+        and Path(
+            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
+        ).exists()
+    ):
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
         dm1_inv = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
@@ -577,7 +577,7 @@ def mrks(self, frac_old, load_inv=True):
                 exc_grids_fake1[i] -= (
                     (rho_cc[0][i] - inv_r[i])
                     * self.mol.atom_charges()[i_atom]
-                    / ((distance + 5e-2) / 6)
+                    / 1e-2
                 )
 
     exc_over_rho_grids_fake = exc_grids_fake / inv_r
