@@ -97,6 +97,7 @@ class CC_DFT_DATA:
         self.mf = pyscf.scf.RHF(self.mol)
         self.mf.kernel()
 
+        # if False:
         if Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz").exists():
             print(f"Load data from {MAIN_PATH}/data/test/data_{self.name}.npz")
             data_saved = np.load(f"{MAIN_PATH}/data/test/data_{self.name}.npz")

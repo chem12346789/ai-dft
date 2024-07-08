@@ -18,4 +18,4 @@ export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
 ## user's own commands below
-~/anaconda3/bin/python test.py -dl -0.45 0.45 10 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 --load 2024-07-05-16-20-29 --name_mol methane  --hidden_size 64 --residual 0 --num_layer 4 --precision float32 >log/test0.out
+~/anaconda3/bin/python test.py -dl -0.5 0.5 11 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 --load 2024-07-07-20-09-53 --name_mol methane ethane ethylene acetylene propyne --hidden_size 64 --residual 0 --num_layer 4 --precision float32 >log/test0.out
