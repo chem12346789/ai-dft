@@ -54,7 +54,7 @@ for (
     [64],
     [4],
     [0],
-    [0, 1.0],
+    [0.25],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""

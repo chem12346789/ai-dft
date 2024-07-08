@@ -229,14 +229,14 @@ if __name__ == "__main__":
             optimize="optimal",
         )
 
-        def hybrid(new, old, frac_old_=0.85):
+        def hybrid(new, old, frac_old_=0.925):
             """
             Generate the hybrid density matrix.
             """
             return new * (1 - frac_old_) + old * frac_old_
 
         if modeldict.dtype == torch.float32:
-            max_error_scf = 1e-4
+            max_error_scf = 1e-5
         else:
             max_error_scf = 1e-8
 
@@ -283,7 +283,7 @@ if __name__ == "__main__":
             dm1_scf_old = dm1_scf.copy()
             dm1_scf = 2 * mo_scf[:, :nocc] @ mo_scf[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_scf - dm1_scf_old)
-            dm1_scf = hybrid(dm1_scf, dm1_scf_old)
+            # dm1_scf = hybrid(dm1_scf, dm1_scf_old)
 
             if i % 10 == 0:
                 print(
@@ -397,7 +397,6 @@ if __name__ == "__main__":
         dipole_z_diff_dft_l.append(dipole_z_dft - dipole_z)
 
         # 2.3 check the difference of energy (total)
-
         input_mat = dft2cc.grids.vector_to_matrix(
             pyscf.dft.numint.eval_rho(
                 dft2cc.mol,
@@ -412,7 +411,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
         output_mat = output_mat.squeeze(1)
-        # output_mat = data_real["exc_tr_b3lyp"]
+        # output_mat = data_real["exc1_tr_b3lyp"]
 
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
             scf_rho_r * dft2cc.grids.weights
@@ -471,7 +470,7 @@ if __name__ == "__main__":
             )
 
             output_mat_exc_real = data_real[
-                "exc_tr_b3lyp"
+                "exc1_tr_b3lyp"
             ] * dft2cc.grids.vector_to_matrix(inv_r_3_inv[0] * dft2cc.grids.weights)
             print(
                 f"error_exc: {(AU2KCALMOL * np.sum(output_mat_exc - output_mat_exc_real)):.2e}",
