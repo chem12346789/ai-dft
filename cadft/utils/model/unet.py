@@ -1,7 +1,40 @@
 import segmentation_models_pytorch as smp
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .unet_parts import DoubleConv, Down, Up, OutConv
+
+from cadft.utils.model.unet_parts import DoubleConv, Down, Up, OutConv
+
+
+def bn_no_track(module):
+    """
+    Set BatchNorm layers to not track running statistics
+    """
+    module_output = module
+    if isinstance(module, nn.modules.batchnorm._BatchNorm):
+        module_output = nn.BatchNorm2d(
+            module.num_features,
+            module.eps,
+            module.momentum,
+            module.affine,
+            track_running_stats=False,
+        )
+        if module.affine:
+            with torch.no_grad():
+                module_output.weight = module.weight
+                module_output.bias = module.bias
+        module_output.running_mean = None
+        module_output.running_var = None
+        module_output.num_batches_tracked = None
+        if hasattr(module, "qconfig"):
+            module_output.qconfig = module.qconfig
+
+    for name, child in module.named_children():
+        module_output.add_module(name, bn_no_track(child))
+
+    del module
+    return module_output
 
 
 class UNet(nn.Module):
@@ -67,22 +100,22 @@ class UNet(nn.Module):
 
             if self.residual == 5:
                 self.model = smp.UnetPlusPlus(
-                    encoder_name="mobilenet_v2",
+                    encoder_name="resnet18",
                     encoder_depth=num_layers,
                     decoder_channels=decoder_channels,
                     in_channels=1,
                     classes=1,
-                    # decoder_use_batchnorm=False,
                 )
+                self.model = bn_no_track(self.model)
             if self.residual == 6:
                 self.model = smp.UnetPlusPlus(
-                    encoder_name="efficientnet-b0",
+                    encoder_name="timm-mobilenetv3_small_100",
                     encoder_depth=num_layers,
                     decoder_channels=decoder_channels,
                     in_channels=1,
                     classes=1,
-                    # decoder_use_batchnorm=False,
                 )
+                self.model = bn_no_track(self.model)
 
     def forward(self, x):
         """

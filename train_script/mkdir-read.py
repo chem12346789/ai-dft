@@ -42,19 +42,19 @@ work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
 for (
-    hidden_size,
-    eval_step,
     batch_size,
+    eval_step,
+    hidden_size,
     num_layer,
     residual,
     ene_weight,
 ) in itertools.product(
     [64],
-    [100],
+    [25],
     [64],
     [4],
-    [0],
-    [0.25],
+    [5],
+    [1.0],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""

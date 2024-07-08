@@ -80,6 +80,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             "precision": args.precision,
             "basis": args.basis,
             "with_eval": args.with_eval,
+            "load": args.load,
             "jobid": os.environ.get("SLURM_JOB_ID"),
             "checkpoint": modeldict.dir_checkpoint.stem,
         }

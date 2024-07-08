@@ -4,7 +4,7 @@
 #SBATCH -p gpu
 #SBATCH -J validate-CHECKPOINT-HIDDEN_SIZE
 #SBATCH -o log/CHECKPOINT.log
-#SBATCH --exclude=gpu[001,002,004-007]
+#SBATCH --exclude=gpu[002-007]
 
 ## set environment variables
 export OMP_NUM_THREADS=12
