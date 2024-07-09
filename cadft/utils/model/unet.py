@@ -103,8 +103,8 @@ class UNet(nn.Module):
                     encoder_name="resnet18",
                     encoder_depth=num_layers,
                     decoder_channels=decoder_channels,
-                    in_channels=1,
-                    classes=1,
+                    in_channels=self.in_channels,
+                    classes=self.classes,
                 )
                 self.model = bn_no_track(self.model)
             if self.residual == 6:
@@ -112,8 +112,8 @@ class UNet(nn.Module):
                     encoder_name="timm-mobilenetv3_small_100",
                     encoder_depth=num_layers,
                     decoder_channels=decoder_channels,
-                    in_channels=1,
-                    classes=1,
+                    in_channels=self.in_channels,
+                    classes=self.classes,
                 )
                 self.model = bn_no_track(self.model)
 

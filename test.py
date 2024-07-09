@@ -147,7 +147,9 @@ if __name__ == "__main__":
     # 1. Init the model
     modeldict = ModelDict(
         args.load,
+        args.input_size,
         args.hidden_size,
+        args.output_size,
         args.num_layers,
         args.residual,
         device,

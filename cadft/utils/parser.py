@@ -115,10 +115,24 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--input_size",
+        type=int,
+        default=100,
+        help="Number of input size for training. Default is 100.",
+    )
+
+    parser.add_argument(
         "--hidden_size",
         type=int,
         default=100,
         help="Number of hidden size for training. Default is 100.",
+    )
+
+    parser.add_argument(
+        "--output_size",
+        type=int,
+        default=100,
+        help="Number of output size for training. Default is 100.",
     )
 
     parser.add_argument(
@@ -153,7 +167,7 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--with_eval",
         type=str2bool,
-        default=True,       
+        default=True,
         help="Weather to use the reduce on plateau for the learning rate. Default is True. This will use the data from the eval set.",
     )
 

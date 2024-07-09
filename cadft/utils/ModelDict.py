@@ -23,7 +23,9 @@ class ModelDict:
     def __init__(
         self,
         load,
+        input_size,
         hidden_size,
+        output_size,
         num_layers,
         residual,
         device,
@@ -45,7 +47,9 @@ class ModelDict:
             model_dict: dictionary of models
         """
         self.load = load
+        self.input_size = input_size
         self.hidden_size = hidden_size
+        self.output_size = output_size
         self.num_layers = num_layers
         self.residual = residual
         self.ene_weight = ene_weight
@@ -70,10 +74,18 @@ class ModelDict:
             (self.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
         self.model_dict["1"] = Model(
-            1, self.hidden_size, 1, self.residual, self.num_layers
+            self.input_size,
+            self.hidden_size,
+            self.output_size,
+            self.residual,
+            self.num_layers,
         ).to(device)
         self.model_dict["2"] = Model(
-            1, self.hidden_size, 1, self.residual, self.num_layers
+            self.input_size,
+            self.hidden_size,
+            self.output_size,
+            self.residual,
+            self.num_layers,
         ).to(device)
 
         if precision == "float64":
@@ -82,11 +94,11 @@ class ModelDict:
 
         self.optimizer_dict["1"] = optim.Adam(
             self.model_dict["1"].parameters(),
-            lr=1e-4,
+            lr=1e-6,
         )
         self.optimizer_dict["2"] = optim.Adam(
             self.model_dict["2"].parameters(),
-            lr=1e-4,
+            lr=1e-6,
         )
 
         self.keys = ["1", "2"]

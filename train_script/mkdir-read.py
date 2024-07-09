@@ -41,6 +41,9 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
+input_size, output_size = 1, 1
+# input_size, output_size = 302, 302
+
 for (
     batch_size,
     eval_step,
@@ -57,12 +60,14 @@ for (
     [5],
     [0],
     [
-        # "False",
-        "True",
+        "False",
+        # "True",
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/INPUT_SIZE/{input_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/OUTPUT_SIZE/{output_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/EVAL_STEP/{eval_step}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BATCH_SIZE/{batch_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/NUM_LAYER/{num_layer}/g" {work_bash}"""

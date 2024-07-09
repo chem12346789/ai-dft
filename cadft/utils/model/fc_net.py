@@ -22,6 +22,12 @@ class FCNet(nn.Module):
                 for input_size, output_size in zip(sizes, sizes[1:])
             ]
         )
+        self.normal = nn.ModuleList(
+            [
+                nn.BatchNorm1d(num_features=output_size, track_running_stats=False)
+                for input_size, output_size in zip(sizes, sizes[1:])
+            ]
+        )
         self.actv_fn = nn.ReLU()
 
     def forward(self, x):
@@ -34,6 +40,7 @@ class FCNet(nn.Module):
         for i, layer in enumerate(self.layers):
             tmp = layer(x)
             if i < len(self.layers) - 1:
+                tmp = self.normal[i](x)
                 tmp = self.actv_fn(tmp)
             if layer.in_features == layer.out_features:
                 if self.residual == 2:

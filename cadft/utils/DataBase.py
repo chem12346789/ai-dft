@@ -184,6 +184,14 @@ class DataBase:
             weight_[key_] = weight[i_atom, :, :][np.newaxis, :, :]
             output_[key_] = output_mat[i_atom, :, :][np.newaxis, :, :]
 
+        # for i_atom in range(input_mat.shape[0]):
+        #     for i_col in range(input_mat.shape[1]):
+        #         key_ = f"{i_atom}-{i_col}"
+        #         input_[key_] = input_mat[i_atom, i_col, :]
+        #         middle_[key_] = middle_mat[i_atom, i_col, :]
+        #         weight_[key_] = weight[i_atom, i_col, :]
+        #         output_[key_] = output_mat[i_atom, i_col, :]
+
         self.data_gpu[name] = BasicDataset(
             input_,
             middle_,
@@ -200,5 +208,13 @@ class DataBase:
         }
 
         print(
-            f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, max input: {np.max(input_mat):7.4f}, var input: {np.var(input_mat):7.4f}, mean middle: {np.mean(middle_mat):7.4f}, max middle: {np.max(np.abs(middle_mat)):7.4f}, var middle: {np.var(middle_mat):7.4f}, mean output: {np.mean(output_mat):7.4f}, max output: {np.max(np.abs(output_mat)):7.4f} var output: {np.var(output_mat):7.4f}"
+            f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, "
+            f"max input: {np.max(input_mat):7.4f}, "
+            f"var input: {np.var(input_mat):7.4f}, "
+            f"mean middle: {np.mean(middle_mat):7.4f}, "
+            f"max middle: {np.max(np.abs(middle_mat)):7.4f}, "
+            f"var middle: {np.var(middle_mat):7.4f}, "
+            f"mean output: {np.mean(output_mat):7.4f}, "
+            f"max output: {np.max(np.abs(output_mat)):7.4f} "
+            f"var output: {np.var(output_mat):7.4f}"
         )

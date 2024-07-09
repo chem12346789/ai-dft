@@ -37,7 +37,9 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     modeldict = ModelDict(
         args.load,
+        args.input_size,
         args.hidden_size,
+        args.output_size,
         args.num_layers,
         args.residual,
         device,
