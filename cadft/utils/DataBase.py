@@ -169,7 +169,7 @@ class DataBase:
         weight = data["weights"]
         input_mat = data["rho_inv"]
         middle_mat = data["vxc_b3lyp"]
-        output_mat = data["exc_tr_b3lyp"]
+        output_mat = data["exc1_tr_b3lyp"]
 
         self.shape[name] = input_mat.shape
         input_ = {}

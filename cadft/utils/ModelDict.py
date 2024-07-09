@@ -94,11 +94,11 @@ class ModelDict:
 
         self.optimizer_dict["1"] = optim.Adam(
             self.model_dict["1"].parameters(),
-            lr=1e-6,
+            lr=1e-4,
         )
         self.optimizer_dict["2"] = optim.Adam(
             self.model_dict["2"].parameters(),
-            lr=1e-6,
+            lr=1e-4,
         )
 
         self.keys = ["1", "2"]
@@ -126,16 +126,13 @@ class ModelDict:
                 gamma=0.9999,
             )
 
-        self.loss_fn1 = torch.nn.MSELoss()
-        self.loss_fn2 = torch.nn.MSELoss()
-        self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
+        # self.loss_fn1 = torch.nn.MSELoss()
+        # self.loss_fn2 = torch.nn.MSELoss()
 
-        # self.loss_fn1 = torch.nn.L1Loss()
-        # self.loss_fn2 = torch.nn.L1Loss()
-        # self.loss_fn3 = torch.nn.L1Loss()
+        self.loss_fn1 = torch.nn.L1Loss()
+        self.loss_fn2 = torch.nn.L1Loss()
 
-        # self.loss_fn1 = torch.nn.L1Loss(reduction="sum")
-        # self.loss_fn2 = torch.nn.L1Loss(reduction="sum")
+        self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
 
     def load_model(self):
         """
@@ -213,7 +210,7 @@ class ModelDict:
         """
         Train the model, one epoch.
         """
-        train_loss_1, train_loss_2 = [], []
+        train_loss_1, train_loss_2, train_loss_3 = [], [], []
         database_train.rng.shuffle(database_train.name_list)
         self.train()
 
@@ -234,17 +231,18 @@ class ModelDict:
                 loss_2 += loss_2_i
                 loss_3 += loss_3_i
 
-            loss_2 += loss_3 * self.ene_weight
             train_loss_1.append(loss_1.item())
-            train_loss_2.append(loss_3.item())
+            train_loss_2.append(loss_2.item())
+            train_loss_3.append(loss_3.item())
 
+            loss_2 += loss_3 * self.ene_weight
             loss_1.backward()
             loss_2.backward()
 
             self.optimizer_dict["1"].step()
             self.optimizer_dict["2"].step()
 
-        return train_loss_1, train_loss_2
+        return train_loss_1, train_loss_2, train_loss_3
 
     def eval_model(self, database_eval):
         """
@@ -252,7 +250,7 @@ class ModelDict:
         """
         self.eval()
 
-        eval_loss_1, eval_loss_2 = [], []
+        eval_loss_1, eval_loss_2, eval_loss_3 = [], [], []
 
         for name in database_eval.name_list:
             (
@@ -272,8 +270,7 @@ class ModelDict:
                     loss_2 += loss_2_i
                     loss_3 += loss_3_i
 
-            loss_2 += loss_3 * self.ene_weight
             eval_loss_1.append(loss_1.item())
-            eval_loss_2.append(loss_3.item())
-
-        return eval_loss_1, eval_loss_2
+            eval_loss_2.append(loss_2.item())
+            eval_loss_3.append(loss_3.item())
+        return eval_loss_1, eval_loss_2, eval_loss_3

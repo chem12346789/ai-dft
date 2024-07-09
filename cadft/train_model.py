@@ -90,7 +90,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
 
     pbar = trange(args.epoch + 1)
     for epoch in pbar:
-        train_loss_1, train_loss_2 = modeldict.train_model(database_train)
+        train_loss_1, train_loss_2, train_loss_3 = modeldict.train_model(database_train)
         if not isinstance(
             modeldict.scheduler_dict["1"],
             torch.optim.lr_scheduler.ReduceLROnPlateau,
@@ -103,7 +103,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             modeldict.scheduler_dict["2"].step()
 
         if epoch % args.eval_step == 0:
-            eval_loss_1, eval_loss_2 = modeldict.eval_model(database_eval)
+            eval_loss_1, eval_loss_2, eval_loss_3 = modeldict.eval_model(database_eval)
             if isinstance(
                 modeldict.scheduler_dict["1"],
                 torch.optim.lr_scheduler.ReduceLROnPlateau,
@@ -121,8 +121,10 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                     "global_step": epoch,
                     "mean train1 loss": np.mean(train_loss_1),
                     "mean train2 loss": np.mean(train_loss_2),
+                    "mean train3 loss": np.mean(train_loss_3),
                     "mean eval1 loss": np.mean(eval_loss_1),
                     "mean eval2 loss": np.mean(eval_loss_2),
+                    "mean eval3 loss": np.mean(eval_loss_3),
                     "lr1": modeldict.optimizer_dict["1"].param_groups[0]["lr"],
                     "lr2": modeldict.optimizer_dict["2"].param_groups[0]["lr"],
                 }
@@ -141,12 +143,14 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}.csv",
                 train_loss_1,
                 train_loss_2,
+                train_loss_3,
             )
             save_csv_loss(
                 database_eval.name_list,
                 modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}.csv",
                 eval_loss_1,
                 eval_loss_2,
+                eval_loss_3,
             )
             modeldict.save_model(epoch)
     pbar.close()

@@ -54,14 +54,14 @@ for (
     with_eval,
 ) in itertools.product(
     [64],
-    [5],
+    [100],
     [16],
     [3],
     [5],
-    [0],
+    [0, 1],
     [
-        "False",
-        # "True",
+        # "False",
+        "True",
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
