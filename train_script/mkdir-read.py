@@ -42,19 +42,24 @@ work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
 for (
-    hidden_size,
-    eval_step,
     batch_size,
+    eval_step,
+    hidden_size,
     num_layer,
     residual,
     ene_weight,
+    with_eval,
 ) in itertools.product(
     [64],
-    [100],
-    [64],
+    [5],
+    [32],
     [4],
     [0],
-    [0.25],
+    [0],
+    [
+        # "False",
+        "True",
+    ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
@@ -63,6 +68,7 @@ for (
     cmd += "&&" + f"""sed -i "s/NUM_LAYER/{num_layer}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/RESIDUAL/{residual}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/ENE_WEIGHT/{ene_weight}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/WITH_EVAL/{with_eval}/g" {work_bash}"""
     cmd += (
         "&&"
         + f"""mv {work_bash} {work_dir / f"train_{hidden_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}.bash"}"""

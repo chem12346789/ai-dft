@@ -347,13 +347,13 @@ def mrks(self, frac_old, load_inv=True):
             v_vxc_e_taup,
         )
 
-    # if False:
-    if (
-        load_inv
-        and Path(
-            f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
-        ).exists()
-    ):
+    # if (
+    #     load_inv
+    #     and Path(
+    #         f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
+    #     ).exists()
+    # ):
+    if False:
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
         dm1_inv = np.load(
             f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy"
