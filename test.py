@@ -411,7 +411,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
         output_mat = output_mat.squeeze(1)
-        # output_mat = data_real["exc1_tr_b3lyp"]
+        # output_mat = data_real["exc_tr_b3lyp"]
 
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
             scf_rho_r * dft2cc.grids.weights
@@ -448,7 +448,6 @@ if __name__ == "__main__":
                 oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
                 - oe.contract("ij,ji->", dft2cc.h1e, dm_inv)
             )
-
             vj_inv = dft2cc.mf.get_jk(dft2cc.mol, dm_inv)[0]
             error_scf_inv_vj = AU2KCALMOL * (
                 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
@@ -470,7 +469,7 @@ if __name__ == "__main__":
             )
 
             output_mat_exc_real = data_real[
-                "exc1_tr_b3lyp"
+                "exc_tr_b3lyp"
             ] * dft2cc.grids.vector_to_matrix(inv_r_3_inv[0] * dft2cc.grids.weights)
             print(
                 f"error_exc: {(AU2KCALMOL * np.sum(output_mat_exc - output_mat_exc_real)):.2e}",
