@@ -29,7 +29,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
     experiment = wandb.init(
         project="DFT2CC",
         resume="allow",
-        name=f"ccdft-{args.hidden_size}-{args.num_layers}-{args.residual}",
+        name=f"ccdft_{args.hidden_size}_{args.num_layers}_{args.residual}",
         dir="/home/chenzihao/workdir/tmp",
     )
     wandb.define_metric("*", step_metric="global_step")
