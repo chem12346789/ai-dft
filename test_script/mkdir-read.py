@@ -45,13 +45,10 @@ for (checkpoint_hidden_size,) in itertools.product(
     [
         # "checkpoint-ccdft_2024-06-26-00-16-07_64_4_0",
         # "checkpoint-ccdft_2024-06-25-16-15-04_64_4_0",
-        # "checkpoint-ccdft_2024-07-06-18-38-57_64_4_0",
-        # "checkpoint-ccdft_2024-07-06-18-39-03_64_4_0",
-        # "checkpoint-ccdft_2024-07-08-02-23-27_64_4_0",
-        # "checkpoint-ccdft_2024-07-08-01-31-54_64_4_0",
-        # "checkpoint-ccdft_2024-07-08-10-44-25_64_4_0",
-        # "checkpoint-ccdft_2024-07-08-14-05-58_64_4_0",
-        "checkpoint-ccdft_2024-07-08-17-30-14_64_4_0",
+        # "checkpoint-ccdft_2024-07-09-21-49-30_64_4_0",
+        # "checkpoint-ccdft_2024-07-09-21-49-32_64_4_0",
+        "checkpoint-ccdft_2024-07-10-13-22-50_64_4_0",
+        "checkpoint-ccdft_2024-07-10-13-22-52_64_4_0",
     ],
 ):
     (_, checkpoint, hidden_size, num_layers, residual) = checkpoint_hidden_size.split(
@@ -69,9 +66,9 @@ for (checkpoint_hidden_size,) in itertools.product(
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
 
-for child in (work_dir).glob("*.bash"):
-    if child.is_file():
-        cmd = f"""sbatch < {child}"""
-        with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
-            subprocess.call(cmd, shell=True, stdout=f)
-        time.sleep(1)
+# for child in (work_dir).glob("*.bash"):
+#     if child.is_file():
+#         cmd = f"""sbatch < {child}"""
+#         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
+#             subprocess.call(cmd, shell=True, stdout=f)
+#         time.sleep(1)

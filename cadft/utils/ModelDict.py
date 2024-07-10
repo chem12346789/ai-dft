@@ -126,13 +126,13 @@ class ModelDict:
                 gamma=0.9999,
             )
 
-        # self.loss_fn1 = torch.nn.MSELoss()
-        # self.loss_fn2 = torch.nn.MSELoss()
+        self.loss_fn1 = torch.nn.MSELoss()
+        self.loss_fn2 = torch.nn.MSELoss()
+        self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
 
-        self.loss_fn1 = torch.nn.L1Loss()
-        self.loss_fn2 = torch.nn.L1Loss()
-
-        self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
+        # self.loss_fn1 = torch.nn.L1Loss()
+        # self.loss_fn2 = torch.nn.L1Loss()
+        # self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
 
     def load_model(self):
         """

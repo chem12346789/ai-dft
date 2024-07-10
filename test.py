@@ -512,7 +512,7 @@ if __name__ == "__main__":
     )
     df.to_csv(
         Path(
-            f"{MAIN_PATH}/validate/ccdft-{args.load}-{args.hidden_size}-{args.num_layers}-{args.residual}"
+            f"{MAIN_PATH}/validate/ccdft_{args.load}_{args.hidden_size}_{args.num_layers}_{args.residual}"
         ),
         index=False,
     )

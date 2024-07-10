@@ -16,7 +16,7 @@ export PYSCF_TMPDIR=~/workdir-save/tmp
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
-~/anaconda3/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 --eval_step EVAL_STEP --batch_size BATCH_SIZE --epoch 10000 --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --with_eval WITH_EVAL
+~/anaconda3/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVDZ --extend_atom 0 2 --extend_xyz 0 --eval_step EVAL_STEP --load 2024-07-08-17-30-14 --batch_size BATCH_SIZE --epoch 10000 --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --with_eval WITH_EVAL
 
 # ~/anaconda3/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 --eval_step EVAL_STEP --load 2024-07-08-19-49-14 --batch_size BATCH_SIZE --epoch 2500 --hidden_size HIDDEN_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --with_eval True
 
