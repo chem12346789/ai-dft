@@ -47,8 +47,8 @@ for (checkpoint_hidden_size,) in itertools.product(
         # "checkpoint-ccdft_2024-06-25-16-15-04_64_4_0",
         # "checkpoint-ccdft_2024-07-09-21-49-30_64_4_0",
         # "checkpoint-ccdft_2024-07-09-21-49-32_64_4_0",
-        "checkpoint-ccdft_2024-07-10-13-22-50_64_4_0",
-        "checkpoint-ccdft_2024-07-10-13-22-52_64_4_0",
+        "checkpoint-ccdft_2024-07-10-21-14-00_64_4_0",
+        "checkpoint-ccdft_2024-07-10-21-14-31_64_4_0",
     ],
 ):
     (_, checkpoint, hidden_size, num_layers, residual) = checkpoint_hidden_size.split(

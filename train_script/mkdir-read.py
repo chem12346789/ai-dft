@@ -81,11 +81,11 @@ for (
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
 
-for child in (work_dir).glob("*.bash"):
-    if child.is_file():
-        cmd = f"""sbatch < {child}"""
-        with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
-            subprocess.call(cmd, shell=True, stdout=f)
+# for child in (work_dir).glob("*.bash"):
+#     if child.is_file():
+#         cmd = f"""sbatch < {child}"""
+#         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
+#             subprocess.call(cmd, shell=True, stdout=f)
 
-        # Best time for ai training is 6 seconds (according to the HuaWei)
-        time.sleep(6)
+#         # Best time for ai training is 6 seconds (according to the HuaWei)
+#         time.sleep(6)
