@@ -14,9 +14,6 @@ args = add_args(parser)
 
 distance_l = gen_logger(args.distance_list)
 
-grids_path = Path(f"{MAIN_PATH}/data") / "grids"
-grids_path.mkdir(parents=True, exist_ok=True)
-
 for (
     name_mol,
     extend_atom,
