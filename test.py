@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from cadft import CC_DFT_DATA, add_args, gen_logger
 from cadft.utils import ModelDict
 from cadft.utils import Mol
-from cadft.utils import MAIN_PATH
+from cadft.utils import MAIN_PATH, DATA_PATH
 
 
 AU2KCALMOL = 627.5096080306
@@ -200,10 +200,8 @@ if __name__ == "__main__":
             continue
 
         molecular[extend_atom][extend_xyz] += distance
-        if (Path(f"{MAIN_PATH}/data/grids_mrks/") / f"data_{name}.npz").exists():
-            data_real = np.load(
-                Path(f"{MAIN_PATH}/data/grids_mrks/") / f"data_{name}.npz"
-            )
+        if (DATA_PATH / f"data_{name}.npz").exists():
+            data_real = np.load(DATA_PATH / f"data_{name}.npz")
         else:
             print(f"No file: {name:>40}")
             data_real = None
@@ -442,9 +440,7 @@ if __name__ == "__main__":
         )
 
         if data_real is not None:
-            dm_inv = 2 * np.load(
-                f"{MAIN_PATH}/data/grids_mrks/saved_data/{name}/dm1_inv.npy"
-            )
+            dm_inv = 2 * data_real["dm_inv"]
 
             error_scf_inv_h1e = AU2KCALMOL * (
                 oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)

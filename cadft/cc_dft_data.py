@@ -11,7 +11,7 @@ from cadft.utils import mrks, mrks_append
 from cadft.utils import save_dm1, save_dm1_dft
 from cadft.utils import Mol
 from cadft.utils.Grids import Grid
-from cadft.utils import MAIN_PATH
+from cadft.utils import MAIN_PATH, DATA_CC_PATH
 
 AU2KJMOL = 2625.5
 
@@ -98,9 +98,9 @@ class CC_DFT_DATA:
         self.mf.kernel()
 
         # if False:
-        if Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz").exists():
-            print(f"Load data from {MAIN_PATH}/data/test/data_{self.name}.npz")
-            data_saved = np.load(f"{MAIN_PATH}/data/test/data_{self.name}.npz")
+        if (DATA_CC_PATH / f"data_{self.name}.npz").exists():
+            print(f"Load data from {DATA_CC_PATH}/data_{self.name}.npz")
+            data_saved = np.load(f"{DATA_CC_PATH}/data_{self.name}.npz")
             self.dm1_cc = data_saved["dm1_cc"]
             self.e_cc = data_saved["e_cc"]
             self.time_cc = data_saved["time_cc"]

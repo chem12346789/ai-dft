@@ -9,7 +9,7 @@ import torch
 import torch.optim as optim
 
 from cadft.utils.model.unet import UNet as Model
-from cadft.utils.env_var import MAIN_PATH
+from cadft.utils.env_var import CHECKPOINTS_PATH
 
 # from cadft.utils.model.fc_net import FCNet as Model
 # from cadft.utils.model.transformer import Transformer as Model
@@ -66,7 +66,8 @@ class ModelDict:
         self.optimizer_dict = {}
         self.scheduler_dict = {}
         self.dir_checkpoint = Path(
-            f"{MAIN_PATH}/checkpoints/checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
+            CHECKPOINTS_PATH
+            / f"checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
         ).resolve()
         if if_mkdir:
             print(f"Create checkpoint directory: {self.dir_checkpoint}")
@@ -140,7 +141,8 @@ class ModelDict:
         """
         if self.load not in ["", "None", "NEW", "new"]:
             load_checkpoint = Path(
-                f"{MAIN_PATH}/checkpoints/checkpoint-ccdft_{self.load}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
+                CHECKPOINTS_PATH
+                / f"checkpoint-ccdft_{self.load}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
             ).resolve()
             if load_checkpoint.exists():
                 print(f"Loading from {load_checkpoint}")
