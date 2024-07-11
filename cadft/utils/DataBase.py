@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from cadft.utils.mol import Mol
-from cadft.utils.env_var import MAIN_PATH
+from cadft.utils.env_var import DATA_MAIN_PATH
 
 
 def process(data, dtype):
@@ -151,9 +151,7 @@ class DataBase:
                 print(f"Skip: {name:>40}")
                 continue
 
-            if not (
-                Path(f"{MAIN_PATH}/data/grids_mrks/") / f"data_{name}.npz"
-            ).exists():
+            if not (Path(f"{DATA_MAIN_PATH}") / f"data_{name}.npz").exists():
                 print(f"No file: {name:>40}")
                 continue
 
@@ -164,7 +162,7 @@ class DataBase:
         """
         Load the data.
         """
-        data = np.load(Path(f"{MAIN_PATH}/data/grids_mrks/") / f"data_{name}.npz")
+        data = np.load(Path(f"{DATA_MAIN_PATH}") / f"data_{name}.npz")
 
         weight = data["weights"]
         input_mat = data["rho_inv"]

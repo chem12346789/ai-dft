@@ -12,7 +12,7 @@ import opt_einsum as oe
 
 from cadft.utils.gen_tau import gen_taup_rho, gen_taul_rho, gen_tau_rho
 from cadft.utils.Grids import Grid
-from cadft.utils.env_var import MAIN_PATH
+from cadft.utils.env_var import MAIN_PATH, AIDFT_MAIN_PATH
 
 AU2KJMOL = 2625.5
 
@@ -673,7 +673,7 @@ def mrks(self, frac_old, load_inv=True):
         json.dump(save_data, f, indent=4)
 
     np.savez_compressed(
-        Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz",
+        AIDFT_MAIN_PATH / f"data_{self.name}.npz",
         dm_cc=dm1_cc,
         dm_inv=dm1_inv,
         rho_cc=grids.vector_to_matrix(rho_cc[0]),
@@ -705,7 +705,7 @@ def mrks_append(self, frac_old, load_inv=True):
     """
     Append the data to the existing npz file.
     """
-    data = np.load(Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz")
+    data = np.load(AIDFT_MAIN_PATH / f"data_{self.name}.npz")
 
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
@@ -715,80 +715,30 @@ def mrks_append(self, frac_old, load_inv=True):
     coords = grids.coords
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
 
-    dm1_inv = np.load(f"{MAIN_PATH}/data/grids_mrks/saved_data/{self.name}/dm1_inv.npy")
-    inv_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_inv * 2, xctype="GGA")
-    vxc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
-    vxc_b3lyp_grids = grids.vector_to_matrix(vxc_b3lyp)
+    inv_r_3 = pyscf.dft.numint.eval_rho(
+        self.mol, ao_value, data["dm_inv"] * 2, xctype="GGA"
+    )
 
-    if "dm_cc" in data.files:
-        if "dm_inv" in data.files:
-            np.savez_compressed(
-                Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz",
-                dm_cc=data["dm_cc"],
-                dm_inv=data["dm_inv"],
-                rho_cc=data["rho_cc"],
-                rho_inv=data["rho_inv"],
-                weights=data["weights"],
-                vxc=data["vxc"],
-                vxc_b3lyp=data["vxc"] - vxc_b3lyp_grids,
-                exc=data["exc"],
-                exc_real=data["exc_real"],
-                exc_tr_b3lyp=data["exc_tr_b3lyp"],
-                exc_tr=data["exc_tr"],
-                coords_x=data["coords_x"],
-                coords_y=data["coords_y"],
-                coords_z=data["coords_z"],
-            )
-        else:
-            np.savez_compressed(
-                Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz",
-                dm_cc=data["dm_cc"],
-                dm_inv=dm1_inv,
-                rho_cc=data["rho_cc"],
-                rho_inv=data["rho_inv"],
-                weights=data["weights"],
-                vxc=data["vxc"],
-                vxc_b3lyp=data["vxc"] - vxc_b3lyp_grids,
-                exc=data["exc"],
-                exc_real=data["exc_real"],
-                exc_tr_b3lyp=data["exc_tr_b3lyp"],
-                exc_tr=data["exc_tr"],
-                coords_x=data["coords_x"],
-                coords_y=data["coords_y"],
-                coords_z=data["coords_z"],
-            )
-    else:
-        if "dm_inv" in data.files:
-            np.savez_compressed(
-                Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz",
-                dm_inv=data["dm_inv"],
-                rho_cc=data["rho_cc"],
-                rho_inv=data["rho_inv"],
-                weights=data["weights"],
-                vxc=data["vxc"],
-                vxc_b3lyp=data["vxc"] - vxc_b3lyp_grids,
-                exc=data["exc"],
-                exc_real=data["exc_real"],
-                exc_tr_b3lyp=data["exc_tr_b3lyp"],
-                exc_tr=data["exc_tr"],
-                coords_x=data["coords_x"],
-                coords_y=data["coords_y"],
-                coords_z=data["coords_z"],
-            )
-        else:
-            np.savez_compressed(
-                Path(f"{MAIN_PATH}/data/grids_mrks") / f"data_{self.name}.npz",
-                dm_inv=dm1_inv,
-                rho_cc=data["rho_cc"],
-                rho_inv=data["rho_inv"],
-                weights=data["weights"],
-                vxc=data["vxc"],
-                vxc_b3lyp=data["vxc"] - vxc_b3lyp_grids,
-                exc=data["exc"],
-                exc_real=data["exc_real"],
-                exc_tr_b3lyp=data["exc_tr_b3lyp"],
-                exc_tr=data["exc_tr"],
-                coords_x=data["coords_x"],
-                coords_y=data["coords_y"],
-                coords_z=data["coords_z"],
-            )
+    data_grids = np.zeros_like((4, len(grids.coord_list), grids.n_rad, grids.n_ang))
+    for oxyz in range(4):
+        data_grids[oxyz, :, :, :] = grids.vector_to_matrix(inv_r_3[oxyz])
+
+    np.savez_compressed(
+        AIDFT_MAIN_PATH / f"data_{self.name}.npz",
+        dm_cc=data["dm_cc"],
+        dm_inv=data["dm_inv"],
+        rho_cc=data["rho_cc"],
+        rho_inv=data["rho_inv"],
+        weights=data["weights"],
+        vxc=data["vxc"],
+        vxc_b3lyp=data["vxc_b3lyp"],
+        exc=data["exc"],
+        exc_real=data["exc_real"],
+        exc_tr_b3lyp=data["exc_tr_b3lyp"],
+        exc1_tr_b3lyp=data["exc1_tr_b3lyp"],
+        exc_tr=data["exc_tr"],
+        exc1_tr=data["exc1_tr"],
+        coords_x=data["coords_x"],
+        coords_y=data["coords_y"],
+        coords_z=data["coords_z"],
+    )
