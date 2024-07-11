@@ -575,9 +575,7 @@ def mrks(self, frac_old, load_inv=True):
                 )
             else:
                 exc_grids_fake1[i] -= (
-                    (rho_cc[0][i] - inv_r[i])
-                    * self.mol.atom_charges()[i_atom]
-                    / 1e-2
+                    (rho_cc[0][i] - inv_r[i]) * self.mol.atom_charges()[i_atom] / 1e-2
                 )
 
     exc_over_rho_grids_fake = exc_grids_fake / inv_r
@@ -693,6 +691,9 @@ def mrks(self, frac_old, load_inv=True):
         ),
         exc_tr=grids.vector_to_matrix(
             exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
+        ),
+        exc1_tr=grids.vector_to_matrix(
+            exc_over_rho_grids_fake1 + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
         ),
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
