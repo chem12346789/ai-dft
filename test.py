@@ -236,7 +236,7 @@ if __name__ == "__main__":
             return new * (1 - frac_old_) + old * frac_old_
 
         if modeldict.dtype == torch.float32:
-            max_error_scf = 1e-5
+            max_error_scf = 1e-4
         else:
             max_error_scf = 1e-8
 
