@@ -5,7 +5,6 @@ from cadft.utils.basis import gen_basis
 from cadft.utils.rotate import rotate
 from cadft.utils.parser import add_args
 from cadft.utils.mrks import mrks, mrks_append
-from cadft.utils.save_dm1 import save_dm1, save_dm1_dft
 
 from cadft.utils.DataBase import DataBase, gen_logger
 from cadft.utils.model.fc_net import FCNet

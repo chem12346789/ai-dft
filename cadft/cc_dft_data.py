@@ -8,7 +8,6 @@ from scipy import linalg as LA
 from cadft.utils import gen_basis
 from cadft.utils import rotate
 from cadft.utils import mrks, mrks_append
-from cadft.utils import save_dm1, save_dm1_dft
 from cadft.utils import Mol
 from cadft.utils.Grids import Grid
 from cadft.utils import MAIN_PATH, DATA_CC_PATH
@@ -48,30 +47,6 @@ class CC_DFT_DATA:
             self.atom_info["nao"][i] = (
                 self.aoslice_by_atom[i][1] - self.aoslice_by_atom[i][0]
             )
-
-    def save_dm1(
-        self,
-        cc_triple,
-        xc_code="b3lyp",
-    ):
-        """
-        Generate rho density of cc/dft and energy density of cc.
-        After generating them, save them to data/grids/data_{self.name}.npz.
-        """
-        print(f"Save_dm1 module. Generate {self.name}")
-        save_dm1(self, cc_triple, xc_code=xc_code)
-
-    def save_dm1_dft(
-        self,
-        cc_triple,
-        xc_code="b3lyp",
-    ):
-        """
-        Generate rho density of cc/dft, energy density of cc and another type of energy density of dft.
-        After generating them, save them to data/grids/data_{self.name}.npz.
-        """
-        print(f"Save_dm1_dft module. Generate {self.name}")
-        save_dm1_dft(self, cc_triple, xc_code=xc_code)
 
     def mrks(self, frac_old, load_inv):
         """
