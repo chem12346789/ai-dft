@@ -432,7 +432,7 @@ def mrks(self, frac_old, load_inv=True):
             dm1_inv = mo_inv[:, :nocc] @ mo_inv[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_inv - dm1_inv_old)
 
-            if i % 1 == 0:
+            if i % 100 == 0:
                 print(
                     f"step:{i:<8}",
                     f"error of vxc: {error_vxc::<10.5e}",
@@ -661,15 +661,14 @@ def mrks_append(self, frac_old, load_inv=True):
         self.mol, ao_value, data["dm_inv"] * 2, xctype="GGA"
     )
 
-    data_grids = np.zeros_like((4, len(grids.coord_list), grids.n_rad, grids.n_ang))
+    data_grids = np.zeros((4, len(grids.coord_list), grids.n_rad, grids.n_ang))
     for oxyz in range(4):
-        data_grids[oxyz, :, :, :] = grids.vector_to_matrix(inv_r_3[oxyz])
+        data_grids[oxyz, :, :, :] = grids.vector_to_matrix(inv_r_3[oxyz, :])
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
         dm_cc=data["dm_cc"],
         dm_inv=data["dm_inv"],
-        dm_inv_4=data_grids,
         rho_cc=data["rho_cc"],
         rho_inv=data["rho_inv"],
         weights=data["weights"],
@@ -680,8 +679,9 @@ def mrks_append(self, frac_old, load_inv=True):
         exc_tr_b3lyp=data["exc_tr_b3lyp"],
         exc1_tr_b3lyp=data["exc1_tr_b3lyp"],
         exc_tr=data["exc_tr"],
-        exc1_tr=data["exc1_tr"],
         coords_x=data["coords_x"],
         coords_y=data["coords_y"],
         coords_z=data["coords_z"],
+        rho_inv_4=data_grids,
+        exc1_tr=data["exc1_tr_b3lyp"] + data["exc_tr"] - data["exc_tr_b3lyp"],
     )
