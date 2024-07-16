@@ -229,31 +229,38 @@ if __name__ == "__main__":
             optimize="optimal",
         )
 
-        def hybrid(new, old, frac_old_=0.925):
-            """
-            Generate the hybrid density matrix.
-            """
-            return new * (1 - frac_old_) + old * frac_old_
-
         if modeldict.dtype == torch.float32:
-            max_error_scf = 1e-4
+            max_error_scf = 1e-5
         else:
             max_error_scf = 1e-8
 
-        diis = DIIS(dft2cc.mol.nao, n=8)
+        diis = DIIS(dft2cc.mol.nao, n=10)
 
         for i in range(100):
-            input_mat = dft2cc.grids.vector_to_matrix(
-                pyscf.dft.numint.eval_rho(
-                    dft2cc.mol,
-                    dft2cc.ao_0,
-                    dm1_scf,
-                )
-                + 1e-14
+            inv_r_3 = pyscf.dft.numint.eval_rho(
+                dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
             )
-            input_mat = torch.tensor(
-                input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-            ).to("cuda")
+            if args.input_size == 1:
+                input_mat = dft2cc.grids.vector_to_matrix(inv_r_3[0, :])
+                input_mat = torch.tensor(
+                    input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
+                ).to("cuda")
+            elif args.input_size == 4:
+                input_mat = np.zeros(
+                    (
+                        len(dft2cc.grids.coord_list),
+                        4,
+                        dft2cc.grids.n_rad,
+                        dft2cc.grids.n_ang,
+                    )
+                )
+                for oxyz in range(4):
+                    input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
+                        inv_r_3[oxyz, :]
+                    )
+                input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
+            else:
+                raise ValueError("input_size must be 1 or 4")
             with torch.no_grad():
                 middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
             middle_mat = middle_mat.squeeze(1)
@@ -261,9 +268,6 @@ if __name__ == "__main__":
 
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
 
-            inv_r_3 = pyscf.dft.numint.eval_rho(
-                dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
-            )
             exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
             vxc_scf += exc_b3lyp
 
@@ -397,17 +401,31 @@ if __name__ == "__main__":
         dipole_z_diff_dft_l.append(dipole_z_dft - dipole_z)
 
         # 2.3 check the difference of energy (total)
-        input_mat = dft2cc.grids.vector_to_matrix(
-            pyscf.dft.numint.eval_rho(
-                dft2cc.mol,
-                dft2cc.ao_0,
-                dm1_scf,
-            )
-            + 1e-14
+
+        inv_r_3 = pyscf.dft.numint.eval_rho(
+            dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
-        input_mat = torch.tensor(
-            input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-        ).to("cuda")
+        if args.input_size == 1:
+            input_mat = dft2cc.grids.vector_to_matrix(inv_r_3[0, :])
+            input_mat = torch.tensor(
+                input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
+            ).to("cuda")
+        elif args.input_size == 4:
+            input_mat = np.zeros(
+                (
+                    len(dft2cc.grids.coord_list),
+                    4,
+                    dft2cc.grids.n_rad,
+                    dft2cc.grids.n_ang,
+                )
+            )
+            for oxyz in range(4):
+                input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
+                    inv_r_3[oxyz, :]
+                )
+            input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
+        else:
+            raise ValueError("input_size must be 1 or 4")
         with torch.no_grad():
             output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
         output_mat = output_mat.squeeze(1)
@@ -474,7 +492,7 @@ if __name__ == "__main__":
                 flush=True,
             )
 
-            error_ene_inv = AU2KCALMOL * (
+            error_ene_training = AU2KCALMOL * (
                 (
                     oe.contract("ij,ji->", dft2cc.h1e, dm_inv)
                     + 0.5 * oe.contract("ij,ji->", vj_inv, dm_inv)
@@ -484,7 +502,7 @@ if __name__ == "__main__":
                 )
                 - dft2cc.e_cc
             )
-            print(f"error_scf_inv_ene: {error_ene_inv:.2e}", flush=True)
+            print(f"error_ene_training: {error_ene_training:.2e}", flush=True)
 
         error_scf_ene_l.append(error_ene_scf)
         error_dft_ene_l.append(error_ene_dft)

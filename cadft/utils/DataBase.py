@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from cadft.utils.mol import Mol
+from cadft.utils.mol import Mol, HASH_LIST, ATOM_HASH_DICT
 from cadft.utils.env_var import DATA_PATH
 
 
@@ -107,6 +107,7 @@ class DataBase:
         extend_atom,
         extend_xyz,
         distance_list,
+        input_size,
         basis,
         batch_size,
         device,
@@ -116,19 +117,21 @@ class DataBase:
         self.extend_atom = extend_atom
         self.extend_xyz = extend_xyz
         self.distance_list = distance_list
+        self.input_size = input_size
+        self.basis = basis
         self.batch_size = batch_size
         self.device = device
         self.dtype = dtype
-        self.basis = basis
 
         self.distance_l = gen_logger(self.distance_list)
-        self.data = {}
-        self.data_gpu = {}
-        self.ene = {}
-        self.shape = {}
 
         self.name_list = []
         self.rng = np.random.default_rng()
+        self.data_gpu = {}
+        self.shape = {}
+
+        for hash_char in HASH_LIST:
+            self.data_gpu[hash_char] = {}
 
         for (
             name_mol,
@@ -156,64 +159,65 @@ class DataBase:
                 continue
 
             self.name_list.append(name)
-            self.load_data(name)
+            self.load_data(name, Mol[name_mol])
 
-    def load_data(self, name):
+    def load_data(self, name, mol):
         """
         Load the data.
         """
         data = np.load(Path(f"{DATA_PATH}") / f"data_{name}.npz")
 
         weight = data["weights"]
-        input_mat = data["rho_inv"]
-        # input_mat = data["rho_inv_4"]
+        # input_mat = data["rho_inv"]
+        input_mat = data["rho_inv_4"]
         middle_mat = data["vxc_b3lyp"]
         output_mat = data["exc1_tr_b3lyp"]
 
-        self.shape[name] = input_mat.shape
+        self.shape[name] = output_mat.shape
         input_ = {}
         middle_ = {}
         weight_ = {}
         output_ = {}
 
-        for i_atom in range(input_mat.shape[0]):
-            key_ = f"{i_atom}"
-            input_[key_] = input_mat[i_atom, :, :][np.newaxis, :, :]
-            middle_[key_] = middle_mat[i_atom, :, :][np.newaxis, :, :]
-            weight_[key_] = weight[i_atom, :, :][np.newaxis, :, :]
-            output_[key_] = output_mat[i_atom, :, :][np.newaxis, :, :]
+        for hash_char in HASH_LIST:
+            input_[hash_char] = {}
+            middle_[hash_char] = {}
+            weight_[hash_char] = {}
+            output_[hash_char] = {}
 
-        # for i_atom in range(input_mat.shape[0]):
-        #     for i_col in range(input_mat.shape[1]):
-        #         key_ = f"{i_atom}-{i_col}"
-        #         input_[key_] = input_mat[i_atom, i_col, :]
-        #         middle_[key_] = middle_mat[i_atom, i_col, :]
-        #         weight_[key_] = weight[i_atom, i_col, :]
-        #         output_[key_] = output_mat[i_atom, i_col, :]
+        for i_atom in range(self.shape[name][0]):
+            hash_ = ATOM_HASH_DICT[mol[i_atom][0]]
+            if self.input_size == 1:
+                input_[hash_][i_atom] = input_mat[0, i_atom, :, :][np.newaxis, :, :]
+            elif self.input_size == 4:
+                input_[hash_][i_atom] = input_mat[:, i_atom, :, :]
+            else:
+                raise ValueError("input_size should be 1 or 4.")
 
-        self.data_gpu[name] = BasicDataset(
-            input_,
-            middle_,
-            output_,
-            weight_,
-            self.batch_size,
-            self.dtype,
-        ).load_to_gpu()
-        self.data[name] = {
-            "input": input_,
-            "middle": middle_,
-            "output": output_,
-            "weight": weight_,
-        }
+            middle_[hash_][i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
+            weight_[hash_][i_atom] = weight[i_atom, :, :][np.newaxis, :, :]
+            output_[hash_][i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
 
-        print(
-            f"Load {name:>30}, mean input: {np.mean(input_mat):7.4f}, "
-            f"max input: {np.max(input_mat):7.4f}, "
-            f"var input: {np.var(input_mat):7.4f}, "
-            f"mean middle: {np.mean(middle_mat):7.4f}, "
-            f"max middle: {np.max(np.abs(middle_mat)):7.4f}, "
-            f"var middle: {np.var(middle_mat):7.4f}, "
-            f"mean output: {np.mean(output_mat):7.4f}, "
-            f"max output: {np.max(np.abs(output_mat)):7.4f} "
-            f"var output: {np.var(output_mat):7.4f}"
-        )
+            print(
+                f"Load: {name:>30}, atom: {mol[i_atom][0]:>3}, "
+                f"key_: {i_atom:>3}, hash_: {hash_}, \n"
+                f"mean input: {np.mean(input_[hash_][i_atom]):>7.4e}, "
+                f"max input: {np.max(input_[hash_][i_atom]):>7.4e}, "
+                f"var input: {np.var(input_[hash_][i_atom]):>7.4e}, \n"
+                f"mean middle: {np.mean(middle_[hash_][i_atom]):>7.4e}, "
+                f"max middle: {np.max(np.abs(middle_[hash_][i_atom])):>7.4e}, "
+                f"var middle: {np.var(middle_[hash_][i_atom]):>7.4e}, \n"
+                f"mean output: {np.mean(output_[hash_][i_atom]):>7.4e}, "
+                f"max output: {np.max(np.abs(output_[hash_][i_atom])):>7.4e} "
+                f"var output: {np.var(output_[hash_][i_atom]):>7.4e}\n"
+            )
+
+        for hash_char in HASH_LIST:
+            self.data_gpu[hash_char][name] = BasicDataset(
+                input_[hash_char],
+                middle_[hash_char],
+                output_[hash_char],
+                weight_[hash_char],
+                self.batch_size,
+                self.dtype,
+            ).load_to_gpu()

@@ -10,6 +10,7 @@ import torch.optim as optim
 
 from cadft.utils.model.unet import UNet as Model
 from cadft.utils.env_var import CHECKPOINTS_PATH
+from cadft.utils.mol import HASH_LIST
 
 # from cadft.utils.model.fc_net import FCNet as Model
 # from cadft.utils.model.transformer import Transformer as Model
@@ -61,10 +62,6 @@ class ModelDict:
         else:
             self.dtype = torch.float64
 
-        self.model_dict = {}
-        self.model_dict["size"] = {}
-        self.optimizer_dict = {}
-        self.scheduler_dict = {}
         self.dir_checkpoint = Path(
             CHECKPOINTS_PATH
             / f"checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
@@ -74,66 +71,57 @@ class ModelDict:
             self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
             (self.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
-        self.model_dict["1"] = Model(
-            self.input_size,
-            self.hidden_size,
-            self.output_size,
-            self.residual,
-            self.num_layers,
-        ).to(device)
-        self.model_dict["2"] = Model(
-            self.input_size,
-            self.hidden_size,
-            self.output_size,
-            self.residual,
-            self.num_layers,
-        ).to(device)
+        self.keys = []
+        self.model_dict = {}
+        self.model_dict["size"] = {}
+        self.optimizer_dict = {}
+        self.scheduler_dict = {}
 
-        if precision == "float64":
-            self.model_dict["1"].double()
-            self.model_dict["2"].double()
+        for key in HASH_LIST:
+            for i_str in ["1", "2"]:
+                self.keys.append(f"{key}_{i_str}")
 
-        self.optimizer_dict["1"] = optim.Adam(
-            self.model_dict["1"].parameters(),
-            lr=1e-4,
-        )
-        self.optimizer_dict["2"] = optim.Adam(
-            self.model_dict["2"].parameters(),
-            lr=1e-4,
-        )
+        print(f"Model keys: {self.keys}")
 
-        self.keys = ["1", "2"]
+        for key in self.keys:
+            self.model_dict[key] = Model(
+                self.input_size,
+                self.hidden_size,
+                self.output_size,
+                self.residual,
+                self.num_layers,
+            ).to(device)
 
-        if self.with_eval:
-            self.scheduler_dict["1"] = optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer_dict["1"],
-                mode="min",
-                # patience=5,
-                # factor=0.5,
-            )
-            self.scheduler_dict["2"] = optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer_dict["2"],
-                mode="min",
-                # patience=5,
-                # factor=0.5,
-            )
-        else:
-            self.scheduler_dict["1"] = optim.lr_scheduler.ExponentialLR(
-                self.optimizer_dict["1"],
-                gamma=0.9999,
-            )
-            self.scheduler_dict["2"] = optim.lr_scheduler.ExponentialLR(
-                self.optimizer_dict["2"],
-                gamma=0.9999,
+        for key in self.keys:
+            if precision == "float64":
+                self.model_dict[key].double()
+
+            self.optimizer_dict[key] = optim.Adam(
+                self.model_dict[key].parameters(),
+                lr=1e-4,
             )
 
-        self.loss_fn1 = torch.nn.MSELoss()
-        self.loss_fn2 = torch.nn.MSELoss()
-        self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
+        for key in self.keys:
+            if self.with_eval:
+                self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
+                    self.optimizer_dict[key],
+                    mode="min",
+                    patience=5,
+                    factor=0.5,
+                )
+            else:
+                self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
+                    self.optimizer_dict[key],
+                    gamma=0.9999,
+                )
 
-        # self.loss_fn1 = torch.nn.L1Loss()
-        # self.loss_fn2 = torch.nn.L1Loss()
-        # self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
+        # self.loss_fn1 = torch.nn.MSELoss()
+        # self.loss_fn2 = torch.nn.MSELoss()
+        # self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
+
+        self.loss_fn1 = torch.nn.L1Loss()
+        self.loss_fn2 = torch.nn.L1Loss()
+        self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
 
     def load_model(self):
         """
@@ -146,14 +134,14 @@ class ModelDict:
             ).resolve()
             if load_checkpoint.exists():
                 print(f"Loading from {load_checkpoint}")
-                for i_str in ["1", "2"]:
-                    list_of_path = list(load_checkpoint.glob(f"{i_str}-*.pth"))
+                for key in self.keys:
+                    list_of_path = list(load_checkpoint.glob(f"{key}-*.pth"))
                     if len(list_of_path) == 0:
-                        print(f"No model found for {i_str}, use random initialization.")
+                        print(f"No model found for {key}, use random initialization.")
                         continue
                     load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
                     state_dict = torch.load(load_path, map_location=self.device)
-                    self.model_dict[i_str].load_state_dict(state_dict)
+                    self.model_dict[key].load_state_dict(state_dict)
                     print(f"Model loaded from {load_path}")
             else:
                 print(f"Load checkpoint directory {load_checkpoint} not found.")
@@ -173,7 +161,15 @@ class ModelDict:
         for key in self.keys:
             self.model_dict[key].eval()
 
-    def loss(self, batch):
+    def step(self, hash_char):
+        """
+        Step the optimizer.
+        """
+        for key in self.keys:
+            if key.startswith(f"{hash_char}_"):
+                self.optimizer_dict[key].step()
+
+    def loss(self, batch, hash_char):
         """
         Calculate the loss.
         """
@@ -182,10 +178,10 @@ class ModelDict:
         output_mat_real = batch["output"]
         weight = batch["weight"]
 
-        middle_mat = self.model_dict["1"](input_mat)
+        middle_mat = self.model_dict[f"1-{hash_char}"](input_mat)
         loss_1_i = self.loss_fn1(middle_mat, middle_mat_real)
 
-        output_mat = self.model_dict["2"](input_mat)
+        output_mat = self.model_dict[f"2-{hash_char}"](input_mat)
         loss_2_i = self.loss_fn2(
             output_mat,
             output_mat_real,
@@ -217,32 +213,32 @@ class ModelDict:
         self.train()
 
         for name in database_train.name_list:
-            (
-                loss_1,
-                loss_2,
-                loss_3,
-            ) = (
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-            )
+            for hash_char in HASH_LIST:
+                (
+                    loss_1,
+                    loss_2,
+                    loss_3,
+                ) = (
+                    torch.tensor([0.0], device=self.device),
+                    torch.tensor([0.0], device=self.device),
+                    torch.tensor([0.0], device=self.device),
+                )
 
-            for batch in database_train.data_gpu[name]:
-                loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
-                loss_1 += loss_1_i
-                loss_2 += loss_2_i
-                loss_3 += loss_3_i
+                for batch in database_train.data_gpu[hash_char][name]:
+                    loss_1_i, loss_2_i, loss_3_i = self.loss(batch, hash_char)
+                    loss_1 += loss_1_i
+                    loss_2 += loss_2_i
+                    loss_3 += loss_3_i
 
-            train_loss_1.append(loss_1.item())
-            train_loss_2.append(loss_2.item())
-            train_loss_3.append(loss_3.item())
+                train_loss_1.append(loss_1.item())
+                train_loss_2.append(loss_2.item())
+                train_loss_3.append(loss_3.item())
 
-            loss_2 += loss_3 * self.ene_weight
-            loss_1.backward()
-            loss_2.backward()
+                loss_2 += loss_3 * self.ene_weight
+                loss_1.backward()
+                loss_2.backward()
 
-            self.optimizer_dict["1"].step()
-            self.optimizer_dict["2"].step()
+                self.step(hash_char)
 
         return train_loss_1, train_loss_2, train_loss_3
 
