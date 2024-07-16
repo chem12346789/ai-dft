@@ -165,8 +165,8 @@ class DataBase:
         data = np.load(Path(f"{DATA_PATH}") / f"data_{name}.npz")
 
         weight = data["weights"]
-        # input_mat = data["rho_inv"]
-        input_mat = data["rho_inv_4"]
+        input_mat = data["rho_inv"]
+        # input_mat = data["rho_inv_4"]
         middle_mat = data["vxc_b3lyp"]
         output_mat = data["exc1_tr_b3lyp"]
 
@@ -178,7 +178,7 @@ class DataBase:
 
         for i_atom in range(input_mat.shape[0]):
             key_ = f"{i_atom}"
-            input_[key_] = input_mat[:, i_atom, :, :][[0], :, :]
+            input_[key_] = input_mat[i_atom, :, :][np.newaxis, :, :]
             middle_[key_] = middle_mat[i_atom, :, :][np.newaxis, :, :]
             weight_[key_] = weight[i_atom, :, :][np.newaxis, :, :]
             output_[key_] = output_mat[i_atom, :, :][np.newaxis, :, :]
