@@ -54,6 +54,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.extend_atom,
         args.extend_xyz,
         args.distance_list,
+        args.train_atom_list,
         args.input_size,
         args.basis,
         args.batch_size,
@@ -65,6 +66,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.extend_atom,
         args.extend_xyz,
         args.distance_list,
+        args.train_atom_list,
         args.input_size,
         args.basis,
         args.batch_size,
@@ -133,23 +135,24 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             )
 
             pbar.set_description(
-                f"t/e1: {np.mean(train_loss_1):.1e}/{np.mean(eval_loss_1):.1e}, "
-                f"t/e2: {np.mean(train_loss_2):.1e}/{np.mean(eval_loss_2):.1e}, "
-                f"lr1: {modeldict.optimizer_dict['1'].param_groups[0]['lr']:.1e}"
-                f"lr2: {modeldict.optimizer_dict['2'].param_groups[0]['lr']:.1e}"
+                f"t/e1: {np.mean(train_loss_1):1.1e}/{np.mean(eval_loss_1):1.1e} "
+                f"t/e2: {np.mean(train_loss_2):1.1e}/{np.mean(eval_loss_2):1.1e} "
+                f"t/e3: {np.mean(train_loss_3):1.1e}/{np.mean(eval_loss_3):1.1e} "
+                f"lr1/2: {modeldict.optimizer_dict['1'].param_groups[0]['lr']:1.1e}"
+                f"/{modeldict.optimizer_dict['2'].param_groups[0]['lr']:1.1e}"
             )
 
-        if epoch % 500 == 0:
+        if epoch % (args.eval_step * 10) == 0:
             save_csv_loss(
                 database_train.name_list,
-                modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}.csv",
+                modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}",
                 train_loss_1,
                 train_loss_2,
                 train_loss_3,
             )
             save_csv_loss(
                 database_eval.name_list,
-                modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}.csv",
+                modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}",
                 eval_loss_1,
                 eval_loss_2,
                 eval_loss_3,

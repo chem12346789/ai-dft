@@ -145,8 +145,3 @@ name_mol = []
 for name in Mol:
     name_mol.append(name)
 
-# HASH_LIST = [0, 1]
-# ATOM_HASH_DICT = {"H": 0, "C": 1}
-
-HASH_LIST = [0]
-ATOM_HASH_DICT = {"H": 0, "C": 0}

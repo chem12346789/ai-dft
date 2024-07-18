@@ -101,6 +101,14 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--load_list",
+        type=str,
+        nargs="+",
+        default="",
+        help="Weather to load the saved data. Default is " ".",
+    )
+
+    parser.add_argument(
         "--epoch",
         type=int,
         default=10000,
@@ -179,10 +187,11 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--noise_print",
-        type=str2bool,
-        default=False,
-        help="Weather to print the noise. Default is False.",
+        "--train_atom_list",
+        nargs="+",
+        type=str,
+        help="List of atoms to train. Default is H and C atoms.",
+        default=["H", "C"],
     )
 
     parser.add_argument(

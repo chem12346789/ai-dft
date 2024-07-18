@@ -145,20 +145,27 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 1. Init the model
-    modeldict = ModelDict(
-        args.load,
-        args.input_size,
-        args.hidden_size,
-        args.output_size,
-        args.num_layers,
-        args.residual,
-        device,
-        args.precision,
-        if_mkdir=False,
-    )
-    modeldict.load_model()
-    modeldict.eval()
+    modeldict = {}
 
+    for i, i_atom in enumerate(["H", "C"]):
+        modeldict_ = ModelDict(
+            args.load_list[i],
+            args.input_size,
+            args.hidden_size,
+            args.output_size,
+            args.num_layers,
+            args.residual,
+            device,
+            args.precision,
+            if_mkdir=False,
+        )
+        modeldict_.load_model()
+        modeldict_.eval()
+        dtype_ = modeldict_.dtype
+
+        modeldict[i_atom] = modeldict_
+
+    print(modeldict)
     # 2. Test loop
     name_list = []
     time_cc_l, time_dft_l = [], []
@@ -235,7 +242,7 @@ if __name__ == "__main__":
             optimize="optimal",
         )
 
-        if modeldict.dtype == torch.float32:
+        if dtype_ == torch.float32:
             max_error_scf = 1e-4
         else:
             max_error_scf = 1e-8
@@ -249,7 +256,7 @@ if __name__ == "__main__":
             if args.input_size == 1:
                 input_mat = dft2cc.grids.vector_to_matrix(inv_r_3[0, :])
                 input_mat = torch.tensor(
-                    input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
+                    input_mat[:, np.newaxis, :, :], dtype=dtype_
                 ).to("cuda")
             elif args.input_size == 4:
                 input_mat = np.zeros(
@@ -264,22 +271,40 @@ if __name__ == "__main__":
                     input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
                         inv_r_3[oxyz, :]
                     )
-                input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
+                input_mat = torch.tensor(input_mat, dtype=dtype_).to("cuda")
             else:
                 raise ValueError("input_size must be 1 or 4")
+
             with torch.no_grad():
-                middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
+                middle_mat = np.zeros(
+                    (
+                        len(dft2cc.grids.coord_list),
+                        1,
+                        dft2cc.grids.n_rad,
+                        dft2cc.grids.n_ang,
+                    ),
+                )
+                for i_atom in ["H", "C"]:
+                    input_mat_ = input_mat[index_dict[i_atom], :, :, :]
+                    middle_mat_ = (
+                        modeldict[i_atom]
+                        .model_dict["1"](input_mat_)
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
+                    middle_mat[index_dict[i_atom], :, :, :] = middle_mat_
             middle_mat = middle_mat.squeeze(1)
             # middle_mat = data_real["vxc_b3lyp"]
-            print(f"middle_mat: {np.sum(middle_mat, axis=(1, 2))}")
-            middle_mat[index_dict["C"], :, :] = data_real["vxc_b3lyp"][
-                index_dict["C"], :, :
-            ]
-            print(f"middle_mat: {np.sum(middle_mat, axis=(1, 2))}")
-            print(f"data_real: {np.sum(data_real["vxc_b3lyp"], axis=(1, 2))}")
+
+            # print(f"middle_mat: {np.sum(middle_mat, axis=(1, 2))}")
+            # middle_mat[index_dict["C"], :, :] = data_real["vxc_b3lyp"][
+            #     index_dict["C"], :, :
+            # ]
+            # print(f"middle_mat: {np.sum(middle_mat, axis=(1, 2))}")
+            # print(f"data_real: {np.sum(data_real["vxc_b3lyp"], axis=(1, 2))}")
 
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
-
             exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
             vxc_scf += exc_b3lyp
 
@@ -423,9 +448,9 @@ if __name__ == "__main__":
         )
         if args.input_size == 1:
             input_mat = dft2cc.grids.vector_to_matrix(inv_r_3[0, :])
-            input_mat = torch.tensor(
-                input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-            ).to("cuda")
+            input_mat = torch.tensor(input_mat[:, np.newaxis, :, :], dtype=dtype_).to(
+                "cuda"
+            )
         elif args.input_size == 4:
             input_mat = np.zeros(
                 (
@@ -442,16 +467,31 @@ if __name__ == "__main__":
             input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
         else:
             raise ValueError("input_size must be 1 or 4")
+
         with torch.no_grad():
-            output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
+            output_mat = np.zeros(
+                (
+                    len(dft2cc.grids.coord_list),
+                    1,
+                    dft2cc.grids.n_rad,
+                    dft2cc.grids.n_ang,
+                ),
+            )
+            for i_atom in ["H", "C"]:
+                input_mat_ = input_mat[index_dict[i_atom], :, :, :]
+                output_mat_ = (
+                    modeldict[i_atom].model_dict["2"](input_mat_).detach().cpu().numpy()
+                )
+                output_mat[index_dict[i_atom], :, :, :] = output_mat_
         output_mat = output_mat.squeeze(1)
         # output_mat = data_real["exc1_tr_b3lyp"]
-        print(f"output_mat: {np.sum(output_mat, axis=(1, 2))}")
-        output_mat[index_dict["C"], :, :] = data_real["exc1_tr_b3lyp"][
-            index_dict["C"], :, :
-        ]
-        print(f"output_mat: {np.sum(output_mat, axis=(1, 2))}")
-        print(f"data_real: {np.sum(data_real["exc1_tr_b3lyp"], axis=(1, 2))}")
+
+        # print(f"output_mat: {np.sum(output_mat, axis=(1, 2))}")
+        # output_mat[index_dict["C"], :, :] = data_real["exc1_tr_b3lyp"][
+        #     index_dict["C"], :, :
+        # ]
+        # print(f"output_mat: {np.sum(output_mat, axis=(1, 2))}")
+        # print(f"data_real: {np.sum(data_real["exc1_tr_b3lyp"], axis=(1, 2))}")
 
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
             scf_rho_r * dft2cc.grids.weights
