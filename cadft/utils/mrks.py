@@ -311,6 +311,12 @@ def mrks(self, frac_old, load_inv=True):
         np.save(self.data_save_path / "tau_rho_wf.npy", tau_rho_wf)
         np.save(self.data_save_path / "v_vxc_e_taup.npy", v_vxc_e_taup)
 
+    print(
+        f"int1e_grids will consume about {len(coords) * self.mol.nao**2 * 8 / 1024**3:.2f} GB memory on cpu."
+    )
+    int1e_grids = self.mol.intor("int1e_grids", grids=coords)
+    print(int1e_grids.shape)
+
     # if (
     #     load_inv
     #     and Path(
@@ -394,10 +400,10 @@ def mrks(self, frac_old, load_inv=True):
                     n_slice_grids * i_batch_grids,
                     n_slice_grids * i_batch_grids + ngrids_slice_i,
                 )
-                int1e_grids = self.mol.intor("int1e_grids", grids=coords[i_slice_grids])
+
                 exp_int1e_grids = oe.contract_expression(
                     "pij,ij->p",
-                    int1e_grids,
+                    int1e_grids[i_slice_grids, :, :],
                     (norb, norb),
                     constants=[0],
                     optimize="optimal",
@@ -405,7 +411,7 @@ def mrks(self, frac_old, load_inv=True):
                 vxc_inv[i_slice_grids] -= exp_int1e_grids(
                     dm1_cc - dm1_inv * 2, backend="torch"
                 )
-                del exp_int1e_grids, int1e_grids
+                del exp_int1e_grids
                 gc.collect()
                 torch.cuda.empty_cache()
 
@@ -489,7 +495,7 @@ def mrks(self, frac_old, load_inv=True):
         )
         vele = np.einsum(
             "pij,ij->p",
-            self.mol.intor("int1e_grids", grids=coords[i_slice_grids]),
+            int1e_grids[i_slice_grids, :, :],
             dm1_cc,
         )
         exc_grids_fake[i_slice_grids] += vele * (
@@ -611,6 +617,10 @@ def mrks(self, frac_old, load_inv=True):
     exc_b3lyp = evxc_b3lyp[0]
     vxc_b3lyp = evxc_b3lyp[1][0]
 
+    data_grids = np.zeros((4, len(grids.coord_list), grids.n_rad, grids.n_ang))
+    for oxyz in range(4):
+        data_grids[oxyz, :, :, :] = grids.vector_to_matrix(inv_r_3[oxyz, :])
+
     with open(DATA_PATH / f"save_data_{self.name}.json", "w", encoding="utf-8") as f:
         json.dump(save_data, f, indent=4)
 
@@ -637,6 +647,7 @@ def mrks(self, frac_old, load_inv=True):
         exc1_tr=grids.vector_to_matrix(
             exc_over_rho_grids_fake1 + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
         ),
+        rho_inv_4=data_grids,
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
         coords_z=grids.vector_to_matrix(coords[:, 2]),

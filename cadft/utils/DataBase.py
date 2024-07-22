@@ -69,18 +69,8 @@ class BasicDataset:
         dataloader_gpu = []
         for batch in dataloader:
             batch_gpu = {}
-            # move images and labels to correct device and type
-            (
-                batch_gpu["input"],
-                batch_gpu["middle"],
-                batch_gpu["output"],
-                batch_gpu["weight"],
-            ) = (
-                process(batch["input"], self.dtype),
-                process(batch["middle"], self.dtype),
-                process(batch["output"], self.dtype),
-                process(batch["weight"], self.dtype),
-            )
+            for key in batch.keys():
+                batch_gpu[key] = process(batch[key], self.dtype)
             dataloader_gpu.append(batch_gpu)
         return dataloader_gpu
 

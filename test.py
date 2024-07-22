@@ -11,6 +11,7 @@ from pathlib import Path
 from timeit import default_timer as timer
 
 import pyscf
+from pyscf.scf.jk import get_jk
 import torch
 import numpy as np
 import pandas as pd
@@ -166,6 +167,7 @@ if __name__ == "__main__":
     dipole_x_diff_scf_l, dipole_y_diff_scf_l, dipole_z_diff_scf_l = [], [], []
     dipole_x_diff_dft_l, dipole_y_diff_dft_l, dipole_z_diff_dft_l = [], [], []
     error_scf_ene_l, error_dft_ene_l = [], []
+    abs_scf_ene_l, abs_dft_ene_l, abs_cc_ene_l = [], [], []
 
     distance_l = gen_logger(args.distance_list)
     for (
@@ -220,6 +222,9 @@ if __name__ == "__main__":
         )
         dft2cc.test_mol()
         nocc = dft2cc.mol.nelec[0]
+        r_vec = np.linalg.norm(dft2cc.grids.coords, axis=1)
+        r_cut_off = 1
+        # r_cut_off = 1 / (1 + np.exp(1 * (r_vec - 10)))
 
         # 2.1 SCF loop to get the density matrix
         time_start = timer()
@@ -270,15 +275,17 @@ if __name__ == "__main__":
             with torch.no_grad():
                 middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
             middle_mat = middle_mat.squeeze(1)
-            # middle_mat = data_real["vxc_b3lyp"]
-            print(f"middle_mat: {np.sum(middle_mat, axis=(1, 2))}")
-            middle_mat[index_dict["C"], :, :] = data_real["vxc_b3lyp"][
-                index_dict["C"], :, :
-            ]
-            print(f"middle_mat: {np.sum(middle_mat, axis=(1, 2))}")
-            print(f"data_real: {np.sum(data_real["vxc_b3lyp"], axis=(1, 2))}")
 
-            vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
+            if data_real is not None:
+                # middle_mat = data_real["vxc_b3lyp"]
+                print(f"middle_mat: {np.sum(middle_mat, axis=(1, 2))}")
+                data_real_C = data_real["vxc_b3lyp"][index_dict["C"], :, :]
+                middle_mat[index_dict["C"], :, :] = data_real_C
+                print(f"middle_mat: {np.sum(middle_mat, axis=(1, 2))}")
+                data_real_sum = np.sum(data_real["vxc_b3lyp"], axis=(1, 2))
+                print(f"data_real: {data_real_sum}")
+
+            vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat) * r_cut_off
 
             exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
             vxc_scf += exc_b3lyp
@@ -288,7 +295,7 @@ if __name__ == "__main__":
                 dft2cc.grids.weights,
                 # backend="torch",
             )
-            vj_scf = dft2cc.mf.get_jk(dft2cc.mol, dm1_scf)[0]
+            vj_scf = get_jk(dft2cc.mol, dm1_scf)[0]
             mat_fock = dft2cc.h1e + vj_scf + vxc_mat
 
             diis.add(
@@ -445,16 +452,18 @@ if __name__ == "__main__":
         with torch.no_grad():
             output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
         output_mat = output_mat.squeeze(1)
-        # output_mat = data_real["exc1_tr_b3lyp"]
-        print(f"output_mat: {np.sum(output_mat, axis=(1, 2))}")
-        output_mat[index_dict["C"], :, :] = data_real["exc1_tr_b3lyp"][
-            index_dict["C"], :, :
-        ]
-        print(f"output_mat: {np.sum(output_mat, axis=(1, 2))}")
-        print(f"data_real: {np.sum(data_real["exc1_tr_b3lyp"], axis=(1, 2))}")
+
+        if data_real is not None:
+            # output_mat = data_real["exc1_tr_b3lyp"]
+            print(f"output_mat: {np.sum(output_mat, axis=(1, 2))}")
+            data_real_C = data_real["exc1_tr_b3lyp"][index_dict["C"], :, :]
+            output_mat[index_dict["C"], :, :] = data_real_C
+            print(f"output_mat: {np.sum(output_mat, axis=(1, 2))}")
+            data_real_sum = np.sum(data_real["exc1_tr_b3lyp"], axis=(1, 2))
+            print(f"data_real: {data_real_sum}")
 
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
-            scf_rho_r * dft2cc.grids.weights
+            scf_rho_r * dft2cc.grids.weights * r_cut_off
         )
 
         inv_r_3 = pyscf.dft.numint.eval_rho(
@@ -463,16 +472,14 @@ if __name__ == "__main__":
         exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
         b3lyp_ene = np.sum(exc_b3lyp * scf_rho_r * dft2cc.grids.weights)
-        error_ene_scf = AU2KCALMOL * (
-            (
-                oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
-                + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
-                + dft2cc.mol.energy_nuc()
-                + np.sum(output_mat_exc)
-                + b3lyp_ene
-            )
-            - dft2cc.e_cc
+        ene_scf = (
+            oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
+            + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
+            + dft2cc.mol.energy_nuc()
+            + np.sum(output_mat_exc)
+            + b3lyp_ene
         )
+        error_ene_scf = AU2KCALMOL * (ene_scf - dft2cc.e_cc)
         error_ene_dft = AU2KCALMOL * (dft2cc.e_dft - dft2cc.e_cc)
         print(
             f"error_scf_ene: {error_ene_scf:.2e}, error_dft_ene: {error_ene_dft:.2e}",
@@ -486,7 +493,7 @@ if __name__ == "__main__":
                 oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
                 - oe.contract("ij,ji->", dft2cc.h1e, dm_inv)
             )
-            vj_inv = dft2cc.mf.get_jk(dft2cc.mol, dm_inv)[0]
+            vj_inv = get_jk(dft2cc.mol, dm_inv)[0]
             error_scf_inv_vj = AU2KCALMOL * (
                 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
                 - 0.5 * oe.contract("ij,ji->", vj_inv, dm_inv)
@@ -528,12 +535,18 @@ if __name__ == "__main__":
 
         error_scf_ene_l.append(error_ene_scf)
         error_dft_ene_l.append(error_ene_dft)
+        abs_scf_ene_l.append(AU2KCALMOL * ene_scf)
+        abs_dft_ene_l.append(AU2KCALMOL * dft2cc.e_dft)
+        abs_cc_ene_l.append(AU2KCALMOL * dft2cc.e_cc)
 
         df = pd.DataFrame(
             {
                 "name": name_list,
                 "error_scf_ene": error_scf_ene_l,
                 "error_dft_ene": error_dft_ene_l,
+                "abs_scf_ene_l": abs_scf_ene_l,
+                "abs_dft_ene_l": abs_dft_ene_l,
+                "abs_cc_ene_l": abs_cc_ene_l,
                 "error_scf_rho_r": error_scf_rho_r_l,
                 "error_dft_rho_r": error_dft_rho_r_l,
                 "dipole_x_diff_scf": dipole_x_diff_scf_l,

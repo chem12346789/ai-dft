@@ -193,9 +193,8 @@ if __name__ == "__main__":
         index_dict = {}
         for i_atom in ["H", "C"]:
             index_dict[i_atom] = []
-
         for i in range(len(molecular)):
-            index_dict[molecular[i][0]].append(i)
+            index_dict[0].append(i)
 
         print(f"Generate {name_mol}_{distance:.4f}", flush=True)
         print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)

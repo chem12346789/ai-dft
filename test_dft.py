@@ -164,6 +164,7 @@ if __name__ == "__main__":
     error_dft_rho_r_l = []
     dipole_x_diff_dft_l, dipole_y_diff_dft_l, dipole_z_diff_dft_l = [], [], []
     error_dft_ene_l = []
+    abs_dft_ene_l, abs_cc_ene_l = [], []
 
     distance_l = gen_logger(args.distance_list)
     for (
@@ -284,11 +285,15 @@ if __name__ == "__main__":
         )
 
         error_dft_ene_l.append(error_ene_dft)
+        abs_dft_ene_l.append(AU2KCALMOL * dft2cc.e_dft)
+        abs_cc_ene_l.append(AU2KCALMOL * dft2cc.e_cc)
 
         df = pd.DataFrame(
             {
                 "name": name_list,
                 "error_dft_ene": error_dft_ene_l,
+                "abs_dft_ene_l": abs_dft_ene_l,
+                "abs_cc_ene_l": abs_cc_ene_l,
                 "error_dft_rho_r": error_dft_rho_r_l,
                 "dipole_x_diff_dft": dipole_x_diff_dft_l,
                 "dipole_y_diff_dft": dipole_y_diff_dft_l,

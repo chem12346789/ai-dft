@@ -38,9 +38,9 @@ def bn_no_track(module):
 
 
 class UNet(nn.Module):
-    """Documentation for a class.
-
+    """
     TODO
+    Documentation for a class.
     """
 
     def __init__(self, input_size, hidden_size, output_size, residual, num_layers):
@@ -49,7 +49,7 @@ class UNet(nn.Module):
         self.classes = output_size
         self.residual = residual
 
-        if self.residual <= 4:
+        if self.residual <= 3:
             if residual == 0:
                 norm_layer = "BatchNorm2d"
                 affine = True
@@ -98,7 +98,7 @@ class UNet(nn.Module):
             for i in range(num_layers):
                 decoder_channels.append(hidden_size * 2 ** (num_layers - i))
 
-            if self.residual == 5:
+            if self.residual == 4:
                 self.model = smp.UnetPlusPlus(
                     encoder_name="resnet18",
                     encoder_depth=num_layers,
@@ -107,7 +107,7 @@ class UNet(nn.Module):
                     classes=self.classes,
                 )
                 self.model = bn_no_track(self.model)
-            if self.residual == 6:
+            if self.residual == 5:
                 self.model = smp.UnetPlusPlus(
                     encoder_name="timm-mobilenetv3_small_100",
                     encoder_depth=num_layers,
@@ -121,7 +121,7 @@ class UNet(nn.Module):
         """
         Standard forward function, required for all nn.Module classes
         """
-        if self.residual <= 4:
+        if self.residual <= 3:
             x = self.inc(x)
             x_down = []
             for down in self.down_layers:

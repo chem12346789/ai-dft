@@ -9,3 +9,9 @@ requires = [
     "setuptools >= 40.6.0",
     "wheel",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cadft"]
+exclude = []
+namespaces = false

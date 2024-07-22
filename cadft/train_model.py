@@ -92,8 +92,9 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         }
     )
 
-    pbar = trange(args.epoch + 1)
-    for epoch in pbar:
+    print(f"Start training at {modeldict.dir_checkpoint}")
+    pbar0 = trange(args.epoch + 1)
+    for epoch in pbar0:
         train_loss_1, train_loss_2, train_loss_3 = modeldict.train_model(database_train)
         if not isinstance(
             modeldict.scheduler_dict["1"],
@@ -134,12 +135,12 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 }
             )
 
-            pbar.set_description(
-                f"t/e1: {np.mean(train_loss_1):1.1e}/{np.mean(eval_loss_1):1.1e} "
-                f"t/e2: {np.mean(train_loss_2):1.1e}/{np.mean(eval_loss_2):1.1e} "
-                f"t/e3: {np.mean(train_loss_3):1.1e}/{np.mean(eval_loss_3):1.1e} "
-                f"lr1/2: {modeldict.optimizer_dict['1'].param_groups[0]['lr']:1.1e}"
-                f"/{modeldict.optimizer_dict['2'].param_groups[0]['lr']:1.1e}"
+            pbar0.set_description(
+                f"t/e1 {np.mean(train_loss_1):.2g}/{np.mean(eval_loss_1):.2g}"
+                f" t/e2 {np.mean(train_loss_2):.2g}/{np.mean(eval_loss_2):.2g}"
+                f" t/e3 {np.mean(train_loss_3):.2g}/{np.mean(eval_loss_3):.2g}"
+                f"lr1/2 {-np.log10(modeldict.optimizer_dict['1'].param_groups[0]['lr']):.2g}"
+                f"/{-np.log10(modeldict.optimizer_dict['2'].param_groups[0]['lr']):.2g}"
             )
 
         if epoch % (args.eval_step * 10) == 0:
@@ -158,4 +159,4 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 eval_loss_3,
             )
             modeldict.save_model(epoch)
-    pbar.close()
+    pbar0.close()

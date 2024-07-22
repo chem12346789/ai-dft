@@ -99,8 +99,8 @@ class ModelDict:
                 self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
                     self.optimizer_dict[key],
                     mode="min",
-                    # patience=5,
-                    # factor=0.5,
+                    patience=5,
+                    factor=0.5,
                 )
             else:
                 self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
@@ -108,20 +108,20 @@ class ModelDict:
                     gamma=0.9999,
                 )
 
-        # self.loss_multiplier = 1.0
-        # self.loss_fn1 = torch.nn.MSELoss()
-        # self.loss_fn2 = torch.nn.MSELoss()
-        # self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
+        self.loss_multiplier = 1.0
+        self.loss_fn1 = torch.nn.MSELoss()
+        self.loss_fn2 = torch.nn.MSELoss()
+        self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
 
         # self.loss_multiplier = 1.0
         # self.loss_fn1 = torch.nn.L1Loss()
         # self.loss_fn2 = torch.nn.L1Loss()
         # self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
 
-        self.loss_multiplier = 2.0
-        self.loss_fn1 = torch.nn.HuberLoss(delta=0.1)
-        self.loss_fn2 = torch.nn.HuberLoss(delta=0.1)
-        self.loss_fn3 = torch.nn.HuberLoss(delta=0.1, reduction="sum")
+        # self.loss_multiplier = 2.0 * 0.1
+        # self.loss_fn1 = torch.nn.SmoothL1Loss(beta=0.1)
+        # self.loss_fn2 = torch.nn.SmoothL1Loss(beta=0.1)
+        # self.loss_fn3 = torch.nn.SmoothL1Loss(beta=0.1, reduction="sum")
 
     def load_model(self):
         """
