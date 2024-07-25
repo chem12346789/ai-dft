@@ -105,6 +105,7 @@ class UNet(nn.Module):
                     decoder_channels=decoder_channels,
                     in_channels=self.in_channels,
                     classes=self.classes,
+                    encoder_weights=None,
                 )
                 self.model = bn_no_track(self.model)
             if self.residual == 5:
@@ -114,6 +115,7 @@ class UNet(nn.Module):
                     decoder_channels=decoder_channels,
                     in_channels=self.in_channels,
                     classes=self.classes,
+                    encoder_weights=None,
                 )
                 self.model = bn_no_track(self.model)
 
