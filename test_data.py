@@ -11,6 +11,7 @@ from pathlib import Path
 from timeit import default_timer as timer
 
 import pyscf
+from pyscf.scf.jk import get_jk
 import torch
 import numpy as np
 import pandas as pd
@@ -144,22 +145,7 @@ if __name__ == "__main__":
     args = add_args(parser)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # 1. Init the model
-    modeldict = ModelDict(
-        args.load,
-        args.input_size,
-        args.hidden_size,
-        args.output_size,
-        args.num_layers,
-        args.residual,
-        device,
-        args.precision,
-        if_mkdir=False,
-    )
-    modeldict.load_model()
-    modeldict.eval()
-
-    # 2. Test loop
+    # 1. Test loop
     name_list = []
     time_cc_l, time_dft_l = [], []
     error_scf_rho_r_l, error_dft_rho_r_l = [], []
@@ -180,7 +166,7 @@ if __name__ == "__main__":
         args.extend_xyz,
         distance_l,
     ):
-        # 2.0 Prepare
+        # 1.0 Prepare
 
         molecular = copy.deepcopy(Mol[name_mol])
 
@@ -221,9 +207,8 @@ if __name__ == "__main__":
         )
         dft2cc.test_mol()
         nocc = dft2cc.mol.nelec[0]
-        mdft = pyscf.scf.RKS(dft2cc.mol)
 
-        # 2.1 SCF loop to get the density matrix
+        # 1.1 SCF loop to get the density matrix
         time_start = timer()
 
         dm1_scf = dft2cc.dm1_dft
@@ -237,7 +222,7 @@ if __name__ == "__main__":
             optimize="optimal",
         )
 
-        if modeldict.dtype == torch.float32:
+        if args.precision == "float32":
             max_error_scf = 1e-4
         else:
             max_error_scf = 1e-8
@@ -248,35 +233,9 @@ if __name__ == "__main__":
             inv_r_3 = pyscf.dft.numint.eval_rho(
                 dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
             )
-            if args.input_size == 1:
-                input_mat = dft2cc.grids.vector_to_matrix(inv_r_3[0, :])
-                input_mat = torch.tensor(
-                    input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-                ).to("cuda")
-            elif args.input_size == 4:
-                input_mat = np.zeros(
-                    (
-                        len(dft2cc.grids.coord_list),
-                        4,
-                        dft2cc.grids.n_rad,
-                        dft2cc.grids.n_ang,
-                    )
-                )
-                for oxyz in range(4):
-                    input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
-                        inv_r_3[oxyz, :]
-                    )
-                input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
-            else:
-                raise ValueError("input_size must be 1 or 4")
-            with torch.no_grad():
-                middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
-            middle_mat = middle_mat.squeeze(1)
-
-            # if data_real is not None:
-            #     middle_mat = data_real["vxc_b3lyp"]
-
+            middle_mat = data_real["vxc_b3lyp"]
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
+
             exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
             vxc_scf += exc_b3lyp
 
@@ -284,7 +243,7 @@ if __name__ == "__main__":
                 vxc_scf,
                 dft2cc.grids.weights,
             )
-            vj_scf = mdft.get_j(dft2cc.mol, dm1_scf)
+            vj_scf = get_jk(dft2cc.mol, dm1_scf)[0]
             mat_fock = dft2cc.h1e + vj_scf + vxc_mat
 
             diis.add(
@@ -299,7 +258,6 @@ if __name__ == "__main__":
             dm1_scf_old = dm1_scf.copy()
             dm1_scf = 2 * mo_scf[:, :nocc] @ mo_scf[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_scf - dm1_scf_old)
-            # dm1_scf = hybrid(dm1_scf, dm1_scf_old)
 
             if i % 10 == 0:
                 print(
@@ -314,7 +272,8 @@ if __name__ == "__main__":
                 dm1_scf = dm1_scf_old.copy()
                 break
 
-        # 2.2 check the difference of density (on grids) and dipole
+        # 2 check
+        # 2.1 check the difference of density (on grids) and dipole
         print(
             f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
             flush=True,
@@ -417,33 +376,7 @@ if __name__ == "__main__":
         inv_r_3 = pyscf.dft.numint.eval_rho(
             dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
-        if args.input_size == 1:
-            input_mat = dft2cc.grids.vector_to_matrix(inv_r_3[0, :])
-            input_mat = torch.tensor(
-                input_mat[:, np.newaxis, :, :], dtype=modeldict.dtype
-            ).to("cuda")
-        elif args.input_size == 4:
-            input_mat = np.zeros(
-                (
-                    len(dft2cc.grids.coord_list),
-                    4,
-                    dft2cc.grids.n_rad,
-                    dft2cc.grids.n_ang,
-                )
-            )
-            for oxyz in range(4):
-                input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
-                    inv_r_3[oxyz, :]
-                )
-            input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
-        else:
-            raise ValueError("input_size must be 1 or 4")
-        with torch.no_grad():
-            output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
-        output_mat = output_mat.squeeze(1)
-
-        # if data_real is not None:
-        #     output_mat = data_real["exc1_tr_b3lyp"]
+        output_mat = data_real["exc1_tr_b3lyp"]
 
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
             scf_rho_r * dft2cc.grids.weights
@@ -468,53 +401,6 @@ if __name__ == "__main__":
             f"error_scf_ene: {error_ene_scf:.2e}, error_dft_ene: {error_ene_dft:.2e}",
             flush=True,
         )
-
-        if data_real is not None:
-            dm_inv = 2 * data_real["dm_inv"]
-
-            error_scf_inv_h1e = AU2KCALMOL * (
-                oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
-                - oe.contract("ij,ji->", dft2cc.h1e, dm_inv)
-            )
-            vj_inv = mdft.get_j(dft2cc.mol, dm_inv)
-            error_scf_inv_vj = AU2KCALMOL * (
-                0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
-                - 0.5 * oe.contract("ij,ji->", vj_inv, dm_inv)
-            )
-
-            inv_r_3_inv = pyscf.dft.numint.eval_rho(
-                dft2cc.mol, dft2cc.ao_1, dm_inv, xctype="GGA"
-            )
-            exc_b3lyp_inv = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3_inv)[0]
-            b3lyp_ene_inv = np.sum(
-                exc_b3lyp_inv * inv_r_3_inv[0] * dft2cc.grids.weights
-            )
-            error_scf_inv_b3lyp_ene = AU2KCALMOL * (b3lyp_ene - b3lyp_ene_inv)
-
-            print(
-                f"error_scf_cc_h1e: {error_scf_inv_h1e:.2e}, error_scf_inv_vj: {error_scf_inv_vj:.2e}, error_scf_inv_b3lyp_enegy: {error_scf_inv_b3lyp_ene:.2e}, total:{error_scf_inv_h1e + error_scf_inv_vj + error_scf_inv_b3lyp_ene:.2e}",
-                flush=True,
-            )
-
-            output_mat_exc_real = data_real[
-                "exc1_tr_b3lyp"
-            ] * dft2cc.grids.vector_to_matrix(inv_r_3_inv[0] * dft2cc.grids.weights)
-            print(
-                f"error_exc: {(AU2KCALMOL * np.sum(output_mat_exc - output_mat_exc_real)):.2e}",
-                flush=True,
-            )
-
-            error_ene_training = AU2KCALMOL * (
-                (
-                    oe.contract("ij,ji->", dft2cc.h1e, dm_inv)
-                    + 0.5 * oe.contract("ij,ji->", vj_inv, dm_inv)
-                    + dft2cc.mol.energy_nuc()
-                    + np.sum(output_mat_exc_real)
-                    + b3lyp_ene_inv
-                )
-                - dft2cc.e_cc
-            )
-            print(f"error_ene_training: {error_ene_training:.2e}", flush=True)
 
         error_scf_ene_l.append(error_ene_scf)
         error_dft_ene_l.append(error_ene_dft)

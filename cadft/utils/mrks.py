@@ -663,18 +663,54 @@ def mrks_append(self, frac_old, load_inv=True):
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
     mdft.kernel()
+    e_cc_dft = mdft.energy_tot(data["dm_inv"] * 2)
+    h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
+    eri = self.mol.intor("int2e")
+    exa_ene = (
+        self.mol.energy_nuc()
+        + np.einsum("ij,ij->", h1e, data["dm_inv"] * 2)
+        + 0.5 * np.einsum("ijkl,ij,kl->", eri, data["dm_inv"] * 2, data["dm_inv"] * 2)
+    )
 
     grids = Grid(self.mol)
     coords = grids.coords
+    weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
 
     inv_r_3 = pyscf.dft.numint.eval_rho(
         self.mol, ao_value, data["dm_inv"] * 2, xctype="GGA"
     )
+    b3lyp_cc_grids = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
-    data_grids = np.zeros((4, len(grids.coord_list), grids.n_rad, grids.n_ang))
-    for oxyz in range(4):
-        data_grids[oxyz, :, :, :] = grids.vector_to_matrix(inv_r_3[oxyz, :])
+    hf_over_dm_cc_grids = np.zeros_like(b3lyp_cc_grids)
+    int1e_grids = self.mol.intor("int1e_grids", grids=coords)
+
+    expr_rinv_dm1_r = oe.contract_expression(
+        "ijkl,i,j,kl->",
+        0.25 * oe.contract("pr,qs->pqrs", data["dm_inv"] * 2, data["dm_inv"] * 2),
+        (self.mol.nao,),
+        (self.mol.nao,),
+        (self.mol.nao, self.mol.nao),
+        constants=[0],
+        optimize="optimal",
+    )
+
+    for i, coord in enumerate(tqdm(coords)):
+        ao_0_i = ao_value[0][i]
+        if np.linalg.norm(ao_0_i) < 1e-10:
+            continue
+        with self.mol.with_rinv_origin(coord):
+            rinv = self.mol.intor("int1e_rinv")
+            hf_over_dm_cc_grids[i] += (
+                expr_rinv_dm1_r(ao_0_i, ao_0_i, rinv, backend="torch") / inv_r_3[0][i]
+            )
+
+    error_dft = (
+        np.sum((-0.2 * hf_over_dm_cc_grids + b3lyp_cc_grids) * inv_r_3[0] * weights)
+        + exa_ene
+        - e_cc_dft
+    )
+    print(f"Error of DFT: {error_dft:.5f}")
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
@@ -689,10 +725,14 @@ def mrks_append(self, frac_old, load_inv=True):
         exc_real=data["exc_real"],
         exc_tr_b3lyp=data["exc_tr_b3lyp"],
         exc1_tr_b3lyp=data["exc1_tr_b3lyp"],
+        exc_tr_b3lyp_all=data["exc_tr"]
+        - grids.vector_to_matrix(-0.2 * hf_over_dm_cc_grids + b3lyp_cc_grids),
+        exc1_tr_b3lyp_all=data["exc1_tr"]
+        - grids.vector_to_matrix(-0.2 * hf_over_dm_cc_grids + b3lyp_cc_grids),
         exc_tr=data["exc_tr"],
+        exc1_tr=data["exc1_tr"],
+        rho_inv_4=data["rho_inv_4"],
         coords_x=data["coords_x"],
         coords_y=data["coords_y"],
         coords_z=data["coords_z"],
-        rho_inv_4=data_grids,
-        exc1_tr=data["exc1_tr_b3lyp"] + data["exc_tr"] - data["exc_tr_b3lyp"],
     )
