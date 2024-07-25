@@ -7,7 +7,6 @@ description = "AIDFT: AI for density functional theory"
 build-backend = "setuptools.build_meta"
 requires = [
     "setuptools >= 40.6.0",
-    "wheel",
 ]
 
 [tool.setuptools.packages.find]
