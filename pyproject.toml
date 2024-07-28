@@ -17,7 +17,6 @@ requires = [
     "tqdm==4.65.0",
     "wandb==0.16.3",
     "setuptools >= 40.6.0",
-    "wheel",
 ]
 
 [tool.setuptools.packages.find]
