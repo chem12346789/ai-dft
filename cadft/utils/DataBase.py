@@ -159,7 +159,6 @@ class DataBase:
         data = np.load(Path(f"{DATA_PATH}") / f"data_{name}.npz")
 
         weight = data["weights"]
-        # input_mat = data["rho_inv"]
         input_mat = data["rho_inv_4_norm"]
         middle_mat = data["vxc_b3lyp"]
         output_mat = data["exc1_tr_b3lyp"]
@@ -181,9 +180,17 @@ class DataBase:
             else:
                 raise ValueError("input_size should be 1 or 4.")
 
-            middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
             weight_[i_atom] = weight[i_atom, :, :][np.newaxis, :, :]
-            output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
+
+            if self.input_size == 1:
+                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
+                output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
+            else:
+                output_[i_atom] = np.append(
+                    middle_mat[i_atom, :, :][np.newaxis, :, :],
+                    output_mat[i_atom, :, :][np.newaxis, :, :],
+                    axis=0,
+                )
 
             print(
                 f"Load {name:>30}, key_: {i_atom:>3}\n"

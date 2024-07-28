@@ -70,7 +70,11 @@ class ModelDict:
             self.dir_checkpoint.mkdir(parents=True, exist_ok=True)
             (self.dir_checkpoint / "loss").mkdir(parents=True, exist_ok=True)
 
-        self.keys = ["1", "2"]
+        if self.output_size == 1:
+            self.keys = ["1", "2"]
+        else:
+            self.keys = ["1"]
+
         self.model_dict = {}
         self.model_dict["size"] = {}
         self.optimizer_dict = {}
@@ -177,20 +181,33 @@ class ModelDict:
         output_mat_real = batch["output"]
         weight = batch["weight"]
 
-        middle_mat = self.model_dict["1"](input_mat)
-        loss_1_i = self.loss_multiplier * self.loss_fn1(middle_mat, middle_mat_real)
+        if self.output_size == 1:
+            middle_mat = self.model_dict["1"](input_mat)
+            loss_1_i = self.loss_multiplier * self.loss_fn1(middle_mat, middle_mat_real)
 
-        output_mat = self.model_dict["2"](input_mat)
-        loss_2_i = self.loss_multiplier * self.loss_fn2(
-            output_mat,
-            output_mat_real,
-        )
+            output_mat = self.model_dict["2"](input_mat)
+            loss_2_i = self.loss_multiplier * self.loss_fn2(
+                output_mat,
+                output_mat_real,
+            )
 
-        loss_3_i = self.loss_multiplier * self.loss_fn3(
-            torch.sum(output_mat_real * input_mat[:, 0, :, :] * weight),
-            torch.sum(output_mat * input_mat[:, 0, :, :] * weight),
-        )
-        return loss_1_i, loss_2_i, loss_3_i
+            loss_3_i = self.loss_multiplier * self.loss_fn3(
+                torch.sum(output_mat_real * input_mat[:, 0, :, :] * weight),
+                torch.sum(output_mat * input_mat[:, 0, :, :] * weight),
+            )
+            return loss_1_i, loss_2_i, loss_3_i
+        else:
+            output_mat = self.model_dict["1"](input_mat)
+            loss_1_i = self.loss_multiplier * self.loss_fn1(
+                output_mat,
+                output_mat_real,
+            )
+
+            loss_3_i = self.loss_multiplier * self.loss_fn2(
+                torch.sum(output_mat_real * input_mat[:, 0, :, :] * weight),
+                torch.sum(output_mat * input_mat[:, 0, :, :] * weight),
+            )
+            return loss_1_i, torch.tensor([0.0], device=self.device), loss_3_i
 
     def save_model(self, epoch):
         """
@@ -232,9 +249,13 @@ class ModelDict:
             train_loss_2.append(loss_2.item())
             train_loss_3.append(loss_3.item())
 
-            loss_2 += loss_3 * self.ene_weight
-            loss_1.backward()
-            loss_2.backward()
+            if self.output_size == 1:
+                loss_2 += loss_3 * self.ene_weight
+                loss_1.backward()
+                loss_2.backward()
+            else:
+                loss_1 += loss_3 * self.ene_weight
+                loss_1.backward()
 
             self.step()
 
