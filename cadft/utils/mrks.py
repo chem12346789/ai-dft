@@ -2,6 +2,7 @@ import json
 import gc
 from pathlib import Path
 from itertools import product
+import psutil
 
 import numpy as np
 from tqdm import tqdm
@@ -621,6 +622,15 @@ def mrks(self, frac_old, load_inv=True):
     for oxyz in range(4):
         data_grids[oxyz, :, :, :] = grids.vector_to_matrix(inv_r_3[oxyz, :])
 
+    data_grids_norm = np.zeros((4, len(grids.coord_list), grids.n_rad, grids.n_ang))
+    for oxyz in range(4):
+        if oxyz == 0:
+            data_grids_norm[oxyz, :, :, :] = grids.vector_to_matrix(inv_r_3[oxyz, :])
+        else:
+            data_grids_norm[oxyz, :, :, :] = grids.vector_to_matrix(
+                inv_r_3[oxyz, :] ** 2
+            )
+
     with open(DATA_PATH / f"save_data_{self.name}.json", "w", encoding="utf-8") as f:
         json.dump(save_data, f, indent=4)
 
@@ -633,6 +643,7 @@ def mrks(self, frac_old, load_inv=True):
         weights=grids.vector_to_matrix(weights),
         vxc=grids.vector_to_matrix(vxc_inv),
         vxc_b3lyp=grids.vector_to_matrix(vxc_inv - vxc_b3lyp),
+        vxc1_b3lyp=grids.vector_to_matrix(vxc_inv - evxc_b3lyp[0]),
         exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
         exc_tr_b3lyp=grids.vector_to_matrix(
@@ -648,6 +659,7 @@ def mrks(self, frac_old, load_inv=True):
             exc_over_rho_grids_fake1 + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
         ),
         rho_inv_4=data_grids,
+        rho_inv_4_norm=data_grids_norm,
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
         coords_z=grids.vector_to_matrix(coords[:, 2]),
@@ -658,19 +670,10 @@ def mrks_append(self, frac_old, load_inv=True):
     """
     Append the data to the existing npz file.
     """
-    data = np.load(DATA_PATH / f"data_{self.name}.npz")
+    if not (DATA_PATH / f"data_{self.name}.npz").exists():
+        return
 
-    mdft = pyscf.scf.RKS(self.mol)
-    mdft.xc = "b3lyp"
-    mdft.kernel()
-    e_cc_dft = mdft.energy_tot(data["dm_inv"] * 2)
-    h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
-    eri = self.mol.intor("int2e")
-    exa_ene = (
-        self.mol.energy_nuc()
-        + np.einsum("ij,ij->", h1e, data["dm_inv"] * 2)
-        + 0.5 * np.einsum("ijkl,ij,kl->", eri, data["dm_inv"] * 2, data["dm_inv"] * 2)
-    )
+    data = np.load(DATA_PATH / f"data_{self.name}.npz")
 
     grids = Grid(self.mol)
     coords = grids.coords
@@ -680,37 +683,56 @@ def mrks_append(self, frac_old, load_inv=True):
     inv_r_3 = pyscf.dft.numint.eval_rho(
         self.mol, ao_value, data["dm_inv"] * 2, xctype="GGA"
     )
-    b3lyp_cc_grids = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
+    evxc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)
 
-    hf_over_dm_cc_grids = np.zeros_like(b3lyp_cc_grids)
-    int1e_grids = self.mol.intor("int1e_grids", grids=coords)
-
-    expr_rinv_dm1_r = oe.contract_expression(
-        "ijkl,i,j,kl->",
-        0.25 * oe.contract("pr,qs->pqrs", data["dm_inv"] * 2, data["dm_inv"] * 2),
-        (self.mol.nao,),
-        (self.mol.nao,),
-        (self.mol.nao, self.mol.nao),
-        constants=[0],
-        optimize="optimal",
-    )
-
-    for i, coord in enumerate(tqdm(coords)):
-        ao_0_i = ao_value[0][i]
-        if np.linalg.norm(ao_0_i) < 1e-10:
-            continue
-        with self.mol.with_rinv_origin(coord):
-            rinv = self.mol.intor("int1e_rinv")
-            hf_over_dm_cc_grids[i] += (
-                expr_rinv_dm1_r(ao_0_i, ao_0_i, rinv, backend="torch") / inv_r_3[0][i]
+    data_grids_norm = np.zeros((4, len(grids.coord_list), grids.n_rad, grids.n_ang))
+    for oxyz in range(4):
+        if oxyz == 0:
+            data_grids_norm[oxyz, :, :, :] = grids.vector_to_matrix(inv_r_3[oxyz, :])
+        else:
+            data_grids_norm[oxyz, :, :, :] = grids.vector_to_matrix(
+                np.abs(inv_r_3[oxyz, :])
             )
 
-    error_dft = (
-        np.sum((-0.2 * hf_over_dm_cc_grids + b3lyp_cc_grids) * inv_r_3[0] * weights)
-        + exa_ene
-        - e_cc_dft
-    )
-    print(f"Error of DFT: {error_dft:.5f}")
+    # n_slice_grids = psutil.virtual_memory().available // 2 // 8 // self.mol.nao**2
+    # n_batchs_grids = len(coords) // n_slice_grids + 1
+    # print(
+    #     f"n_batchs_grids: {n_batchs_grids}. n_slice_grids: {n_slice_grids}, will consume about {n_slice_grids * self.mol.nao**2 * 8 / 1024**3:.2f} GB memory."
+    # )
+
+    # for i_batch_grids in tqdm(range(n_batchs_grids)):
+    #     ngrids_slice_i = (
+    #         n_slice_grids
+    #         if i_batch_grids != n_slice_grids - 1
+    #         else len(coords) - n_slice_grids * i_batch_grids
+    #     )
+    #     i_slice_grids = slice(
+    #         n_slice_grids * i_batch_grids,
+    #         n_slice_grids * i_batch_grids + ngrids_slice_i,
+    #     )
+    #     int1e_grids = self.mol.intor("int1e_grids", grids=coords[i_slice_grids])
+    #     expr_rinv_dm1_r = oe.contract_expression(
+    #         "ik,jl,pi,pj,pkl->p",
+    #         (self.mol.nao, self.mol.nao),
+    #         (self.mol.nao, self.mol.nao),
+    #         ao_value[0][i_slice_grids, :],
+    #         ao_value[0][i_slice_grids, :],
+    #         int1e_grids,
+    #         constants=[2, 3, 4],
+    #         optimize="optimal",
+    #     )
+    #     hf_over_dm_cc_grids[i_slice_grids] = (
+    #         0.25
+    #         * expr_rinv_dm1_r(data["dm_inv"] * 2, data["dm_inv"] * 2)
+    #         / inv_r_3[0][i_slice_grids]
+    #     )
+
+    # mdft = pyscf.scf.RKS(self.mol)
+    # vk_inv = mdft.get_k(self.mol, data["dm_inv"] * 2)
+    # print(
+    #     -0.05 * oe.contract("ij,ji->", vk_inv, data["dm_inv"] * 2)
+    #     + 0.2 * np.sum(hf_over_dm_cc_grids * inv_r_3[0] * weights),
+    # )
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
@@ -725,14 +747,12 @@ def mrks_append(self, frac_old, load_inv=True):
         exc_real=data["exc_real"],
         exc_tr_b3lyp=data["exc_tr_b3lyp"],
         exc1_tr_b3lyp=data["exc1_tr_b3lyp"],
-        exc_tr_b3lyp_all=data["exc_tr"]
-        - grids.vector_to_matrix(-0.2 * hf_over_dm_cc_grids + b3lyp_cc_grids),
-        exc1_tr_b3lyp_all=data["exc1_tr"]
-        - grids.vector_to_matrix(-0.2 * hf_over_dm_cc_grids + b3lyp_cc_grids),
         exc_tr=data["exc_tr"],
         exc1_tr=data["exc1_tr"],
         rho_inv_4=data["rho_inv_4"],
         coords_x=data["coords_x"],
         coords_y=data["coords_y"],
         coords_z=data["coords_z"],
+        vxc1_b3lyp=data["vxc"] - grids.vector_to_matrix(evxc_b3lyp[0]),
+        rho_inv_4_norm=data_grids_norm,
     )

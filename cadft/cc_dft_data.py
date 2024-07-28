@@ -30,7 +30,7 @@ class CC_DFT_DATA:
 
         rotate(molecular)
 
-        # print(molecular)
+        print(molecular)
         self.mol = pyscf.M(
             atom=molecular,
             basis=gen_basis(molecular, self.basis, self.if_basis_str),

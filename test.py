@@ -105,13 +105,20 @@ class DIIS:
         self.mat_fock = np.zeros((n, nao, nao))
         self.step = 0
 
-    def add(self, mat_fock, error):
+    def add(self, mat_fock_, error):
+        """
+        Add the new Fock matrix and error.
+        """
+        # rolling back [_, _, 1, 2, 3] -> [_, 1, 2, 3, _]
         self.mat_fock = np.roll(self.mat_fock, -1, axis=0)
-        self.mat_fock[-1, :, :] = mat_fock
         self.errors = np.roll(self.errors, -1, axis=0)
+        self.mat_fock[-1, :, :] = mat_fock_
         self.errors[-1, :, :] = error
 
     def hybrid(self):
+        """
+        Return the hybrid Fock matrix.
+        """
         self.step += 1
         mat = np.zeros((self.n + 1, self.n + 1))
         mat[:-1, :-1] = np.einsum("inm,jnm->ij", self.errors, self.errors)
@@ -181,21 +188,11 @@ if __name__ == "__main__":
         distance_l,
     ):
         # 2.0 Prepare
-
         molecular = copy.deepcopy(Mol[name_mol])
-
-        index_dict = {}
-        for i_atom in ["H", "C"]:
-            index_dict[i_atom] = []
-
-        for i in range(len(molecular)):
-            index_dict[molecular[i][0]].append(i)
-
-        print(f"Generate {name_mol}_{distance:.4f}", flush=True)
-        print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)
-
         name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
         name_list.append(name)
+        print(f"Generate {name_mol}_{distance:.4f}", flush=True)
+        print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)
 
         if abs(distance) < 1e-3:
             if (extend_atom != 0) or extend_xyz != 1:
@@ -226,7 +223,7 @@ if __name__ == "__main__":
         # 2.1 SCF loop to get the density matrix
         time_start = timer()
 
-        dm1_scf = dft2cc.dm1_dft
+        dm1_scf = dft2cc.dm1_cc
         oe_fock = oe.contract_expression(
             "p,p,pa,pb->ab",
             np.shape(dft2cc.ao_0[:, 0]),
@@ -263,9 +260,14 @@ if __name__ == "__main__":
                     )
                 )
                 for oxyz in range(4):
-                    input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
-                        inv_r_3[oxyz, :]
-                    )
+                    if oxyz == 0:
+                        input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
+                            inv_r_3[oxyz, :]
+                        )
+                    else:
+                        input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
+                            np.abs(inv_r_3[oxyz, :])
+                        )
                 input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
             else:
                 raise ValueError("input_size must be 1 or 4")
@@ -299,7 +301,6 @@ if __name__ == "__main__":
             dm1_scf_old = dm1_scf.copy()
             dm1_scf = 2 * mo_scf[:, :nocc] @ mo_scf[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_scf - dm1_scf_old)
-            # dm1_scf = hybrid(dm1_scf, dm1_scf_old)
 
             if i % 10 == 0:
                 print(
@@ -432,9 +433,14 @@ if __name__ == "__main__":
                 )
             )
             for oxyz in range(4):
-                input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
-                    inv_r_3[oxyz, :]
-                )
+                if oxyz == 0:
+                    input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
+                        inv_r_3[oxyz, :]
+                    )
+                else:
+                    input_mat[:, oxyz, :, :] = dft2cc.grids.vector_to_matrix(
+                        np.abs(inv_r_3[oxyz, :])
+                    )
             input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
         else:
             raise ValueError("input_size must be 1 or 4")
@@ -455,6 +461,7 @@ if __name__ == "__main__":
         exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
         b3lyp_ene = np.sum(exc_b3lyp * scf_rho_r * dft2cc.grids.weights)
+
         ene_scf = (
             oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
             + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)

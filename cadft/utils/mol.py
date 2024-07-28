@@ -118,18 +118,7 @@ Mol = {
     "cyclopropane": Cyclopropane,
     "propylene": Propylene,
     "propane": Propane,
-    # "isobutane": Isobutane,
-    # "butane": Butane,
-    # "butadiene": Butadiene,
-    # "butyne": Butyne,
     "bicyclobutane": Bicyclobutane,
-    # "cyclopropylmethyl": Cyclopropylmethyl,
-    # "cyclobutane": Cyclobutane,
-    # "spiropentane": Spiropentane,
-    # "benzene": Benzene,
-    # "pentane": Pentane,
-    # "isopentane": Isopentane,
-    # "neopentane": Neopentane,
 }
 
 with importlib.resources.path("cadft", "utils") as resource_path:

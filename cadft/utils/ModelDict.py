@@ -187,8 +187,8 @@ class ModelDict:
         )
 
         loss_3_i = self.loss_multiplier * self.loss_fn3(
-            torch.sum(output_mat_real * input_mat * weight),
-            torch.sum(output_mat * input_mat * weight),
+            torch.sum(output_mat_real * input_mat[:, 0, :, :] * weight),
+            torch.sum(output_mat * input_mat[:, 0, :, :] * weight),
         )
         return loss_1_i, loss_2_i, loss_3_i
 

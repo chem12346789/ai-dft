@@ -180,9 +180,6 @@ if __name__ == "__main__":
         print(f"Generate {name_mol}_{distance:.4f}", flush=True)
         print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)
 
-        name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-        name_list.append(name)
-
         if abs(distance) < 1e-3:
             if (extend_atom != 0) or extend_xyz != 1:
                 print(f"Skip: {name:>40}")
@@ -192,12 +189,15 @@ if __name__ == "__main__":
             print(f"Skip: {name:>40}")
             continue
 
+        name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+        name_list.append(name)
+
         molecular[extend_atom][extend_xyz] += distance
         if (DATA_PATH / f"data_{name}.npz").exists():
             data_real = np.load(DATA_PATH / f"data_{name}.npz")
         else:
             print(f"No file: {name:>40}")
-            data_real = None
+            break
 
         dft2cc = CC_DFT_DATA(
             molecular,
@@ -207,6 +207,7 @@ if __name__ == "__main__":
         )
         dft2cc.test_mol()
         nocc = dft2cc.mol.nelec[0]
+        mdft = pyscf.scf.RKS(dft2cc.mol)
 
         # 1.1 SCF loop to get the density matrix
         time_start = timer()
@@ -233,17 +234,17 @@ if __name__ == "__main__":
             inv_r_3 = pyscf.dft.numint.eval_rho(
                 dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
             )
-            middle_mat = data_real["vxc_b3lyp"]
+            middle_mat = data_real["vxc1_b3lyp"]
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
 
-            exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
+            exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
             vxc_scf += exc_b3lyp
 
             vxc_mat = oe_fock(
                 vxc_scf,
                 dft2cc.grids.weights,
             )
-            vj_scf = get_jk(dft2cc.mol, dm1_scf)[0]
+            vj_scf = mdft.get_j(dft2cc.mol, dm1_scf)
             mat_fock = dft2cc.h1e + vj_scf + vxc_mat
 
             diis.add(
@@ -259,16 +260,11 @@ if __name__ == "__main__":
             dm1_scf = 2 * mo_scf[:, :nocc] @ mo_scf[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_scf - dm1_scf_old)
 
-            if i % 10 == 0:
-                print(
-                    f"step:{i:<8}",
-                    f"dm: {error_dm1::<10.5e}",
-                )
+            print(
+                f"step:{i:<8}",
+                f"dm: {error_dm1::<10.5e}",
+            )
             if (i > 0) and (error_dm1 < max_error_scf):
-                print(
-                    f"step:{i:<8}",
-                    f"dm: {error_dm1::<10.5e}",
-                )
                 dm1_scf = dm1_scf_old.copy()
                 break
 
@@ -388,9 +384,12 @@ if __name__ == "__main__":
         exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
         b3lyp_ene = np.sum(exc_b3lyp * scf_rho_r * dft2cc.grids.weights)
+        # vk_inv = mdft.get_k(dft2cc.mol, dm1_scf)
+
         ene_scf = (
             oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
             + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
+            # - 0.05 * oe.contract("ij,ji->", vk_inv, dm1_scf)
             + dft2cc.mol.energy_nuc()
             + np.sum(output_mat_exc)
             + b3lyp_ene
