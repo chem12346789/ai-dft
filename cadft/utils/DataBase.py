@@ -99,6 +99,7 @@ class DataBase:
         distance_list,
         train_atom_list,
         input_size,
+        output_size,
         basis,
         batch_size,
         device,
@@ -110,6 +111,7 @@ class DataBase:
         self.distance_list = distance_list
         self.train_atom_list = train_atom_list
         self.input_size = input_size
+        self.output_size = output_size
         self.basis = basis
         self.batch_size = batch_size
         self.device = device
@@ -182,10 +184,11 @@ class DataBase:
 
             weight_[i_atom] = weight[i_atom, :, :][np.newaxis, :, :]
 
-            if self.input_size == 1:
+            if self.output_size == 1:
                 middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
                 output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
             else:
+                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
                 output_[i_atom] = np.append(
                     middle_mat[i_atom, :, :][np.newaxis, :, :],
                     output_mat[i_atom, :, :][np.newaxis, :, :],

@@ -56,6 +56,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.distance_list,
         args.train_atom_list,
         args.input_size,
+        args.output_size,
         args.basis,
         args.batch_size,
         device,
@@ -68,6 +69,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.distance_list,
         args.train_atom_list,
         args.input_size,
+        args.output_size,
         args.basis,
         args.batch_size,
         device,
@@ -96,29 +98,23 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
     pbar0 = trange(args.epoch + 1)
     for epoch in pbar0:
         train_loss_1, train_loss_2, train_loss_3 = modeldict.train_model(database_train)
-        if not isinstance(
-            modeldict.scheduler_dict["1"],
-            torch.optim.lr_scheduler.ReduceLROnPlateau,
-        ):
-            modeldict.scheduler_dict["1"].step()
-        if not isinstance(
-            modeldict.scheduler_dict["2"],
-            torch.optim.lr_scheduler.ReduceLROnPlateau,
-        ):
-            modeldict.scheduler_dict["2"].step()
+        for key in modeldict.keys:
+            if not isinstance(
+                modeldict.scheduler_dict[key],
+                torch.optim.lr_scheduler.ReduceLROnPlateau,
+            ):
+                modeldict.scheduler_dict[key].step()
 
         if epoch % args.eval_step == 0:
             eval_loss_1, eval_loss_2, eval_loss_3 = modeldict.eval_model(database_eval)
-            if isinstance(
-                modeldict.scheduler_dict["1"],
-                torch.optim.lr_scheduler.ReduceLROnPlateau,
-            ):
-                modeldict.scheduler_dict["1"].step(np.mean(eval_loss_1))
-            if isinstance(
-                modeldict.scheduler_dict["2"],
-                torch.optim.lr_scheduler.ReduceLROnPlateau,
-            ):
-                modeldict.scheduler_dict["2"].step(np.mean(eval_loss_2))
+            for i, key in enumerate(modeldict.keys):
+                if isinstance(
+                    modeldict.scheduler_dict[key],
+                    torch.optim.lr_scheduler.ReduceLROnPlateau,
+                ):
+                    modeldict.scheduler_dict[key].step(
+                        np.mean([eval_loss_1, eval_loss_2][i])
+                    )
 
             experiment.log(
                 {

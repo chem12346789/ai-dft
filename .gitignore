@@ -13,6 +13,7 @@ validate*/
 submit*
 out
 *.sh
+PlotNeuralNet/
 
 # ignore backup files
 .history

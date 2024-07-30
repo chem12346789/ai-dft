@@ -366,7 +366,7 @@ def mrks(self, frac_old, load_inv=True):
             optimize="optimal",
         )
 
-        for i in range(2500):
+        for i in range(250):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -439,22 +439,14 @@ def mrks(self, frac_old, load_inv=True):
             dm1_inv = mo_inv[:, :nocc] @ mo_inv[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_inv - dm1_inv_old)
 
-            if i % 100 == 0:
-                print(
-                    f"step:{i:<8}",
-                    f"error of vxc: {error_vxc::<10.5e}",
-                    f"dm: {error_dm1::<10.5e}",
-                    f"shift: {potential_shift::<10.5e}",
-                    flush=True,
-                )
+            print(
+                f"step:{i:<8}",
+                f"error of vxc: {error_vxc::<10.5e}",
+                f"dm: {error_dm1::<10.5e}",
+                f"shift: {potential_shift::<10.5e}",
+                flush=True,
+            )
             if (i > 0) and (error_vxc < 1e-8):
-                print(
-                    f"step:{i:<8}",
-                    f"error of vxc: {error_vxc::<10.5e}",
-                    f"dm: {error_dm1::<10.5e}",
-                    f"shift: {potential_shift::<10.5e}",
-                    flush=True,
-                )
                 break
 
         tau_rho_ks = gen_tau_rho(
@@ -663,6 +655,9 @@ def mrks(self, frac_old, load_inv=True):
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
         coords_z=grids.vector_to_matrix(coords[:, 2]),
+        grids_weights=grids.weights,
+        grids_coords=grids.coords,
+        grids_index_2d=grids.index_2d,
     )
 
 

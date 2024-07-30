@@ -156,5 +156,3 @@ class CC_DFT_DATA:
             )
 
         self.grids = Grid(self.mol)
-        self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
-        self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)

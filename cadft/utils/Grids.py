@@ -52,37 +52,39 @@ LEBEDEV_ORDER = {
     131: 5810,
 }
 
-# Period     1   2   3   4   5   6   7    # level
+# fmt: off
+# Period  1     2     3     4     5     6     7     8    # level
 ANG_ORDER = np.array(
     (
-        (0, 11, 15, 17, 17, 17, 17, 17),  # 0
-        (0, 17, 23, 23, 23, 23, 23, 23),  # 1
-        (0, 23, 29, 29, 29, 29, 29, 29),  # 2
-        (0, 29, 29, 35, 35, 35, 35, 35),  # 3
-        (0, 35, 41, 41, 41, 41, 41, 41),  # 4
-        (0, 41, 47, 47, 47, 47, 47, 47),  # 5
-        (0, 47, 53, 53, 53, 53, 53, 53),  # 6
-        (0, 53, 59, 59, 59, 59, 59, 59),  # 7
-        (0, 59, 59, 59, 59, 59, 59, 59),  # 8
-        (0, 65, 65, 65, 65, 65, 65, 65),  # 9
+        ( 0,   11,   15,   17,   17,   17,   17,   17),  # 0
+        ( 0,   17,   23,   23,   23,   23,   23,   23),  # 1
+        ( 0,   23,   29,   29,   29,   29,   29,   29),  # 2
+        ( 0,   29,   29,   35,   35,   35,   35,   35),  # 3
+        ( 0,   35,   41,   41,   41,   41,   41,   41),  # 4
+        ( 0,   41,   47,   47,   47,   47,   47,   47),  # 5
+        ( 0,   47,   53,   53,   53,   53,   53,   53),  # 6
+        ( 0,   53,   59,   59,   59,   59,   59,   59),  # 7
+        ( 0,   59,   59,   59,   59,   59,   59,   59),  # 8
+        ( 0,   65,   65,   65,   65,   65,   65,   65),  # 9
     )
 )
 
-#   Period    1    2    3    4    5    6    7       # level
+# Period  1     2     3     4     5     6     7     8   # level
 RAD_GRIDS = np.array(
     (
-        (0, 10, 15, 20, 30, 35, 40, 50),  # 0
-        (0, 30, 40, 50, 60, 65, 70, 75),  # 1
-        (0, 40, 60, 65, 75, 80, 85, 90),  # 2
-        (0, 50, 75, 80, 90, 95, 100, 105),  # 3
-        (0, 60, 90, 95, 105, 110, 115, 120),  # 4
-        (0, 70, 105, 110, 120, 125, 130, 135),  # 5
-        (0, 80, 120, 125, 135, 140, 145, 150),  # 6
-        (0, 90, 135, 140, 150, 155, 160, 165),  # 7
-        (0, 100, 150, 155, 165, 170, 175, 180),  # 8
-        (0, 200, 200, 200, 200, 200, 200, 200),  # 9
+        ( 0,   10,   15,   20,   30,   35,   40,   50), # 0
+        ( 0,   30,   40,   50,   60,   65,   70,   75), # 1
+        ( 0,   40,   60,   65,   75,   80,   85,   90), # 2
+        ( 0,   50,   75,   80,   90,   95,  100,  105), # 3
+        ( 0,   60,   90,   95,  105,  110,  115,  120), # 4
+        ( 0,   70,  105,  110,  120,  125,  130,  135), # 5
+        ( 0,   80,  120,  125,  135,  140,  145,  150), # 6
+        ( 0,   90,  135,  140,  150,  155,  160,  165), # 7
+        ( 0,  100,  150,  155,  165,  170,  175,  180), # 8
+        ( 0,  200,  200,  200,  200,  200,  200,  200), # 9
     )
 )
+# fmt: on
 
 
 def gen_atomic_grids(
@@ -147,37 +149,50 @@ class Grid(dft.gen_grid.Grids):
     This class is modified from pyscf.dft.gen_grid.Grids. Some default parameters are changed.
     """
 
-    def __init__(self, mol, level=3):
+    def __init__(
+        self,
+        mol,
+        level=3,
+        weights=None,
+        coords=None,
+        index_2d=None,
+    ):
         super().__init__(mol)
         self.n_rad, self.n_ang = (
             RAD_GRIDS[level, 2],
             LEBEDEV_ORDER[ANG_ORDER[level, 2]],
         )
-        self.coord_list = []
-        self.atom_grid = {}
-        for i_atom in mol.atom:
-            self.coord_list.append(i_atom[1:])
-            self.atom_grid[i_atom[0]] = (self.n_rad, self.n_ang)
-        self.coord_list = np.array(self.coord_list)
+        if (weights is not None) and (coords is not None) and (index_2d is not None):
+            self.weights = weights
+            self.coords = coords
+            self.index_2d = index_2d
+            self.ngrids = len(self.weights)
+        else:
+            self.coord_list = []
+            self.atom_grid = {}
+            for i_atom in mol.atom:
+                self.coord_list.append(i_atom[1:])
+                self.atom_grid[i_atom[0]] = (self.n_rad, self.n_ang)
+            self.coord_list = np.array(self.coord_list)
 
-        self.prune = None
-        self.atomic_radii = None
-        self.radii_adjust = None
-        self.becke_scheme = dft.gen_grid.original_becke
-        self.radi_method = dft.radi.gauss_chebyshev
-        modified_build(self)
+            self.prune = None
+            self.atomic_radii = None
+            self.radii_adjust = None
+            self.becke_scheme = dft.gen_grid.original_becke
+            self.radi_method = dft.radi.gauss_chebyshev
+            modified_build(self)
 
-        self.index_2d = np.arange(len(self.coords)).reshape(
-            self.mol.natm, self.n_ang, self.n_rad
-        )
-        self.index_2d = np.transpose(self.index_2d, axes=[0, 2, 1])
+            self.index_2d = np.arange(len(self.coords)).reshape(
+                self.mol.natm, self.n_ang, self.n_rad
+            )
+            self.index_2d = np.transpose(self.index_2d, axes=[0, 2, 1])
 
     def vector_to_matrix(self, vector: np.ndarray):
         """
         Documentation for a method.
         """
-        matrix = np.zeros((len(self.coord_list), self.n_rad, self.n_ang))
-        index_range = np.ndindex((len(self.coord_list)), self.n_rad, self.n_ang)
+        matrix = np.zeros((self.mol.natm, self.n_rad, self.n_ang))
+        index_range = np.ndindex(self.mol.natm, self.n_rad, self.n_ang)
         for i, j, k in index_range:
             matrix[i, j, k] = vector[self.index_2d[i, j, k]]
         return matrix
@@ -186,8 +201,8 @@ class Grid(dft.gen_grid.Grids):
         """
         Documentation for a method.
         """
-        vector = np.zeros(len(self.coord_list) * self.n_rad * self.n_ang)
-        index_range = np.ndindex((len(self.coord_list)), self.n_rad, self.n_ang)
+        vector = np.zeros((self.mol.natm * self.n_rad * self.n_ang))
+        index_range = np.ndindex(self.mol.natm, self.n_rad, self.n_ang)
         for i, j, k in index_range:
             vector[self.index_2d[i, j, k]] = matrix[i, j, k]
         return vector

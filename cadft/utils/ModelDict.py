@@ -192,8 +192,8 @@ class ModelDict:
             )
 
             loss_3_i = self.loss_multiplier * self.loss_fn3(
-                torch.sum(output_mat_real * input_mat[:, 0, :, :] * weight),
-                torch.sum(output_mat * input_mat[:, 0, :, :] * weight),
+                torch.sum(output_mat_real * input_mat[:, [0], :, :] * weight),
+                torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
             )
             return loss_1_i, loss_2_i, loss_3_i
         else:
@@ -204,8 +204,10 @@ class ModelDict:
             )
 
             loss_3_i = self.loss_multiplier * self.loss_fn2(
-                torch.sum(output_mat_real * input_mat[:, 0, :, :] * weight),
-                torch.sum(output_mat * input_mat[:, 0, :, :] * weight),
+                torch.sum(output_mat[:, [1], :, :] * input_mat[:, [0], :, :] * weight),
+                torch.sum(
+                    output_mat_real[:, [1], :, :] * input_mat[:, [0], :, :] * weight
+                ),
             )
             return loss_1_i, torch.tensor([0.0], device=self.device), loss_3_i
 
@@ -290,4 +292,10 @@ class ModelDict:
             eval_loss_1.append(loss_1.item())
             eval_loss_2.append(loss_2.item())
             eval_loss_3.append(loss_3.item())
+
+            if self.output_size == 1:
+                loss_2 += loss_3 * self.ene_weight
+            else:
+                loss_1 += loss_3 * self.ene_weight
+
         return eval_loss_1, eval_loss_2, eval_loss_3

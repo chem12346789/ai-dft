@@ -271,15 +271,16 @@ if __name__ == "__main__":
                 input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
             else:
                 raise ValueError("input_size must be 1 or 4")
+
             with torch.no_grad():
                 middle_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
-            middle_mat = middle_mat.squeeze(1)
+            middle_mat = middle_mat[:, 0, :, :]
 
             # if data_real is not None:
-            #     middle_mat = data_real["vxc_b3lyp"]
+            #     middle_mat = data_real["vxc1_b3lyp"]
 
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
-            exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[1][0]
+            exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
             vxc_scf += exc_b3lyp
 
             vxc_mat = oe_fock(
@@ -444,9 +445,14 @@ if __name__ == "__main__":
             input_mat = torch.tensor(input_mat, dtype=modeldict.dtype).to("cuda")
         else:
             raise ValueError("input_size must be 1 or 4")
+
         with torch.no_grad():
-            output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
-        output_mat = output_mat.squeeze(1)
+            if modeldict.output_size == 1:
+                output_mat = modeldict.model_dict["2"](input_mat).detach().cpu().numpy()
+                output_mat = output_mat[:, 0, :, :]
+            else:
+                output_mat = modeldict.model_dict["1"](input_mat).detach().cpu().numpy()
+                output_mat = output_mat[:, 1, :, :]
 
         # if data_real is not None:
         #     output_mat = data_real["exc1_tr_b3lyp"]
