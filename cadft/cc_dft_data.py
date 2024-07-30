@@ -30,12 +30,12 @@ class CC_DFT_DATA:
 
         rotate(molecular)
 
-        print(molecular)
         self.mol = pyscf.M(
             atom=molecular,
             basis=gen_basis(molecular, self.basis, self.if_basis_str),
             verbose=0,
         )
+        print(self.mol.atom)
 
         self.aoslice_by_atom = self.mol.aoslice_by_atom()[:, 2:]
         self.atom_info = {"slice": {}, "atom": {}, "nao": {}}
@@ -156,3 +156,5 @@ class CC_DFT_DATA:
             )
 
         self.grids = Grid(self.mol)
+        self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
+        self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)

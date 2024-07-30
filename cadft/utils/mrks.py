@@ -626,6 +626,11 @@ def mrks(self, frac_old, load_inv=True):
     with open(DATA_PATH / f"save_data_{self.name}.json", "w", encoding="utf-8") as f:
         json.dump(save_data, f, indent=4)
 
+    print(
+        np.linalg.norm(
+            vxc_inv - grids.matrix_to_vector(grids.vector_to_matrix(vxc_inv))
+        )
+    )
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
         dm_cc=dm1_cc,
@@ -633,6 +638,7 @@ def mrks(self, frac_old, load_inv=True):
         rho_cc=grids.vector_to_matrix(rho_cc[0]),
         rho_inv=grids.vector_to_matrix(inv_r),
         weights=grids.vector_to_matrix(weights),
+        vxc_ori=vxc_inv,
         vxc=grids.vector_to_matrix(vxc_inv),
         vxc_b3lyp=grids.vector_to_matrix(vxc_inv - vxc_b3lyp),
         vxc1_b3lyp=grids.vector_to_matrix(vxc_inv - evxc_b3lyp[0]),
@@ -642,6 +648,9 @@ def mrks(self, frac_old, load_inv=True):
             exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
         ),
         exc1_tr_b3lyp=grids.vector_to_matrix(
+            exc_over_rho_grids_fake1 + 2 * (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
+        ),
+        exc1_tr_b3lyp_ori=(
             exc_over_rho_grids_fake1 + 2 * (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
         ),
         exc_tr=grids.vector_to_matrix(
@@ -655,9 +664,6 @@ def mrks(self, frac_old, load_inv=True):
         coords_x=grids.vector_to_matrix(coords[:, 0]),
         coords_y=grids.vector_to_matrix(coords[:, 1]),
         coords_z=grids.vector_to_matrix(coords[:, 2]),
-        grids_weights=grids.weights,
-        grids_coords=grids.coords,
-        grids_index_2d=grids.index_2d,
     )
 
 

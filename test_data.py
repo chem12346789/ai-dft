@@ -19,9 +19,9 @@ import opt_einsum as oe
 from torch.utils.data import DataLoader
 
 from cadft import CC_DFT_DATA, add_args, gen_logger
+from cadft.utils import ModelDict
 from cadft.utils import Mol
 from cadft.utils import MAIN_PATH, DATA_PATH
-from cadft.utils.Grids import Grid
 
 
 AU2KCALMOL = 627.5096080306
@@ -212,55 +212,14 @@ if __name__ == "__main__":
         # 1.1 SCF loop to get the density matrix
         time_start = timer()
 
-        grids = Grid(
-            dft2cc.mol,
-            weights=data_real["grids_weights"],
-            coords=data_real["grids_coords"],
-            index_2d=data_real["grids_index_2d"],
-        )
-        weights = grids.weights
-        coords = grids.coords
-
-        weights_grids = grids.vector_to_matrix(weights)
-        coords_x = grids.vector_to_matrix(coords[:, 0])
-        coords_y = grids.vector_to_matrix(coords[:, 1])
-        coords_z = grids.vector_to_matrix(coords[:, 2])
-
-        print(np.linalg.norm(weights_grids - data_real["weights"], axis=(1, 2)))
-        print(
-            np.linalg.norm(weights_grids, axis=(1, 2))
-            - np.linalg.norm(data_real["weights"], axis=(1, 2))
-        )
-        print(np.linalg.norm(coords_x - data_real["coords_x"], axis=(1, 2)))
-        print(
-            np.linalg.norm(coords_x, axis=(1, 2))
-            - np.linalg.norm(data_real["coords_x"], axis=(1, 2))
-        )
-        print(np.linalg.norm(coords_y - data_real["coords_y"], axis=(1, 2)))
-        print(
-            np.linalg.norm(coords_y, axis=(1, 2))
-            - np.linalg.norm(data_real["coords_y"], axis=(1, 2))
-        )
-        print(np.linalg.norm(coords_z - data_real["coords_z"], axis=(1, 2)))
-        print(
-            np.linalg.norm(coords_z, axis=(1, 2))
-            - np.linalg.norm(data_real["coords_z"], axis=(1, 2))
-        )
-
-        dm1_scf = dft2cc.dm1_dft
+        # dm1_scf = dft2cc.dm1_dft
         dm1_scf = data_real["dm_inv"] * 2
-
-        ao_0 = pyscf.dft.numint.eval_ao(dft2cc.mol, coords)
-        ao_1 = pyscf.dft.numint.eval_ao(dft2cc.mol, coords, deriv=1)
-        middle_mat = data_real["vxc"]
-        vxc_scf_data = grids.matrix_to_vector(middle_mat)
-
         oe_fock = oe.contract_expression(
             "p,p,pa,pb->ab",
-            np.shape(ao_0[:, 0]),
-            np.shape(ao_0[:, 0]),
-            ao_0,
-            ao_0,
+            np.shape(dft2cc.ao_0[:, 0]),
+            np.shape(dft2cc.ao_0[:, 0]),
+            dft2cc.ao_0,
+            dft2cc.ao_0,
             constants=[2, 3],
             optimize="optimal",
         )
@@ -270,12 +229,22 @@ if __name__ == "__main__":
         else:
             max_error_scf = 1e-8
 
-        diis = DIIS(dft2cc.mol.nao, n=12)
+        diis = DIIS(dft2cc.mol.nao, n=8)
 
-        for i in range(100):
-            vxc_scf = vxc_scf_data
+        for i in range(0):
+            middle_mat = data_real["vxc"]
+            vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
 
-            vxc_mat = oe_fock(vxc_scf, weights)
+            # inv_r_3 = pyscf.dft.numint.eval_rho(
+            #     dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
+            # )
+            # exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
+            # vxc_scf += exc_b3lyp
+
+            vxc_mat = oe_fock(
+                vxc_scf,
+                dft2cc.grids.weights,
+            )
             vj_scf = mdft.get_j(dft2cc.mol, dm1_scf)
             mat_fock = dft2cc.h1e + vj_scf + vxc_mat
 
@@ -291,8 +260,6 @@ if __name__ == "__main__":
             dm1_scf_old = dm1_scf.copy()
             dm1_scf = 2 * mo_scf[:, :nocc] @ mo_scf[:, :nocc].T
             error_dm1 = np.linalg.norm(dm1_scf - dm1_scf_old)
-
-            # dm1_scf = 0.1 * dm1_scf + 0.9 * dm1_scf_old
 
             print(
                 f"step:{i:<8}",
@@ -315,38 +282,75 @@ if __name__ == "__main__":
         gc.collect()
         torch.cuda.empty_cache()
 
-        scf_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, ao_0, dm1_scf)
-        cc_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, ao_0, dft2cc.dm1_cc)
-        dft_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, ao_0, dft2cc.dm1_dft)
-        error_scf_rho_r = np.sum(np.abs(scf_rho_r - cc_rho_r) * weights)
-        error_dft_rho_r = np.sum(np.abs(dft_rho_r - cc_rho_r) * weights)
+        scf_rho_r = pyscf.dft.numint.eval_rho(
+            dft2cc.mol,
+            dft2cc.ao_0,
+            dm1_scf,
+        )
+        cc_rho_r = pyscf.dft.numint.eval_rho(
+            dft2cc.mol,
+            dft2cc.ao_0,
+            dft2cc.dm1_cc,
+        )
+        dft_rho_r = pyscf.dft.numint.eval_rho(
+            dft2cc.mol,
+            dft2cc.ao_0,
+            dft2cc.dm1_dft,
+        )
+        error_scf_rho_r = np.sum(np.abs(scf_rho_r - cc_rho_r) * dft2cc.grids.weights)
+        error_dft_rho_r = np.sum(np.abs(dft_rho_r - cc_rho_r) * dft2cc.grids.weights)
         print(
             f"error_scf_rho_r: {error_scf_rho_r:.2e}, error_dft_rho_r: {error_dft_rho_r:.2e}",
             flush=True,
         )
         error_scf_rho_r_l.append(error_scf_rho_r)
         error_dft_rho_r_l.append(error_dft_rho_r)
+        vj_scf = mdft.get_j(dft2cc.mol, dm1_scf)
 
-        dipole_x_core = np.sum(
-            dft2cc.mol.atom_charges() * dft2cc.mol.atom_coords()[:, 0]
+        dipole_x_core = 0
+        for i_atom in range(dft2cc.mol.natm):
+            dipole_x_core += (
+                dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][0]
+            )
+        dipole_x = dipole_x_core - np.sum(
+            cc_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
         )
-        dipole_x = dipole_x_core - np.sum(cc_rho_r * coords[:, 0] * weights)
-        dipole_x_scf = dipole_x_core - np.sum(scf_rho_r * coords[:, 0] * weights)
-        dipole_x_dft = dipole_x_core - np.sum(dft_rho_r * coords[:, 0] * weights)
+        dipole_x_scf = dipole_x_core - np.sum(
+            scf_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
+        )
+        dipole_x_dft = dipole_x_core - np.sum(
+            dft_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
+        )
 
-        dipole_y_core = np.sum(
-            dft2cc.mol.atom_charges() * dft2cc.mol.atom_coords()[:, 1]
+        dipole_y_core = 0
+        for i_atom in range(dft2cc.mol.natm):
+            dipole_y_core += (
+                dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][1]
+            )
+        dipole_y = dipole_y_core - np.sum(
+            cc_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
         )
-        dipole_y = dipole_y_core - np.sum(cc_rho_r * coords[:, 1] * weights)
-        dipole_y_scf = dipole_y_core - np.sum(scf_rho_r * coords[:, 1] * weights)
-        dipole_y_dft = dipole_y_core - np.sum(dft_rho_r * coords[:, 1] * weights)
+        dipole_y_scf = dipole_y_core - np.sum(
+            scf_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
+        )
+        dipole_y_dft = dipole_y_core - np.sum(
+            dft_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
+        )
 
-        dipole_z_core = np.sum(
-            dft2cc.mol.atom_charges() * dft2cc.mol.atom_coords()[:, 2]
+        dipole_z_core = 0
+        for i_atom in range(dft2cc.mol.natm):
+            dipole_z_core += (
+                dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][2]
+            )
+        dipole_z = dipole_z_core - np.sum(
+            cc_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
         )
-        dipole_z = dipole_z_core - np.sum(cc_rho_r * coords[:, 2] * weights)
-        dipole_z_scf = dipole_z_core - np.sum(scf_rho_r * coords[:, 2] * weights)
-        dipole_z_dft = dipole_z_core - np.sum(dft_rho_r * coords[:, 2] * weights)
+        dipole_z_scf = dipole_z_core - np.sum(
+            scf_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
+        )
+        dipole_z_dft = dipole_z_core - np.sum(
+            dft_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
+        )
 
         print(
             f"dipole_x, cc: {dipole_x:.4f}, scf {dipole_x_scf:.4f}, dft {dipole_x_dft:.4f}"
@@ -367,21 +371,48 @@ if __name__ == "__main__":
 
         # 2.3 check the difference of energy (total)
 
-        inv_r_3 = pyscf.dft.numint.eval_rho(dft2cc.mol, ao_1, dm1_scf, xctype="GGA")
+        inv_r_3 = pyscf.dft.numint.eval_rho(
+            dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
+        )
         output_mat = data_real["exc1_tr_b3lyp"]
 
-        output_mat_exc = output_mat * grids.vector_to_matrix(scf_rho_r * weights)
+        output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
+            scf_rho_r * dft2cc.grids.weights
+        )
 
-        inv_r_3 = pyscf.dft.numint.eval_rho(dft2cc.mol, ao_1, dm1_scf, xctype="GGA")
+        inv_r_3 = pyscf.dft.numint.eval_rho(
+            dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
+        )
         exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
-        b3lyp_ene = np.sum(exc_b3lyp * scf_rho_r * weights)
-        # vk_inv = mdft.get_k(dft2cc.mol, dm1_scf)
+        b3lyp_ene = np.sum(exc_b3lyp * scf_rho_r * dft2cc.grids.weights)
+
+        print(AU2KCALMOL * b3lyp_ene)
+        print(
+            AU2KCALMOL
+            * np.sum(
+                (data_real["exc1_tr"] - data_real["exc1_tr_b3lyp"])
+                * data_real["rho_inv"]
+                * data_real["weights"]
+            ),
+            AU2KCALMOL
+            * (
+                oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
+                + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
+                + dft2cc.mol.energy_nuc()
+                + np.sum(
+                    data_real["exc1_tr_b3lyp"]
+                    * data_real["rho_inv"]
+                    * data_real["weights"]
+                )
+                + b3lyp_ene
+                - dft2cc.e_cc
+            ),
+        )
 
         ene_scf = (
             oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
             + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
-            # - 0.05 * oe.contract("ij,ji->", vk_inv, dm1_scf)
             + dft2cc.mol.energy_nuc()
             + np.sum(output_mat_exc)
             + b3lyp_ene

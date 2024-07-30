@@ -149,50 +149,37 @@ class Grid(dft.gen_grid.Grids):
     This class is modified from pyscf.dft.gen_grid.Grids. Some default parameters are changed.
     """
 
-    def __init__(
-        self,
-        mol,
-        level=3,
-        weights=None,
-        coords=None,
-        index_2d=None,
-    ):
+    def __init__(self, mol, level=3):
         super().__init__(mol)
         self.n_rad, self.n_ang = (
             RAD_GRIDS[level, 2],
             LEBEDEV_ORDER[ANG_ORDER[level, 2]],
         )
-        if (weights is not None) and (coords is not None) and (index_2d is not None):
-            self.weights = weights
-            self.coords = coords
-            self.index_2d = index_2d
-            self.ngrids = len(self.weights)
-        else:
-            self.coord_list = []
-            self.atom_grid = {}
-            for i_atom in mol.atom:
-                self.coord_list.append(i_atom[1:])
-                self.atom_grid[i_atom[0]] = (self.n_rad, self.n_ang)
-            self.coord_list = np.array(self.coord_list)
+        self.coord_list = []
+        self.atom_grid = {}
+        for i_atom in mol.atom:
+            self.coord_list.append(i_atom[1:])
+            self.atom_grid[i_atom[0]] = (self.n_rad, self.n_ang)
+        self.coord_list = np.array(self.coord_list)
 
-            self.prune = None
-            self.atomic_radii = None
-            self.radii_adjust = None
-            self.becke_scheme = dft.gen_grid.original_becke
-            self.radi_method = dft.radi.gauss_chebyshev
-            modified_build(self)
+        self.prune = None
+        self.atomic_radii = None
+        self.radii_adjust = None
+        self.becke_scheme = dft.gen_grid.original_becke
+        self.radi_method = dft.radi.gauss_chebyshev
+        modified_build(self)
 
-            self.index_2d = np.arange(len(self.coords)).reshape(
-                self.mol.natm, self.n_ang, self.n_rad
-            )
-            self.index_2d = np.transpose(self.index_2d, axes=[0, 2, 1])
+        self.index_2d = np.arange(len(self.coords)).reshape(
+            self.mol.natm, self.n_ang, self.n_rad
+        )
+        self.index_2d = np.transpose(self.index_2d, axes=[0, 2, 1])
 
     def vector_to_matrix(self, vector: np.ndarray):
         """
         Documentation for a method.
         """
-        matrix = np.zeros((self.mol.natm, self.n_rad, self.n_ang))
-        index_range = np.ndindex(self.mol.natm, self.n_rad, self.n_ang)
+        matrix = np.zeros((len(self.coord_list), self.n_rad, self.n_ang))
+        index_range = np.ndindex((len(self.coord_list)), self.n_rad, self.n_ang)
         for i, j, k in index_range:
             matrix[i, j, k] = vector[self.index_2d[i, j, k]]
         return matrix
@@ -201,8 +188,8 @@ class Grid(dft.gen_grid.Grids):
         """
         Documentation for a method.
         """
-        vector = np.zeros((self.mol.natm * self.n_rad * self.n_ang))
-        index_range = np.ndindex(self.mol.natm, self.n_rad, self.n_ang)
+        vector = np.zeros(len(self.coord_list) * self.n_rad * self.n_ang)
+        index_range = np.ndindex((len(self.coord_list)), self.n_rad, self.n_ang)
         for i, j, k in index_range:
             vector[self.index_2d[i, j, k]] = matrix[i, j, k]
         return vector
