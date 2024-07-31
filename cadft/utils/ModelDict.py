@@ -103,7 +103,7 @@ class ModelDict:
                 self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
                     self.optimizer_dict[key],
                     mode="min",
-                    patience=5,
+                    patience=10,
                     factor=0.5,
                 )
             else:
@@ -144,7 +144,9 @@ class ModelDict:
                         print(f"No model found for {key}, use random initialization.")
                         continue
                     load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
-                    state_dict = torch.load(load_path, map_location=self.device)
+                    state_dict = torch.load(
+                        load_path, map_location=self.device, weights_only=True
+                    )
                     self.model_dict[key].load_state_dict(state_dict)
                     print(f"Model loaded from {load_path}")
             else:

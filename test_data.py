@@ -231,7 +231,7 @@ if __name__ == "__main__":
 
         diis = DIIS(dft2cc.mol.nao, n=8)
 
-        for i in range(0):
+        for i in range(100):
             middle_mat = data_real["vxc"]
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
 
