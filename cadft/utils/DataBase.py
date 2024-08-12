@@ -9,6 +9,21 @@ from cadft.utils.mol import Mol
 from cadft.utils.env_var import DATA_PATH
 
 
+def process_input(data, grids):
+    """
+    process the input
+    """
+    data_grids_norm = np.zeros((4, len(grids.coord_list), grids.n_rad, grids.n_ang))
+    for oxyz in range(4):
+        if oxyz == 0:
+            data_grids_norm[oxyz, :, :, :] = grids.vector_to_matrix(data[oxyz, :])
+        else:
+            data_grids_norm[oxyz, :, :, :] = grids.vector_to_matrix(
+                np.abs(data[oxyz, :])
+            )
+    return data_grids_norm
+
+
 def process(data, dtype):
     """
     Load the whole data to the gpu.
@@ -147,12 +162,20 @@ class DataBase:
                 print(f"Skip: {name:>40}")
                 continue
 
-            if not (Path(f"{DATA_PATH}") / f"data_{name}.npz").exists():
-                print(f"No file: {name:>40}")
-                continue
-
-            self.name_list.append(name)
-            self.load_data(name, Mol[name_mol])
+            if "openshell" in name:
+                for i_spin in range(2):
+                    name_ = f"{name}_{i_spin}"
+                    if not (Path(f"{DATA_PATH}") / f"data_{name_}.npz").exists():
+                        print(f"No file: {name_}:>40")
+                        continue
+                    self.name_list.append(f"{name_}")
+                    self.load_data(f"{name_}", Mol[name_mol])
+            else:
+                if not (Path(f"{DATA_PATH}") / f"data_{name}.npz").exists():
+                    print(f"No file: {name:>40}")
+                    continue
+                self.name_list.append(name)
+                self.load_data(name, Mol[name_mol])
 
     def load_data(self, name, mol):
         """
@@ -187,13 +210,18 @@ class DataBase:
             if self.output_size == 1:
                 middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
                 output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
-            else:
+            elif self.output_size == 2:
                 middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
                 output_[i_atom] = np.append(
                     middle_mat[i_atom, :, :][np.newaxis, :, :],
                     output_mat[i_atom, :, :][np.newaxis, :, :],
                     axis=0,
                 )
+            elif self.output_size == -1:
+                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
+                output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
+            else:
+                raise ValueError("output_size should be -1, 1 or 2.")
 
             print(
                 f"Load {name:>30}, key_: {i_atom:>3}\n"

@@ -46,6 +46,7 @@ for (
         name=name,
         basis=args.basis,
         if_basis_str=args.if_basis_str,
+        spin=1,
     )
 
     if abs(distance) >= 0.5:
@@ -54,7 +55,8 @@ for (
         FACTOR = 0.85
     else:
         FACTOR = 0.8
-    dft2cc.mrks(FACTOR, args.load_inv)
+    dft2cc.umrks_diis(0, args.load_inv)
+    # dft2cc.umrks_diis(FACTOR, args.load_inv)
     # dft2cc.mrks_append(FACTOR, args.load_inv)
 
     del dft2cc

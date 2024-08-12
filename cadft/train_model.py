@@ -116,27 +116,29 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                         np.mean([eval_loss_1, eval_loss_2][i])
                     )
 
-            experiment.log(
-                {
-                    "epoch": epoch,
-                    "global_step": epoch,
-                    "mean train1 loss": np.mean(train_loss_1),
-                    "mean train2 loss": np.mean(train_loss_2),
-                    "mean train3 loss": np.mean(train_loss_3),
-                    "mean eval1 loss": np.mean(eval_loss_1),
-                    "mean eval2 loss": np.mean(eval_loss_2),
-                    "mean eval3 loss": np.mean(eval_loss_3),
-                    "lr1": modeldict.optimizer_dict["1"].param_groups[0]["lr"],
-                    "lr2": modeldict.optimizer_dict["2"].param_groups[0]["lr"],
-                }
-            )
+            experiment_dict = {
+                "epoch": epoch,
+                "global_step": epoch,
+                "mean train1 loss": np.mean(train_loss_1),
+                "mean train2 loss": np.mean(train_loss_2),
+                "mean train3 loss": np.mean(train_loss_3),
+                "mean eval1 loss": np.mean(eval_loss_1),
+                "mean eval2 loss": np.mean(eval_loss_2),
+                "mean eval3 loss": np.mean(eval_loss_3),
+            }
+            lr1_2 = ""
+            for key in modeldict.keys:
+                experiment_dict[f"lr{key}"] = -np.log10(
+                    modeldict.optimizer_dict[key].param_groups[0]["lr"]
+                )
+                lr1_2 += f"{-np.log10(modeldict.optimizer_dict[key].param_groups[0]['lr']):.2g} "
+            experiment.log(experiment_dict)
 
             pbar0.set_description(
                 f"t/e1 {np.mean(train_loss_1):.2g}/{np.mean(eval_loss_1):.2g}"
                 f" t/e2 {np.mean(train_loss_2):.2g}/{np.mean(eval_loss_2):.2g}"
                 f" t/e3 {np.mean(train_loss_3):.2g}/{np.mean(eval_loss_3):.2g}"
-                f"lr1/2 {-np.log10(modeldict.optimizer_dict['1'].param_groups[0]['lr']):.2g}"
-                f"/{-np.log10(modeldict.optimizer_dict['2'].param_groups[0]['lr']):.2g}"
+                f"lr1/2 {lr1_2}"
             )
 
         if epoch % (args.eval_step * 10) == 0:
