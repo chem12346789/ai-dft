@@ -55,7 +55,10 @@ for (
         FACTOR = 0.85
     else:
         FACTOR = 0.8
-    dft2cc.umrks_diis(0, args.load_inv)
+    if "openshell" in name_mol:
+        dft2cc.umrks_diis(0, args.load_inv)
+    else:
+        dft2cc.mrks_diis(0, args.load_inv)
     # dft2cc.umrks_diis(FACTOR, args.load_inv)
     # dft2cc.mrks_append(FACTOR, args.load_inv)
 

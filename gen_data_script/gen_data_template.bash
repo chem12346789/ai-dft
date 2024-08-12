@@ -17,4 +17,4 @@ export PYSCF_TMPDIR=~/workdir/tmp
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 
-~/anaconda3/bin/python gen_dm_ene.py -dl START END STEP -b BASIS --extend_atom 0 --extend_xyz 0 1 2 --name_mol MOL
+~/anaconda3/bin/python gen_dm_ene.py -dl START END STEP -b BASIS --extend_atom 0 2 --extend_xyz 0 1 2 --name_mol MOL

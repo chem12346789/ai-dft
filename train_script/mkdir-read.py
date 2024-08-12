@@ -41,7 +41,7 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
-input_size, output_size = 1, 1
+input_size, output_size = 4, 1
 # input_size, output_size = 302, 302
 
 for (
@@ -53,12 +53,12 @@ for (
     ene_weight,
     with_eval,
 ) in itertools.product(
-    [64],
+    [16],
     [100],
     [64],
     [4],
     [0],
-    [0, 1],
+    [0],
     [
         # "False",
         "True",
@@ -81,11 +81,11 @@ for (
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
 
-# for child in (work_dir).glob("*.bash"):
-#     if child.is_file():
-#         cmd = f"""sbatch < {child}"""
-#         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
-#             subprocess.call(cmd, shell=True, stdout=f)
+for child in (work_dir).glob("*.bash"):
+    if child.is_file():
+        cmd = f"""sbatch < {child}"""
+        with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
+            subprocess.call(cmd, shell=True, stdout=f)
 
-#         # Best time for ai training is 6 seconds (according to the HuaWei)
-#         time.sleep(6)
+        # Best time for ai training is 6 seconds (according to the HuaWei)
+        time.sleep(6)
