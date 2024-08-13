@@ -34,7 +34,7 @@ class CC_DFT_DATA:
         self.mol = pyscf.M(
             atom=molecular,
             basis=gen_basis(molecular, self.basis, self.if_basis_str),
-            verbose=0,
+            verbose=4,
             spin=spin,
         )
         print(self.mol.atom)
@@ -149,9 +149,6 @@ class CC_DFT_DATA:
             mf = pyscf.scf.RHF(self.mol)
             mf.kernel()
             mycc = pyscf.cc.CCSD(mf)
-            mycc.direct = True
-            mycc.incore_complete = True
-            mycc.async_io = False
             mycc.kernel()
             self.dm1_cc = mycc.make_rdm1(ao_repr=True)
             self.e_cc = mycc.e_tot
