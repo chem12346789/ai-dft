@@ -181,8 +181,8 @@ if __name__ == "__main__":
                 dm1_scf = dm1_scf_old.copy()
                 break
 
-        # 2 check
-        # 2.1 check the difference of density (on grids) and dipole
+        # 2 Check
+        # 2.1 Check the difference between density (on grids) and dipole
         print(
             f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
             flush=True,
