@@ -41,22 +41,21 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
-input_size, output_size = 4, 1
-# input_size, output_size = 302, 302
-
 for (
     batch_size,
     eval_step,
-    hidden_size,
+    input_size,
+    (hidden_size, output_size),
     num_layer,
     residual,
     ene_weight,
     with_eval,
 ) in itertools.product(
     [16],
-    [100],
-    [64],
+    [50],
     [4],
+    [(128, 2), (256, 1)],
+    [3],
     [0],
     [0],
     [
@@ -76,7 +75,7 @@ for (
     cmd += "&&" + f"""sed -i "s/WITH_EVAL/{with_eval}/g" {work_bash}"""
     cmd += (
         "&&"
-        + f"""mv {work_bash} {work_dir / f"train_{hidden_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}.bash"}"""
+        + f"""mv {work_bash} {work_dir / f"train_{input_size}_{hidden_size}_{output_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}.bash"}"""
     )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
@@ -88,4 +87,4 @@ for child in (work_dir).glob("*.bash"):
             subprocess.call(cmd, shell=True, stdout=f)
 
         # Best time for ai training is 6 seconds (according to the HuaWei)
-        time.sleep(6)
+        time.sleep(16)

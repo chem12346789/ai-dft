@@ -50,6 +50,9 @@ class UNet(nn.Module):
         self.residual = residual
 
         if self.residual <= 3:
+            if residual == -1:
+                norm_layer = "NoNorm2d"
+                affine = True
             if residual == 0:
                 norm_layer = "BatchNorm2d"
                 affine = True

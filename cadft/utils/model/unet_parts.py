@@ -50,6 +50,17 @@ class DoubleConv(nn.Module):
                 ),
                 nn.ReLU(inplace=True),
             )
+        elif norm_layer == "NoNorm2d":
+            self.double_conv = nn.Sequential(
+                nn.Conv2d(
+                    in_channels, mid_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(
+                    mid_channels, out_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.ReLU(inplace=True),
+            )
         else:
             raise ValueError(f"norm_layer {norm_layer} not recognized")
 
