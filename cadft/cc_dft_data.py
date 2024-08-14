@@ -155,6 +155,9 @@ class CC_DFT_DATA:
             mf.kernel()
             self.dm1_hf = mf.make_rdm1(ao_repr=True)
             mycc = pyscf.cc.CCSD(mf)
+            mycc.incore_complete = True
+            mycc.async_io = False
+            mycc.direct = True
             mycc.kernel()
             self.dm1_cc = mycc.make_rdm1(ao_repr=True)
             self.e_cc = mycc.e_tot
