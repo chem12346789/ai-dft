@@ -43,13 +43,17 @@ work_bash = work_dir / "validate-template.bash"
 
 for (checkpoint_hidden_size,) in itertools.product(
     [
-        "checkpoint-ccdft_2024-07-28-16-00-16_64_4_0",
+        # "checkpoint-ccdft_2024-07-28-16-00-16_64_4_0",
         # "checkpoint-ccdft_2024-08-12-21-36-53_64_4_0",
+        # "checkpoint-ccdft_2024-08-13-16-28-47_64_4_0",
+        "checkpoint-ccdft_2024-08-13-16-28-17_64_4_0",
+        "checkpoint-ccdft_2024-08-13-17-53-22_64_4_-1",
     ],
 ):
     (_, checkpoint, hidden_size, num_layers, residual) = checkpoint_hidden_size.split(
         "_"
     )
+    print(checkpoint, hidden_size, num_layers, residual)
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/CHECKPOINT/{checkpoint}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""

@@ -147,14 +147,14 @@ class CC_DFT_DATA:
             print(f"Generate data for {self.name}")
             time_start = timer()
             mf = pyscf.scf.RHF(self.mol)
+            mf.init_guess = "1e"
             mf.kernel()
+            self.dm1_hf = mf.make_rdm1(ao_repr=True)
             mycc = pyscf.cc.CCSD(mf)
             mycc.kernel()
             self.dm1_cc = mycc.make_rdm1(ao_repr=True)
             self.e_cc = mycc.e_tot
             self.time_cc = timer() - time_start
-
-            self.dm1_hf = mf.make_rdm1(ao_repr=True)
 
             time_start = timer()
             mdft = pyscf.scf.RKS(self.mol)
