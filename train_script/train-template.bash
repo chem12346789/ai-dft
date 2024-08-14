@@ -1,10 +1,11 @@
 #!/bin/bash
 
 #slurm options
+#SBATCH -n 2
 #SBATCH -p gpu
-#SBATCH -J train-ccdft-HIDDEN_SIZE-EVAL_STEP-BATCH_SIZE-NUM_LAYER-RESIDUAL-ENE_WEIGHT
+#SBATCH -J train-ccdft-INPUT_SIZE-HIDDEN_SIZE--OUTPUT_SIZE-EVAL_STEP-BATCH_SIZE-NUM_LAYER-RESIDUAL-ENE_WEIGHT
 #SBATCH -o log/%j.log
-#SBATCH --exclude=gpu[01-03,07]
+#SBATCH --exclude=gpu[04-05,07]
 
 ## user's own commands below
 export OMP_NUM_THREADS=2
@@ -19,10 +20,4 @@ export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 export DATA_PATH=~/workdir/cadft/data/grids_mrks_CVTZ_1/data
 
-# ~/anaconda3/envs/pyscf/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVTZ --extend_atom 0 --extend_xyz 0 --eval_step EVAL_STEP --batch_size BATCH_SIZE --epoch 25000 --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --with_eval WITH_EVAL
-
 ~/anaconda3/envs/pyscf/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVTZ --extend_atom 0 2 --extend_xyz 0 --eval_step EVAL_STEP --batch_size BATCH_SIZE --epoch 25000 --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --with_eval WITH_EVAL
-
-# ~/anaconda3/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVDZ --extend_atom 0 --extend_xyz 0 --eval_step EVAL_STEP --load 2024-07-08-19-49-14 --batch_size BATCH_SIZE --epoch 2500 --hidden_size HIDDEN_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --with_eval True
-
-# ~/anaconda3/bin/python train.py -dl -0.1 0.1 3 -b cc-pvdz --extend_atom 0 --extend_xyz 0 1 2 --eval_step 100 --load CHECKPOINT --batch_size 32 --epoch 100000 --hidden_size HIDDEN_SIZE  --residual 1 --num_layer 3 ENE_GRID_FACTOR
