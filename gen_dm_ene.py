@@ -41,12 +41,16 @@ for (
 
     molecular[extend_atom][extend_xyz] += distance
 
+    spin = 0
+    if "openshell" in name_mol:
+        spin = 1
+
     dft2cc = CC_DFT_DATA(
         molecular,
         name=name,
         basis=args.basis,
         if_basis_str=args.if_basis_str,
-        spin=1,
+        spin=spin,
     )
 
     if abs(distance) >= 0.5:

@@ -91,7 +91,7 @@ def test_rks(
             dm1_scf = dm1_scf_old.copy()
             break
 
-    # 2.2 check the difference of density (on grids) and dipole
+    # 2.2 Check the difference of density (on grids) and dipole
     print(
         f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
         flush=True,
@@ -121,7 +121,8 @@ def test_rks(
     error_scf_rho_r = np.sum(np.abs(scf_rho_r - cc_rho_r) * dft2cc.grids.weights)
     error_dft_rho_r = np.sum(np.abs(dft_rho_r - cc_rho_r) * dft2cc.grids.weights)
     print(
-        f"error_scf_rho_r: {error_scf_rho_r:.2e}, error_dft_rho_r: {error_dft_rho_r:.2e}",
+        f"error_scf_rho_r: {error_scf_rho_r:.2e}",
+        f"error_dft_rho_r: {error_dft_rho_r:.2e}",
         flush=True,
     )
     df_dict["error_scf_rho_r"].append(error_scf_rho_r)

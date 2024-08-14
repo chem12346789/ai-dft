@@ -291,9 +291,9 @@ class ModelDict:
                 loss_1.backward()
             elif self.output_size == -1:
                 loss_2 += loss_3 * self.ene_weight
-                # loss_1.backward(retain_graph=True)
-                # loss_2.backward()
-                loss_1.backward()
+                loss_1.backward(retain_graph=True)
+                loss_2.backward()
+                # loss_1.backward()
 
             self.step()
 
@@ -356,10 +356,20 @@ class ModelDict:
         else:
             raise ValueError("input_size must be 1 or 4")
 
-        with torch.no_grad():
-            middle_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
-        middle_mat = middle_mat[:, 0, :, :]
-        vxc_scf = grids.matrix_to_vector(middle_mat)
+        if self.output_size == 1 or self.output_size == 4:
+            with torch.no_grad():
+                middle_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
+            middle_mat = middle_mat[:, 0, :, :]
+            vxc_scf = grids.matrix_to_vector(middle_mat)
+        elif self.output_size == -1:
+            input_mat = input_mat.requires_grad_(True)
+            with torch.no_grad():
+                output_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
+            middle_mat = torch.autograd.grad(
+                torch.sum(input_mat * output_mat), input_mat, create_graph=True
+            )[0]
+            middle_mat = middle_mat[:, 0, :, :]
+            vxc_scf = grids.matrix_to_vector(middle_mat)
         return vxc_scf
 
     def get_e(self, scf_r_3, grids):
@@ -388,6 +398,11 @@ class ModelDict:
             with torch.no_grad():
                 output_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
             output_mat = output_mat[:, 1, :, :]
+        elif self.output_size == -1:
+            input_mat = input_mat.requires_grad_(True)
+            with torch.no_grad():
+                output_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
+            output_mat = output_mat[:, 0, :, :]
 
         exc_scf = grids.matrix_to_vector(output_mat)
         return exc_scf
