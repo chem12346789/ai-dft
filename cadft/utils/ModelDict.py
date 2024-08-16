@@ -65,7 +65,7 @@ class ModelDict:
 
         self.dir_checkpoint = Path(
             CHECKPOINTS_PATH
-            / f"checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
+            / f"checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.input_size}_{self.hidden_size}_{self.output_size}_{self.num_layers}_{self.residual}/"
         ).resolve()
         if if_mkdir:
             print(f"Create checkpoint directory: {self.dir_checkpoint}")
@@ -138,7 +138,7 @@ class ModelDict:
         if self.load not in ["", "None", "NEW", "new"]:
             load_checkpoint = Path(
                 CHECKPOINTS_PATH
-                / f"checkpoint-ccdft_{self.load}_{self.hidden_size}_{self.num_layers}_{self.residual}/"
+                / f"checkpoint-ccdft_{self.load}_{self.input_size}_{self.hidden_size}_{self.output_size}_{self.num_layers}_{self.residual}/"
             ).resolve()
             if load_checkpoint.exists():
                 print(f"Loading from {load_checkpoint}")
@@ -195,7 +195,10 @@ class ModelDict:
 
         if self.output_size == 1:
             middle_mat = self.model_dict["1"](input_mat)
-            loss_1_i = self.loss_multiplier * self.loss_fn1(middle_mat, middle_mat_real)
+            loss_1_i = self.loss_multiplier * self.loss_fn1(
+                middle_mat * weight,
+                middle_mat_real * weight,
+            )
 
             output_mat = self.model_dict["2"](input_mat)
             loss_2_i = self.loss_multiplier * self.loss_fn2(
@@ -211,8 +214,8 @@ class ModelDict:
         elif self.output_size == 2:
             output_mat = self.model_dict["1"](input_mat)
             loss_1_i = self.loss_multiplier * self.loss_fn1(
-                output_mat,
-                output_mat_real,
+                middle_mat * weight,
+                middle_mat_real * weight,
             )
 
             loss_3_i = self.loss_multiplier * self.loss_fn2(
@@ -237,7 +240,10 @@ class ModelDict:
             middle_mat = torch.autograd.grad(
                 torch.sum(input_mat * output_mat), input_mat, create_graph=True
             )[0]
-            loss_1_i = self.loss_multiplier * self.loss_fn1(middle_mat, middle_mat_real)
+            loss_1_i = self.loss_multiplier * self.loss_fn1(
+                middle_mat * weight,
+                middle_mat_real * weight,
+            )
             return loss_1_i, loss_2_i, loss_3_i
 
     def save_model(self, epoch):
@@ -356,20 +362,24 @@ class ModelDict:
         else:
             raise ValueError("input_size must be 1 or 4")
 
-        if self.output_size == 1 or self.output_size == 4:
+        if self.output_size == 1 or self.output_size == 2:
             with torch.no_grad():
                 middle_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
             middle_mat = middle_mat[:, 0, :, :]
-            vxc_scf = grids.matrix_to_vector(middle_mat)
         elif self.output_size == -1:
             input_mat = input_mat.requires_grad_(True)
             with torch.no_grad():
-                output_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
-            middle_mat = torch.autograd.grad(
-                torch.sum(input_mat * output_mat), input_mat, create_graph=True
-            )[0]
+                output_mat = self.model_dict["1"](input_mat)
+            middle_mat = (
+                torch.autograd.grad(
+                    torch.sum(input_mat * output_mat), input_mat, create_graph=True
+                )[0]
+                .detach()
+                .cpu()
+                .numpy()
+            )
             middle_mat = middle_mat[:, 0, :, :]
-            vxc_scf = grids.matrix_to_vector(middle_mat)
+        vxc_scf = grids.matrix_to_vector(middle_mat)
         return vxc_scf
 
     def get_e(self, scf_r_3, grids):
