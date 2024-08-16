@@ -3,9 +3,9 @@
 #slurm options
 #SBATCH -n 2
 #SBATCH -p gpu
-#SBATCH -J train-ccdft-INPUT_SIZE-HIDDEN_SIZE--OUTPUT_SIZE-EVAL_STEP-BATCH_SIZE-NUM_LAYER-RESIDUAL-ENE_WEIGHT
+#SBATCH -J train-ccdft-INPUT_SIZE-INPUT_SIZE-HIDDEN_SIZE-OUTPUT_SIZE-EVAL_STEP-BATCH_SIZE-NUM_LAYER-RESIDUAL-ENE_WEIGHT
 #SBATCH -o log/%j.log
-#SBATCH --exclude=gpu[04-05,07]
+#SBATCH --exclude=gpu[01,05]
 
 ## user's own commands below
 export OMP_NUM_THREADS=2
@@ -15,7 +15,6 @@ export OPENBLAS_NUM_THREADS=2
 export NVIDIA_VISIBLE_DEVICES=1
 export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
 
-export PYSCF_TMPDIR=~/workdir-save/tmp
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 export DATA_PATH=~/workdir/cadft/data/grids_mrks_CVTZ_1/data

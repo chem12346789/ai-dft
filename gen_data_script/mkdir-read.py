@@ -44,23 +44,23 @@ for item in Path(main_dir).glob("*"):
 for mol, basis_set, range_list in itertools.product(
     [
         # "methane",
-        "methyl-openshell",
+        # "methyl-openshell",
         # "ethane",
-        "ethyl-openshell",
+        # "ethyl-openshell",
         # "ethylene",
         # "acetylene",
         # "propane",
         # "propyne",
         # "propylene",
         # "allene",
-        # "cyclopropene",
+        "cyclopropene",
         # "cyclopropane",
     ],
     ["cc-pCVTZ"],
     [
         # (-0.5, 0.0, 26),
-        # (0.02, 0.5, 25),
         (-0.5, 0.5, 11),
+        # (0, 0.5, 6),
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
