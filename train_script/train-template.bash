@@ -5,7 +5,7 @@
 #SBATCH -p gpu
 #SBATCH -J train-ccdft-EVAL_STEP-INPUT_SIZE-HIDDEN_SIZE-OUTPUT_SIZE-NUM_LAYER-RESIDUAL-BATCH_SIZE-ENE_WEIGHT-POT_WEIGHT-WITH_EVAL
 #SBATCH -o log/%j.log
-#SBATCH --exclude=gpu[06]
+#SBATCH --exclude=gpu[01,02,06]
 
 ## user's own commands below
 export OMP_NUM_THREADS=2

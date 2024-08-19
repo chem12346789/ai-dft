@@ -3,6 +3,7 @@ numpy==1.26.4
 opt_einsum==3.3.0
 pandas==2.2.2
 pyscf==2.5.0
+# 2.6.x has a bug in the CCSD module (Won't release disk space); See https://github.com/pyscf/pyscf/issues/2318 for more information.
 scipy==1.14.0
 segmentation_models_pytorch==0.3.3
 torch==2.4.0

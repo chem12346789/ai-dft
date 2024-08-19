@@ -41,6 +41,8 @@ for item in Path(main_dir).glob("*"):
             clean_dir(item)
             item.rmdir()
 
+number_of_job = 0
+
 for mol, basis_set, range_list in itertools.product(
     [
         # "methane",
@@ -54,18 +56,21 @@ for mol, basis_set, range_list in itertools.product(
         # "propylene",
         # "allene",
         "cyclopropene",
-        "cyclopropane",
+        # "cyclopropane",
     ],
     ["cc-pCVTZ"],
     [
         # (-0.5, 0.0, 26),
         # (-0.5, 0.5, 11),
-        (-0.3, -0.2, 2),
+        (0.1, 0.5, 5),
     ],
 ):
+    number_of_job += 1
+    number_of_gpu = number_of_job % 2
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/MOL/{mol}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BASIS/{basis_set}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/NUMBER_OF_GPU/{number_of_gpu}/g" {work_bash}"""
     if isinstance(range_list, float):
         start = range_list
         cmd += "&&" + f"""sed -i "s/START/{start}/g" {work_bash}"""

@@ -115,7 +115,7 @@ class ModelDict:
             else:
                 self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
                     self.optimizer_dict[key],
-                    gamma=0.9999,
+                    gamma=0.99,
                 )
 
         self.loss_multiplier = 1.0
