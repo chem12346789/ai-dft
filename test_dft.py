@@ -18,7 +18,6 @@ import opt_einsum as oe
 from torch.utils.data import DataLoader
 
 from cadft import CC_DFT_DATA, add_args, gen_logger
-from cadft.utils import ModelDict
 from cadft.utils import Mol
 from cadft.utils import MAIN_PATH, DATA_PATH
 
@@ -145,19 +144,6 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 1. Init the model
-    modeldict = ModelDict(
-        args.load,
-        args.input_size,
-        args.hidden_size,
-        args.output_size,
-        args.num_layers,
-        args.residual,
-        device,
-        args.precision,
-        if_mkdir=False,
-    )
-    modeldict.load_model()
-    modeldict.eval()
 
     # 2. Test loop
     name_list = []

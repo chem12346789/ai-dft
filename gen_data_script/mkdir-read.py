@@ -54,13 +54,13 @@ for mol, basis_set, range_list in itertools.product(
         # "propylene",
         # "allene",
         "cyclopropene",
-        # "cyclopropane",
+        "cyclopropane",
     ],
     ["cc-pCVTZ"],
     [
         # (-0.5, 0.0, 26),
-        (-0.5, 0.5, 11),
-        # (0, 0.5, 6),
+        # (-0.5, 0.5, 11),
+        (-0.3, -0.2, 2),
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""

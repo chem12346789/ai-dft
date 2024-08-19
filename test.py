@@ -35,6 +35,7 @@ if __name__ == "__main__":
         device,
         args.precision,
         if_mkdir=False,
+        load_epoch=args.load_epoch,
     )
     modeldict.load_model()
     modeldict.eval()

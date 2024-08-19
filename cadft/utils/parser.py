@@ -101,11 +101,10 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
-        "--load_list",
-        type=str,
-        nargs="+",
-        default="",
-        help="Weather to load the saved data. Default is " ".",
+        "--load_epoch",
+        type=int,
+        default=-1,
+        help="Epoch to load the model, -1 for the last epoch. Default is -1.",
     )
 
     parser.add_argument(
@@ -170,6 +169,13 @@ def add_args(parser: argparse.ArgumentParser):
         type=float,
         default=1.0,
         help="Weight for the energy. Default is 1.0.",
+    )
+    
+    parser.add_argument(
+        "--pot_weight",
+        type=float,
+        default=1.0,
+        help="Weight for the potential. Default is 1.0.",
     )
 
     parser.add_argument(

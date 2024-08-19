@@ -44,20 +44,26 @@ work_bash = work_dir / "train-template.bash"
 for (
     batch_size,
     eval_step,
-    input_size,
-    (hidden_size, output_size),
-    num_layer,
-    residual,
-    ene_weight,
+    (
+        input_size,
+        hidden_size,
+        output_size,
+        num_layer,
+        residual,
+        load_model,
+    ),
+    (ene_weight, pot_weight),
     with_eval,
 ) in itertools.product(
     [16],
-    [50],
-    [4],
-    [(64, 1)],
-    [2, 4],
-    [-1],
-    [0],
+    [5],
+    [
+        (4, 128, 2, 4, -1, "NEW"),
+    ],
+    [
+        (0, 0),
+        # (1, 1),
+    ],
     [
         # "False",
         "True",
@@ -72,10 +78,12 @@ for (
     cmd += "&&" + f"""sed -i "s/NUM_LAYER/{num_layer}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/RESIDUAL/{residual}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/ENE_WEIGHT/{ene_weight}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/POT_WEIGHT/{pot_weight}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/WITH_EVAL/{with_eval}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/LOAD_MODEL/{load_model}/g" {work_bash}"""
     cmd += (
         "&&"
-        + f"""mv {work_bash} {work_dir / f"train_{input_size}_{hidden_size}_{output_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}.bash"}"""
+        + f"""mv {work_bash} {work_dir / f"train_{input_size}_{hidden_size}_{output_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}_{pot_weight}_{with_eval}_{load_model}.bash"}"""
     )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
