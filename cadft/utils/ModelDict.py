@@ -34,7 +34,9 @@ class ModelDict:
         precision,
         with_eval=True,
         ene_weight=0.0,
+        pot_weight=0.1,
         if_mkdir=True,
+        load_epoch=-1,
     ):
         """
         input:
@@ -55,7 +57,9 @@ class ModelDict:
         self.num_layers = num_layers
         self.residual = residual
         self.ene_weight = ene_weight
+        self.pot_weight = pot_weight
         self.with_eval = with_eval
+        self.load_epoch = load_epoch
 
         self.device = device
         if precision == "float32":
@@ -107,8 +111,6 @@ class ModelDict:
                 self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
                     self.optimizer_dict[key],
                     mode="min",
-                    patience=10,
-                    factor=0.5,
                 )
             else:
                 self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
@@ -148,6 +150,8 @@ class ModelDict:
                         print(f"No model found for {key}, use random initialization.")
                         continue
                     load_path = max(list_of_path, key=lambda p: p.stat().st_ctime)
+                    if self.load_epoch != -1:
+                        load_path = load_checkpoint / f"{key}-{self.load_epoch}.pth"
                     state_dict = torch.load(
                         load_path, map_location=self.device, weights_only=True
                     )
@@ -195,9 +199,13 @@ class ModelDict:
 
         if self.output_size == 1:
             middle_mat = self.model_dict["1"](input_mat)
-            loss_1_i = self.loss_multiplier * self.loss_fn1(
+            loss_0_i = self.loss_multiplier * self.loss_fn1(
                 middle_mat * weight,
                 middle_mat_real * weight,
+            )
+            loss_1_i = self.loss_multiplier * self.loss_fn1(
+                middle_mat,
+                middle_mat_real,
             )
 
             output_mat = self.model_dict["2"](input_mat)
@@ -205,26 +213,31 @@ class ModelDict:
                 output_mat,
                 output_mat_real,
             )
-
             loss_3_i = self.loss_multiplier * self.loss_fn3(
                 torch.sum(output_mat_real * input_mat[:, [0], :, :] * weight),
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
             )
-            return loss_1_i, loss_2_i, loss_3_i
         elif self.output_size == 2:
             output_mat = self.model_dict["1"](input_mat)
+            loss_0_i = self.loss_multiplier * self.loss_fn1(
+                output_mat[:, [0], :, :] * weight,
+                output_mat_real[:, [0], :, :] * weight,
+            )
             loss_1_i = self.loss_multiplier * self.loss_fn1(
-                middle_mat * weight,
-                middle_mat_real * weight,
+                output_mat[:, [0], :, :],
+                output_mat_real[:, [0], :, :],
             )
 
-            loss_3_i = self.loss_multiplier * self.loss_fn2(
+            loss_2_i = self.loss_multiplier * self.loss_fn2(
+                output_mat[:, [1], :, :],
+                output_mat_real[:, [1], :, :],
+            )
+            loss_3_i = self.loss_multiplier * self.loss_fn3(
                 torch.sum(output_mat[:, [1], :, :] * input_mat[:, [0], :, :] * weight),
                 torch.sum(
                     output_mat_real[:, [1], :, :] * input_mat[:, [0], :, :] * weight
                 ),
             )
-            return loss_1_i, torch.tensor([0.0], device=self.device), loss_3_i
         elif self.output_size == -1:
             input_mat = input_mat.requires_grad_(True)
             output_mat = self.model_dict["1"](input_mat)
@@ -240,11 +253,15 @@ class ModelDict:
             middle_mat = torch.autograd.grad(
                 torch.sum(input_mat * output_mat), input_mat, create_graph=True
             )[0]
-            loss_1_i = self.loss_multiplier * self.loss_fn1(
+            loss_0_i = self.loss_multiplier * self.loss_fn1(
                 middle_mat * weight,
                 middle_mat_real * weight,
             )
-            return loss_1_i, loss_2_i, loss_3_i
+            loss_1_i = self.loss_multiplier * self.loss_fn1(
+                middle_mat,
+                middle_mat_real,
+            )
+        return loss_0_i, loss_1_i, loss_2_i, loss_3_i
 
     def save_model(self, epoch):
         """
@@ -261,16 +278,18 @@ class ModelDict:
         """
         Train the model, one epoch.
         """
-        train_loss_1, train_loss_2, train_loss_3 = [], [], []
+        train_loss_0, train_loss_1, train_loss_2, train_loss_3 = [], [], [], []
         database_train.rng.shuffle(database_train.name_list)
         self.train()
 
         for name in database_train.name_list:
             (
+                loss_0,
                 loss_1,
                 loss_2,
                 loss_3,
             ) = (
+                torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
@@ -279,31 +298,37 @@ class ModelDict:
             self.zero_grad()
 
             for batch in database_train.data_gpu[name]:
-                loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
+                loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
+                loss_0 += loss_0_i
                 loss_1 += loss_1_i
                 loss_2 += loss_2_i
                 loss_3 += loss_3_i
 
+            train_loss_0.append(loss_0.item())
             train_loss_1.append(loss_1.item())
             train_loss_2.append(loss_2.item())
             train_loss_3.append(loss_3.item())
 
             if self.output_size == 1:
-                loss_2 += loss_3 * self.ene_weight
+                loss_1 += self.pot_weight * loss_0
+                loss_2 += self.ene_weight * loss_3
                 loss_1.backward()
                 loss_2.backward()
             elif self.output_size == 2:
-                loss_1 += loss_3 * self.ene_weight
+                loss_1 += self.pot_weight * loss_0
+                loss_1 += loss_2
+                loss_1 += self.ene_weight * loss_3
                 loss_1.backward()
             elif self.output_size == -1:
-                loss_2 += loss_3 * self.ene_weight
+                loss_1 += self.pot_weight * loss_0
+                loss_2 += self.ene_weight * loss_3
                 loss_1.backward(retain_graph=True)
                 loss_2.backward()
                 # loss_1.backward()
 
             self.step()
 
-        return train_loss_1, train_loss_2, train_loss_3
+        return train_loss_0, train_loss_1, train_loss_2, train_loss_3
 
     def eval_model(self, database_eval):
         """
@@ -311,10 +336,11 @@ class ModelDict:
         """
         self.eval()
 
-        eval_loss_1, eval_loss_2, eval_loss_3 = [], [], []
+        eval_loss_0, eval_loss_1, eval_loss_2, eval_loss_3 = [], [], [], []
 
         for name in database_eval.name_list:
             (
+                loss_0,
                 loss_1,
                 loss_2,
                 loss_3,
@@ -322,27 +348,23 @@ class ModelDict:
                 torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
                 torch.tensor([0.0], device=self.device),
+                torch.tensor([0.0], device=self.device),
             )
 
             for batch in database_eval.data_gpu[name]:
                 # with torch.no_grad():
-                loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
+                loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
+                loss_0 += loss_0_i
                 loss_1 += loss_1_i
                 loss_2 += loss_2_i
                 loss_3 += loss_3_i
 
+            eval_loss_0.append(loss_0.item())
             eval_loss_1.append(loss_1.item())
             eval_loss_2.append(loss_2.item())
             eval_loss_3.append(loss_3.item())
 
-            if self.output_size == 1:
-                loss_2 += loss_3 * self.ene_weight
-            elif self.output_size == 2:
-                loss_1 += loss_3 * self.ene_weight
-            elif self.output_size == -1:
-                loss_2 += loss_3 * self.ene_weight
-
-        return eval_loss_1, eval_loss_2, eval_loss_3
+        return eval_loss_0, eval_loss_1, eval_loss_2, eval_loss_3
 
     def get_v(self, scf_r_3, grids):
         """

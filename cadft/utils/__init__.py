@@ -22,7 +22,14 @@ from cadft.utils.mol import Mol
 from cadft.utils.env_var import MAIN_PATH, DATA_PATH, DATA_SAVE_PATH, DATA_CC_PATH
 
 
-def save_csv_loss(name_list, path, loss_rho, loss_ene, loss_tot_ene):
+def save_csv_loss(
+    name_list,
+    path,
+    loss_rho=0.0,
+    loss_tot_rho=0.0,
+    loss_ene=0.0,
+    loss_tot_ene=0.0,
+):
     """
     save the loss to a csv file
     """
@@ -31,6 +38,7 @@ def save_csv_loss(name_list, path, loss_rho, loss_ene, loss_tot_ene):
             "name": name_list,
             "loss_rho": loss_rho,
             "loss_ene": loss_ene,
+            "loss_tot_rho": loss_tot_rho,
             "loss_tot_ene": loss_tot_ene,
         }
     )

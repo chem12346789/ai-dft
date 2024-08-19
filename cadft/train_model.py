@@ -46,6 +46,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.precision,
         with_eval=args.with_eval,
         ene_weight=args.ene_weight,
+        pot_weight=args.pot_weight,
     )
     modeldict.load_model()
 
@@ -76,28 +77,33 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         args.precision,
     )
 
-    experiment.config.update(
-        {
-            "batch_size": args.batch_size,
-            "n_train": len(database_train.name_list),
-            "n_eval": len(database_eval.name_list),
-            "hidden_size": args.hidden_size,
-            "num_layers": args.num_layers,
-            "residual": args.residual,
-            "ene_weight": args.ene_weight,
-            "precision": args.precision,
-            "basis": args.basis,
-            "with_eval": args.with_eval,
-            "load": args.load,
-            "jobid": os.environ.get("SLURM_JOB_ID"),
-            "checkpoint": modeldict.dir_checkpoint.stem,
-        }
-    )
+    experiment_dict = {
+        "batch_size": args.batch_size,
+        "n_train": len(database_train.name_list),
+        "n_eval": len(database_eval.name_list),
+        "hidden_size": args.hidden_size,
+        "num_layers": args.num_layers,
+        "residual": args.residual,
+        "ene_weight": args.ene_weight,
+        "precision": args.precision,
+        "basis": args.basis,
+        "with_eval": args.with_eval,
+        "load": args.load,
+        "jobid": os.environ.get("SLURM_JOB_ID"),
+        "checkpoint": modeldict.dir_checkpoint.stem,
+    }
+    print(experiment_dict)
+    experiment.config.update(experiment_dict)
 
     print(f"Start training at {modeldict.dir_checkpoint}")
     pbar0 = trange(args.epoch + 1)
     for epoch in pbar0:
-        train_loss_1, train_loss_2, train_loss_3 = modeldict.train_model(database_train)
+        (
+            train_loss_0,
+            train_loss_1,
+            train_loss_2,
+            train_loss_3,
+        ) = modeldict.train_model(database_train)
         for key in modeldict.keys:
             if not isinstance(
                 modeldict.scheduler_dict[key],
@@ -106,7 +112,12 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 modeldict.scheduler_dict[key].step()
 
         if epoch % args.eval_step == 0:
-            eval_loss_1, eval_loss_2, eval_loss_3 = modeldict.eval_model(database_eval)
+            (
+                eval_loss_0,
+                eval_loss_1,
+                eval_loss_2,
+                eval_loss_3,
+            ) = modeldict.eval_model(database_eval)
             for i, key in enumerate(modeldict.keys):
                 if isinstance(
                     modeldict.scheduler_dict[key],
@@ -119,9 +130,11 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             experiment_dict = {
                 "epoch": epoch,
                 "global_step": epoch,
+                "mean train0 loss": np.mean(train_loss_0),
                 "mean train1 loss": np.mean(train_loss_1),
                 "mean train2 loss": np.mean(train_loss_2),
                 "mean train3 loss": np.mean(train_loss_3),
+                "mean eval0 loss": np.mean(eval_loss_0),
                 "mean eval1 loss": np.mean(eval_loss_1),
                 "mean eval2 loss": np.mean(eval_loss_2),
                 "mean eval3 loss": np.mean(eval_loss_3),
@@ -135,26 +148,29 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             experiment.log(experiment_dict)
 
             pbar0.set_description(
-                f"t/e1 {np.mean(train_loss_1):.2g}/{np.mean(eval_loss_1):.2g}"
-                f" t/e2 {np.mean(train_loss_2):.2g}/{np.mean(eval_loss_2):.2g}"
-                f" t/e3 {np.mean(train_loss_3):.2g}/{np.mean(eval_loss_3):.2g}"
+                f"t/e1 {np.mean(train_loss_0):.2e}/{np.mean(eval_loss_0):.2e}"
+                f"t/e1 {np.mean(train_loss_1):.2e}/{np.mean(eval_loss_1):.2e}"
+                f" t/e2 {np.mean(train_loss_2):.2e}/{np.mean(eval_loss_2):.2e}"
+                f" t/e3 {np.mean(train_loss_3):.2e}/{np.mean(eval_loss_3):.2e}"
                 f"lr1/2 {lr1_2}"
             )
 
-        if epoch % (args.eval_step * 10) == 0:
+        if epoch % (args.eval_step * 50) == 0:
             save_csv_loss(
                 database_train.name_list,
                 modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}",
-                train_loss_1,
-                train_loss_2,
-                train_loss_3,
+                loss_rho=train_loss_1,
+                loss_tot_rho=train_loss_0,
+                loss_ene=train_loss_2,
+                loss_tot_ene=train_loss_3,
             )
             save_csv_loss(
                 database_eval.name_list,
                 modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}",
-                eval_loss_1,
-                eval_loss_2,
-                eval_loss_3,
+                loss_rho=eval_loss_1,
+                loss_tot_rho=eval_loss_0,
+                loss_ene=eval_loss_2,
+                loss_tot_ene=eval_loss_3,
             )
             modeldict.save_model(epoch)
     pbar0.close()

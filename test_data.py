@@ -19,7 +19,6 @@ import opt_einsum as oe
 from torch.utils.data import DataLoader
 
 from cadft import CC_DFT_DATA, add_args, gen_logger
-from cadft.utils import ModelDict
 from cadft.utils import Mol
 from cadft.utils import MAIN_PATH, DATA_PATH
 
