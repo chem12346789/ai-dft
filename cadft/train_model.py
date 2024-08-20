@@ -85,6 +85,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
         "num_layers": args.num_layers,
         "residual": args.residual,
         "ene_weight": args.ene_weight,
+        "pot_weight": args.pot_weight,
         "precision": args.precision,
         "basis": args.basis,
         "with_eval": args.with_eval,
@@ -155,7 +156,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 f"lr1/2 {lr1_2}"
             )
 
-        if epoch % (args.eval_step * 50) == 0:
+        if (epoch % (args.eval_step * 50) == 0) and (epoch != 0):
             save_csv_loss(
                 database_train.name_list,
                 modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}",

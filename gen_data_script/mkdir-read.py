@@ -55,8 +55,8 @@ for mol, basis_set, range_list in itertools.product(
         # "propyne",
         # "propylene",
         # "allene",
-        "cyclopropene",
-        # "cyclopropane",
+        # "cyclopropene",
+        "cyclopropane",
     ],
     ["cc-pCVTZ"],
     [

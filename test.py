@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     # 2. Test loop
     df_dict = {
-        "name_list": [],
+        "name": [],
         "error_scf_ene": [],
         "error_dft_ene": [],
         "abs_scf_ene": [],
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     ):
         molecular = copy.deepcopy(Mol[name_mol])
         name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-        df_dict["name_list"].append(name)
+        df_dict["name"].append(name)
         print(f"Generate {name_mol}_{distance:.4f}", flush=True)
         print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)
 
