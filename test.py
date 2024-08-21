@@ -79,6 +79,7 @@ if __name__ == "__main__":
         if molecular is None:
             print(f"Skip: {name:>40}")
             continue
+        df_dict["name"].append(name)
 
         if "openshell" in name_mol:
             test_uks(args, molecular, name, modeldict, df_dict)
