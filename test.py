@@ -7,13 +7,14 @@ import argparse
 import copy
 from itertools import product
 
-import pandas as pd
 import torch
 
-from cadft.utils import ModelDict
-from cadft import add_args, gen_logger
+from cadft import add_args, extend, gen_logger
 from cadft import test_rks, test_uks
 from cadft.utils import Mol
+
+# from cadft.utils import ModelDict_xy as ModelDict
+from cadft.utils import ModelDict as ModelDict
 
 
 if __name__ == "__main__":
@@ -26,14 +27,14 @@ if __name__ == "__main__":
 
     # 1. Init the model
     modeldict = ModelDict(
-        args.load,
-        args.input_size,
-        args.hidden_size,
-        args.output_size,
-        args.num_layers,
-        args.residual,
-        device,
-        args.precision,
+        load=args.load,
+        input_size=args.input_size,
+        hidden_size=args.hidden_size,
+        output_size=args.output_size,
+        num_layers=args.num_layers,
+        residual=args.residual,
+        device=device,
+        precision=args.precision,
         if_mkdir=False,
         load_epoch=args.load_epoch,
     )
@@ -72,22 +73,10 @@ if __name__ == "__main__":
         args.extend_xyz,
         distance_l,
     ):
-        molecular = copy.deepcopy(Mol[name_mol])
-        name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-        df_dict["name"].append(name)
-        print(f"Generate {name_mol}_{distance:.4f}", flush=True)
-        print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)
-
-        if abs(distance) < 1e-3:
-            if (extend_atom != 0) or extend_xyz != 1:
-                print(f"Skip: {name:>40}")
-                continue
-
-        if extend_atom >= len(Mol[name_mol]):
+        molecular, name = extend(name_mol, extend_atom, extend_xyz, distance)
+        if molecular is None:
             print(f"Skip: {name:>40}")
             continue
-
-        molecular[extend_atom][extend_xyz] += distance
 
         if "openshell" in name_mol:
             test_uks(args, molecular, name, modeldict, df_dict)

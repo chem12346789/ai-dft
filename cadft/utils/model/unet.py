@@ -76,7 +76,7 @@ class UNet(nn.Module):
             self.down_layers = nn.ModuleList(
                 [
                     Down(
-                        hidden_size * 2**i,
+                        hidden_size * 2 ** (i),
                         hidden_size * 2 ** (i + 1),
                         norm_layer=norm_layer,
                         affine=affine,

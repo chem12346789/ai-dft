@@ -46,7 +46,7 @@ def add_args(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--extend_atom",
-        type=int,
+        type=str,
         nargs="+",
         default=0,
         help="Number of atoms to extend. Default is 0.",

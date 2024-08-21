@@ -17,7 +17,7 @@ import pandas as pd
 import opt_einsum as oe
 from torch.utils.data import DataLoader
 
-from cadft import CC_DFT_DATA, add_args, gen_logger
+from cadft import CC_DFT_DATA, add_args, gen_logger, extend
 from cadft.utils import Mol
 from cadft.utils import MAIN_PATH, DATA_PATH
 
@@ -165,25 +165,11 @@ if __name__ == "__main__":
         distance_l,
     ):
         # 2.0 Prepare
-
-        molecular = copy.deepcopy(Mol[name_mol])
-
-        print(f"Generate {name_mol}_{distance:.4f}", flush=True)
-        print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)
-
-        name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-        name_list.append(name)
-
-        if abs(distance) < 1e-3:
-            if (extend_atom != 0) or extend_xyz != 1:
-                print(f"Skip: {name:>40}")
-                continue
-
-        if extend_atom >= len(Mol[name_mol]):
+        molecular, name = extend(name_mol, extend_atom, extend_xyz, distance)
+        if molecular is None:
             print(f"Skip: {name:>40}")
             continue
-
-        molecular[extend_atom][extend_xyz] += distance
+    
         if (DATA_PATH / f"data_{name}.npz").exists():
             data_real = np.load(DATA_PATH / f"data_{name}.npz")
         else:

@@ -1,11 +1,10 @@
 import argparse
-from pathlib import Path
 import gc
-import copy
 from itertools import product
 
-from cadft import CC_DFT_DATA, Mol, add_args, gen_logger
-from cadft import MAIN_PATH
+from cadft import CC_DFT_DATA, add_args, gen_logger
+from cadft import MAIN_PATH, extend
+
 
 parser = argparse.ArgumentParser(
     description="Generate the inversed potential and energy."
@@ -25,21 +24,10 @@ for (
     args.extend_xyz,
     distance_l,
 ):
-    molecular = copy.deepcopy(Mol[name_mol])
-    print(f"Generate {name_mol}_{distance:.4f}")
-    print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}")
-
-    name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-    if abs(distance) < 1e-3:
-        if (extend_atom != 0) or extend_xyz != 1:
-            print(f"Skip: {name:>40}")
-            continue
-
-    if extend_atom >= len(Mol[name_mol]):
+    molecular, name = extend(name_mol, extend_atom, extend_xyz, distance)
+    if molecular is None:
         print(f"Skip: {name:>40}")
         continue
-
-    molecular[extend_atom][extend_xyz] += distance
 
     spin = 0
     if "openshell" in name_mol:

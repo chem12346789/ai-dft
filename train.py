@@ -2,7 +2,7 @@ from cadft import train_model
 
 TRAIN_STR_DICT = [
     "methane",
-    # "methyl-openshell",
+    "methyl-openshell",
     "ethane",
     "ethylene",
     "acetylene",
@@ -11,7 +11,7 @@ TRAIN_STR_DICT = [
 ]
 EVAL_STR_DICT = [
     "propane",
-    # "allene",
+    "allene",
     # "propylene",
     # "propyne",
     # "butane",

@@ -11,14 +11,13 @@ from pathlib import Path
 from timeit import default_timer as timer
 
 import pyscf
-from pyscf.scf.jk import get_jk
 import torch
 import numpy as np
 import pandas as pd
 import opt_einsum as oe
 from torch.utils.data import DataLoader
 
-from cadft import CC_DFT_DATA, add_args, gen_logger
+from cadft import CC_DFT_DATA, extend, add_args, gen_logger
 from cadft.utils import Mol
 from cadft.utils import MAIN_PATH, DATA_PATH
 
@@ -176,22 +175,12 @@ if __name__ == "__main__":
         for i in range(len(molecular)):
             index_dict[molecular[i][0]].append(i)
 
-        print(f"Generate {name_mol}_{distance:.4f}", flush=True)
-        print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}", flush=True)
-
-        if abs(distance) < 1e-3:
-            if (extend_atom != 0) or extend_xyz != 1:
-                print(f"Skip: {name:>40}")
-                continue
-
-        if extend_atom >= len(Mol[name_mol]):
+        print(f"Generate {name_mol}_{distance:.4f}")
+        molecular, name = extend(molecular, extend_atom, extend_xyz, distance)
+        if molecular is None:
             print(f"Skip: {name:>40}")
             continue
 
-        name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-        name_list.append(name)
-
-        molecular[extend_atom][extend_xyz] += distance
         if (DATA_PATH / f"data_{name}.npz").exists():
             data_real = np.load(DATA_PATH / f"data_{name}.npz")
         else:
