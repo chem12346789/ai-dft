@@ -165,11 +165,13 @@ if __name__ == "__main__":
         distance_l,
     ):
         # 2.0 Prepare
-        molecular, name = extend(name_mol, extend_atom, extend_xyz, distance)
+        molecular, name = extend(
+            name_mol, extend_atom, extend_xyz, distance, args.basis
+        )
         if molecular is None:
             print(f"Skip: {name:>40}")
             continue
-    
+
         if (DATA_PATH / f"data_{name}.npz").exists():
             data_real = np.load(DATA_PATH / f"data_{name}.npz")
         else:

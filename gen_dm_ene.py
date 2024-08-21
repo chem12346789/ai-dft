@@ -24,7 +24,7 @@ for (
     args.extend_xyz,
     distance_l,
 ):
-    molecular, name = extend(name_mol, extend_atom, extend_xyz, distance)
+    molecular, name = extend(name_mol, extend_atom, extend_xyz, distance, args.basis)
     if molecular is None:
         print(f"Skip: {name:>40}")
         continue

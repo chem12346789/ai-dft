@@ -165,18 +165,18 @@ if __name__ == "__main__":
         distance_l,
     ):
         # 1.0 Prepare
-
-        molecular = copy.deepcopy(Mol[name_mol])
-
         index_dict = {}
         for i_atom in ["H", "C"]:
             index_dict[i_atom] = []
 
+        print(f"Generate {name_mol}_{distance:.4f}")
+        molecular, name = extend(
+            name_mol, extend_atom, extend_xyz, distance, args.basis
+        )
+
         for i in range(len(molecular)):
             index_dict[molecular[i][0]].append(i)
 
-        print(f"Generate {name_mol}_{distance:.4f}")
-        molecular, name = extend(molecular, extend_atom, extend_xyz, distance)
         if molecular is None:
             print(f"Skip: {name:>40}")
             continue

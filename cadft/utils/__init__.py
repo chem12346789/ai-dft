@@ -57,12 +57,13 @@ def extend(
     extend_atom: str,
     extend_xyz: int,
     distance: float,
+    basis: str,
 ) -> tuple:
     molecular = copy.deepcopy(Mol[name_mol])
     print(f"Generate {name_mol}_{distance:.4f}")
 
     print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}")
-    name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+    name = f"{name_mol}_{basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
 
     if "-" in extend_atom:
         extend_atom_1, extend_atom_2 = map(int, extend_atom.split("-"))
