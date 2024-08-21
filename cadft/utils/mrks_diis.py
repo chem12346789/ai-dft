@@ -13,6 +13,9 @@ import opt_einsum as oe
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import ccsd_t_slow as ccsd_t
+from pyscf.cc import ccsd_rdm
+from pyscf.cc.ccsd_t_rdm_slow import _gamma1_intermediates
+from pyscf.cc.ccsd_t_rdm_slow import _gamma2_intermediates
 
 from cadft.utils.gen_tau import gen_taup_rho, gen_taul_rho, gen_tau_rho
 from cadft.utils.Grids import Grid
@@ -46,6 +49,7 @@ def mrks_diis(self, frac_old, load_inv=True):
     eris = mycc.ao2mo()
     e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
     e_cc = mycc.e_tot + e3ref
+    print(f"CCSD(T) correlation energy: {e3ref:.8f}")
     l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
     dm1_cc = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris, ao_repr=True)
 
@@ -119,9 +123,11 @@ def mrks_diis(self, frac_old, load_inv=True):
         exc_over_rho_grids = np.load(self.data_save_path / "exc_over_rho_grids.npy")
     else:
         print("Calculating exc_grids")
-        dm2_cc = mycc.make_rdm2(ao_repr=True)
+        d1 = _gamma1_intermediates(mycc, t1, t2, l1, l2, eris)
+        d2 = _gamma2_intermediates(mycc, t1, t2, l1, l2, eris)
+        dm2_cc = ccsd_rdm._make_rdm2(mycc, d1, d2, True, True, ao_repr=True)
         dm12 = dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)
-        del dm2_cc
+        del dm2_cc, d1, d2
         gc.collect()
 
         for i_batch, j_batch, k_batch, l_batch in product(
