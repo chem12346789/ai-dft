@@ -3,9 +3,10 @@
 #slurm options
 #SBATCH -n 20
 #SBATCH -p gpu
-#SBATCH -J gen_data-MOL
+#SBATCH -J gen_data_MOL_EXTEND_ATOM
 #SBATCH -o log/%j.log
-#SBATCH --exclude=gpu[02-06]
+#SBATCH --exclude=gpu[01-03,05-06]
+
 
 ## user's own commands below
 export OMP_NUM_THREADS=20
@@ -20,4 +21,4 @@ export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 export NVIDIA_VISIBLE_DEVICES=1
 export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
 
-~/anaconda3/envs/pyscf/bin/python gen_dm_ene.py -dl START END STEP -b BASIS --extend_atom 3 --extend_xyz 0 --name_mol MOL
+~/anaconda3/envs/pyscf/bin/python gen_dm_ene.py -dl START END STEP -b BASIS --extend_atom EXTEND_ATOM --extend_xyz 0 --name_mol MOL

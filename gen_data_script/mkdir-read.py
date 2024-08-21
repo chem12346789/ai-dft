@@ -43,7 +43,7 @@ for item in Path(main_dir).glob("*"):
 
 number_of_job = 0
 
-for mol, basis_set, range_list in itertools.product(
+for mol, basis_set, range_list, extend_atom in itertools.product(
     [
         # "methane",
         # "methyl-openshell",
@@ -61,9 +61,10 @@ for mol, basis_set, range_list in itertools.product(
     ["cc-pCVTZ"],
     [
         # (-0.5, 0.0, 26),
-        # (-0.5, 0.5, 11),
-        (0.1, 0.5, 5),
+        (-0.5, 0.5, 11),
+        # (0.1, 0.5, 5),
     ],
+    ["0-1"],
 ):
     number_of_job += 1
     number_of_gpu = number_of_job % 2
@@ -71,6 +72,8 @@ for mol, basis_set, range_list in itertools.product(
     cmd += "&&" + f"""sed -i "s/MOL/{mol}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BASIS/{basis_set}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/NUMBER_OF_GPU/{number_of_gpu}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/EXTEND_ATOM/{extend_atom}/g" {work_bash}"""
+    
     if isinstance(range_list, float):
         start = range_list
         cmd += "&&" + f"""sed -i "s/START/{start}/g" {work_bash}"""
