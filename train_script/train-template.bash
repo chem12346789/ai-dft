@@ -5,7 +5,7 @@
 #SBATCH -p gpu
 #SBATCH -J train-ccdft-EVAL_STEP-INPUT_SIZE-HIDDEN_SIZE-OUTPUT_SIZE-NUM_LAYER-RESIDUAL-BATCH_SIZE-ENE_WEIGHT-POT_WEIGHT-WITH_EVAL
 #SBATCH -o log/%j.log
-#SBATCH --exclude=gpu[01-03,05,06]
+#SBATCH --exclude=gpu[01,03-06]
 
 ## user's own commands below
 export OMP_NUM_THREADS=2
@@ -20,4 +20,4 @@ export PYSCF_MAX_MEMORY=80000
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 export DATA_PATH=~/workdir/cadft/data/grids_mrks_CVTZ_1/data
 
-~/anaconda3/envs/pyscf/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVTZ --extend_atom 0 2 --extend_xyz 0 --eval_step EVAL_STEP --batch_size BATCH_SIZE --epoch 3000 --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --pot_weight POT_WEIGHT --with_eval WITH_EVAL --load LOAD_MODEL
+~/anaconda3/envs/pyscf/bin/python train.py -dl -0.5 0.5 11 -b cc-pCVTZ --extend_atom 0 2 --extend_xyz 0 --eval_step EVAL_STEP --batch_size BATCH_SIZE --epoch 25000 --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --pot_weight POT_WEIGHT --with_eval WITH_EVAL --load LOAD_MODEL

@@ -52,19 +52,18 @@ for (
         residual,
         load_model,
     ),
-    (ene_weight, pot_weight),
+    (pot_weight, ene_weight),
     with_eval,
 ) in itertools.product(
     [16],
     [5],
     [
-        (1, 64, -1, 4, -1, "NEW"),
-        # (4, 128, 2, 3, -1, "NEW"),
-        # (4, 128, 2, 4, -1, "NEW"),
+        # (4, 64, 1, 4, 0, "2024-07-28-16-00-16"),
+        (4, 128, 1, 4, 0, "NEW"),
     ],
     [
         # (0, 0),
-        (1, 1),
+        (0, 1),
     ],
     [
         "False",
