@@ -153,14 +153,6 @@ class DataBase:
             self.distance_l,
         ):
             name = f"{name_mol}_{self.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-            if abs(distance) < 1e-3:
-                if (extend_atom != 0) or extend_xyz != 1:
-                    print(f"Skip: {name:>40}")
-                    continue
-
-            if extend_atom >= len(Mol[name_mol]):
-                print(f"Skip: {name:>40}")
-                continue
 
             if "openshell" in name:
                 for i_spin in range(2):

@@ -250,18 +250,18 @@ class ModelDict:
                 torch.sum(output_mat_real * input_mat[:, [0], :, :] * weight),
             )
 
-            middle_mat = torch.autograd.grad(
-                torch.sum(input_mat[:, [0], :, :] * output_mat),
+            middle_mat = input_mat[:, [0], :, :] * torch.autograd.grad(
+                torch.sum(output_mat),
                 input_mat,
                 create_graph=True,
             )[0]
             loss_0_i = self.loss_multiplier * self.loss_fn1(
                 middle_mat * weight,
-                middle_mat_real * weight,
+                (middle_mat_real - output_mat) * weight,
             )
             loss_1_i = self.loss_multiplier * self.loss_fn1(
                 middle_mat,
-                middle_mat_real,
+                (middle_mat_real - output_mat),
             )
         return loss_0_i, loss_1_i, loss_2_i, loss_3_i
 
