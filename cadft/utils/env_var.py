@@ -20,7 +20,7 @@ else:
 
 DATA_SAVE_PATH = os.environ.get("DATA_SAVE_PATH")
 if DATA_SAVE_PATH is None:
-    DATA_SAVE_PATH = MAIN_PATH / "data" / "grids_mrks" / "saved_data"
+    DATA_SAVE_PATH = DATA_PATH / "saved_data"
 else:
     DATA_SAVE_PATH = Path(DATA_SAVE_PATH)
 
