@@ -10,6 +10,10 @@ import pyscf
 import scipy.linalg as LA
 import opt_einsum as oe
 
+from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
+from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
+from pyscf.cc import ccsd_t_slow as ccsd_t
+
 from cadft.utils.gen_tau import gen_taup_rho, gen_taul_rho, gen_tau_rho
 from cadft.utils.Grids import Grid
 from cadft.utils.env_var import DATA_PATH, DATA_SAVE_PATH
@@ -37,7 +41,13 @@ def mrks_diis(self, frac_old, load_inv=True):
     mycc.direct = True
     mycc.incore_complete = True
     mycc.async_io = False
-    mycc.kernel()
+
+    _, t1, t2 = mycc.kernel()
+    eris = mycc.ao2mo()
+    e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
+    e_cc = mycc.e_tot + e3ref
+    l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
+    dm1_cc = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris, ao_repr=True)
 
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
     mo = mf.mo_coeff
@@ -49,9 +59,6 @@ def mrks_diis(self, frac_old, load_inv=True):
 
     mat_s = self.mol.intor("int1e_ovlp")
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
-
-    dm1_cc = mycc.make_rdm1(ao_repr=True)
-    e_cc = mycc.e_tot
 
     grids = Grid(self.mol)
     coords = grids.coords
@@ -201,8 +208,9 @@ def mrks_diis(self, frac_old, load_inv=True):
         tau_rho_wf = np.load(self.data_save_path / "tau_rho_wf.npy")
         v_vxc_e_taup = np.load(self.data_save_path / "v_vxc_e_taup.npy")
     else:
-        dm1_cc_mo = mycc.make_rdm1(ao_repr=False)
-        dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
+        dm1_cc_mo = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris, ao_repr=False)
+        dm2_cc_mo = ccsd_t_rdm.make_rdm2(mycc, t1, t2, l1, l2, eris=eris)
+
         h1_mo = np.einsum("ab,ai,bj->ij", h1e, mo, mo)
         eri = self.mol.intor("int2e")
         eri_mo = pyscf.ao2mo.kernel(eri, mo, compact=False)
