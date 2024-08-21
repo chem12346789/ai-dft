@@ -45,7 +45,7 @@ number_of_job = 0
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
-        # "methane",
+        "methane",
         # "methyl-openshell",
         # "ethane",
         # "ethyl-openshell",
@@ -56,9 +56,9 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
         # "propylene",
         # "allene",
         # "cyclopropene",
-        "cyclopropane",
+        # "cyclopropane",
     ],
-    ["cc-pCVTZ"],
+    ["cc-pVTZ"],
     [
         # (-0.5, 0.0, 26),
         (-0.5, 0.5, 11),
