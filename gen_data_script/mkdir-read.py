@@ -41,9 +41,7 @@ for item in Path(main_dir).glob("*"):
             clean_dir(item)
             item.rmdir()
 
-number_of_job = 0
-# LIST_OF_GPU = [0, 1]
-LIST_OF_GPU = [8, 9]
+LIST_OF_GPU = itertools.cycle([7])
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
@@ -66,8 +64,7 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     ],
     ["0-1"],
 ):
-    number_of_gpu = LIST_OF_GPU[number_of_job]
-    number_of_job += 1
+    number_of_gpu = next(LIST_OF_GPU)
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/MOL/{mol}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BASIS/{basis_set}/g" {work_bash}"""
