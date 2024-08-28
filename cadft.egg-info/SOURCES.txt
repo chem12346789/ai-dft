@@ -1,6 +1,8 @@
 pyproject.toml
 cadft/__init__.py
 cadft/cc_dft_data.py
+cadft/test_rks.py
+cadft/test_uks.py
 cadft/train_model.py
 cadft.egg-info/PKG-INFO
 cadft.egg-info/SOURCES.txt
