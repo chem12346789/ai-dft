@@ -42,6 +42,8 @@ for item in Path(main_dir).glob("*"):
             item.rmdir()
 
 number_of_job = 0
+# LIST_OF_GPU = [0, 1]
+LIST_OF_GPU = [8, 9]
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
@@ -63,14 +65,14 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     ],
     ["0-1"],
 ):
+    number_of_gpu = LIST_OF_GPU[number_of_job]
     number_of_job += 1
-    number_of_gpu = number_of_job % 2
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/MOL/{mol}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BASIS/{basis_set}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/NUMBER_OF_GPU/{number_of_gpu}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/EXTEND_ATOM/{extend_atom}/g" {work_bash}"""
-    
+
     if isinstance(range_list, float):
         start = range_list
         cmd += "&&" + f"""sed -i "s/START/{start}/g" {work_bash}"""
