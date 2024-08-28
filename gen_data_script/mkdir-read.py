@@ -43,7 +43,7 @@ for item in Path(main_dir).glob("*"):
 
 number_of_job = 0
 # LIST_OF_GPU = [0, 1]
-LIST_OF_GPU = [8, 9]
+LIST_OF_GPU = itertools.cycle([7])
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
