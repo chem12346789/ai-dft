@@ -47,15 +47,16 @@ LIST_OF_GPU = [8, 9]
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
-        "methyl-openshell",
-        "ethyl-openshell",
-        "ethylene",
-        "acetylene",
         "propane",
+        "cyclopropane",
+        "cyclopropene",
         "propylene",
         "allene",
-        "cyclopropene",
-        "cyclopropane",
+        "ethane",
+        "acetylene",
+        "methyl-openshell",
+        "ethylene",
+        "ethyl-openshell",
     ],
     ["cc-pVTZ"],
     [
