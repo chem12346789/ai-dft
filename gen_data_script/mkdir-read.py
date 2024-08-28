@@ -45,18 +45,15 @@ number_of_job = 0
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
-        "methane",
-        # "methyl-openshell",
-        # "ethane",
-        # "ethyl-openshell",
-        # "ethylene",
-        # "acetylene",
-        # "propane",
-        # "propyne",
-        # "propylene",
-        # "allene",
-        # "cyclopropene",
-        # "cyclopropane",
+        "methyl-openshell",
+        "ethyl-openshell",
+        "ethylene",
+        "acetylene",
+        "propane",
+        "propylene",
+        "allene",
+        "cyclopropene",
+        "cyclopropane",
     ],
     ["cc-pVTZ"],
     [

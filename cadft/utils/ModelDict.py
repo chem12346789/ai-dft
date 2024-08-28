@@ -103,7 +103,7 @@ class ModelDict:
 
             self.optimizer_dict[key] = optim.Adam(
                 self.model_dict[key].parameters(),
-                lr=1e-4,
+                lr=1e-5,
             )
 
         for key in self.keys:
@@ -111,6 +111,8 @@ class ModelDict:
                 self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
                     self.optimizer_dict[key],
                     mode="min",
+                    factor=0.5,
+                    patience=10,
                 )
             else:
                 self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
@@ -167,12 +169,11 @@ class ModelDict:
         for key in self.keys:
             self.model_dict[key].train(True)
 
-    def zero_grad(self):
-        """
-        Set the model to train mode.
-        """
-        for key in self.keys:
-            self.optimizer_dict[key].zero_grad(set_to_none=True)
+    # def zero_grad(self):
+    #     """
+    #     Set the model to train mode.
+    #     """
+    #     for key in self.keys:
 
     def eval(self):
         """
@@ -180,6 +181,7 @@ class ModelDict:
         """
         for key in self.keys:
             self.model_dict[key].eval()
+            self.optimizer_dict[key].zero_grad(set_to_none=True)
 
     def step(self):
         """
@@ -297,7 +299,7 @@ class ModelDict:
                 torch.tensor([0.0], device=self.device),
             )
 
-            self.zero_grad()
+            # self.zero_grad()
 
             for batch in database_train.data_gpu[name]:
                 loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
