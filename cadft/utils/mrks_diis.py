@@ -24,6 +24,7 @@ from cadft.utils.diis import DIIS
 from cadft.utils.DataBase import process_input
 
 AU2KJMOL = 2625.5
+CCSDT = False
 
 
 def mrks_diis(self, frac_old, load_inv=True):
@@ -46,12 +47,16 @@ def mrks_diis(self, frac_old, load_inv=True):
     mycc.async_io = False
 
     _, t1, t2 = mycc.kernel()
-    eris = mycc.ao2mo()
-    e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
-    e_cc = mycc.e_tot + e3ref
-    print(f"CCSD(T) correlation energy: {e3ref:.8f}")
-    l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
-    dm1_cc = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris, ao_repr=True)
+    if CCSDT:
+        eris = mycc.ao2mo()
+        e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
+        e_cc = mycc.e_tot + e3ref
+        print(f"CCSD(T) correlation energy: {e3ref:.8f}")
+        l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
+        dm1_cc = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris, ao_repr=True)
+    else:
+        dm1_cc = mycc.make_rdm1(ao_repr=True)
+        e_cc = mycc.e_tot
 
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
     mo = mf.mo_coeff
@@ -64,7 +69,7 @@ def mrks_diis(self, frac_old, load_inv=True):
     mat_s = self.mol.intor("int1e_ovlp")
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
 
-    grids = Grid(self.mol)
+    grids = Grid(self.mol, level=1)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
@@ -123,11 +128,16 @@ def mrks_diis(self, frac_old, load_inv=True):
         exc_over_rho_grids = np.load(self.data_save_path / "exc_over_rho_grids.npy")
     else:
         print("Calculating exc_grids")
-        d1 = _gamma1_intermediates(mycc, t1, t2, l1, l2, eris)
-        d2 = _gamma2_intermediates(mycc, t1, t2, l1, l2, eris)
-        dm2_cc = ccsd_rdm._make_rdm2(mycc, d1, d2, True, True, ao_repr=True)
-        dm12 = dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)
-        del dm2_cc, d1, d2
+        if CCSDT:
+            d1 = _gamma1_intermediates(mycc, t1, t2, l1, l2, eris)
+            d2 = _gamma2_intermediates(mycc, t1, t2, l1, l2, eris)
+            dm2_cc = ccsd_rdm._make_rdm2(mycc, d1, d2, True, True, ao_repr=True)
+            dm12 = dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)
+            del dm2_cc, d1, d2
+        else:
+            dm2_cc = mycc.make_rdm2(ao_repr=True)
+            dm12 = dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)
+            del dm2_cc
         gc.collect()
 
         for i_batch, j_batch, k_batch, l_batch in product(
@@ -214,8 +224,14 @@ def mrks_diis(self, frac_old, load_inv=True):
         tau_rho_wf = np.load(self.data_save_path / "tau_rho_wf.npy")
         v_vxc_e_taup = np.load(self.data_save_path / "v_vxc_e_taup.npy")
     else:
-        dm1_cc_mo = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris, ao_repr=False)
-        dm2_cc_mo = ccsd_t_rdm.make_rdm2(mycc, t1, t2, l1, l2, eris=eris)
+        if CCSDT:
+            dm1_cc_mo = ccsd_t_rdm.make_rdm1(
+                mycc, t1, t2, l1, l2, eris=eris, ao_repr=False
+            )
+            dm2_cc_mo = ccsd_t_rdm.make_rdm2(mycc, t1, t2, l1, l2, eris=eris)
+        else:
+            dm1_cc_mo = mycc.make_rdm1(ao_repr=False)
+            dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
 
         h1_mo = np.einsum("ab,ai,bj->ij", h1e, mo, mo)
         eri = self.mol.intor("int2e")

@@ -7,7 +7,15 @@ from scipy import linalg as LA
 
 from cadft.utils import gen_basis
 from cadft.utils import rotate
-from cadft.utils import mrks, mrks_diis, mrks_append, umrks, umrks_diis, gmrks_diis
+from cadft.utils import (
+    mrks,
+    mrks_diis,
+    mrks_append,
+    umrks,
+    umrks_diis,
+    gmrks_diis,
+)
+from cadft.utils_deepks import deepks
 from cadft.utils import Mol
 from cadft.utils.Grids import Grid
 from cadft.utils import MAIN_PATH, DATA_CC_PATH
@@ -95,6 +103,9 @@ class CC_DFT_DATA:
         """
         print(f"Mrks_append module. Generate {self.name}")
         mrks_append(self, frac_old, load_inv)
+
+    def deepks(self):
+        deepks(self)
 
     # pylint: disable=W0201
     def test_mol(self):

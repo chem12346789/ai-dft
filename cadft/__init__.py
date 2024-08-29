@@ -1,5 +1,6 @@
 from cadft.cc_dft_data import CC_DFT_DATA
 from cadft.train_model import train_model
+from cadft.train_model_dp import train_model_dp
 from cadft.test_rks import test_rks
 from cadft.test_uks import test_uks
 

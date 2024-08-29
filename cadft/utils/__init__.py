@@ -26,23 +26,16 @@ from cadft.utils.env_var import MAIN_PATH, DATA_PATH, DATA_SAVE_PATH, DATA_CC_PA
 def save_csv_loss(
     name_list,
     path,
-    loss_rho=0.0,
-    loss_tot_rho=0.0,
-    loss_ene=0.0,
-    loss_tot_ene=0.0,
+    dict_: dict,
 ):
     """
     save the loss to a csv file
     """
-    df = pd.DataFrame(
-        {
-            "name": name_list,
-            "loss_rho": loss_rho,
-            "loss_ene": loss_ene,
-            "loss_tot_rho": loss_tot_rho,
-            "loss_tot_ene": loss_tot_ene,
-        }
-    )
+    dict_empty = {}
+    dict_["name"] = name_list
+    for key, val in dict_.items():
+        dict_empty[key] = val
+    df = pd.DataFrame(dict_empty)
     df.to_csv(path, index=False)
 
 
