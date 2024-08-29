@@ -94,9 +94,9 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
 
-for child in (work_dir).glob("*.bash"):
-    if child.is_file():
-        cmd = f"""sbatch < {child}"""
-        with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
-            subprocess.call(cmd, shell=True, stdout=f)
-        time.sleep(0.01)
+# for child in (work_dir).glob("*.bash"):
+#     if child.is_file():
+#         cmd = f"""sbatch < {child}"""
+#         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
+#             subprocess.call(cmd, shell=True, stdout=f)
+#         time.sleep(0.01)
