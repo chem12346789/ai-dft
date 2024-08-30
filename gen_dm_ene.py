@@ -41,16 +41,16 @@ for (
         spin=spin,
     )
 
-    if abs(distance) >= 0.5:
-        FACTOR = 0.9
-    elif abs(distance) >= 0.3:
-        FACTOR = 0.85
+    if abs(distance) >= 1.5:
+        FACTOR = 0.75
+        diis_n = 25
     else:
-        FACTOR = 0.8
+        FACTOR = 0
+        diis_n = 15
     if "openshell" in name_mol:
-        dft2cc.umrks_diis(0, args.load_inv)
+        dft2cc.umrks_diis(FACTOR, args.load_inv, diis_n=diis_n)
     else:
-        dft2cc.mrks_diis(0, args.load_inv)
+        dft2cc.mrks_diis(FACTOR, args.load_inv, diis_n=diis_n)
 
     # dft2cc.deepks()
 

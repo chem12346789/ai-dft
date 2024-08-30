@@ -20,7 +20,7 @@ from cadft.utils.DataBase import process_input
 AU2KJMOL = 2625.5
 
 
-def umrks_diis(self, frac_old, load_inv=True):
+def umrks_diis(self, frac_old, load_inv=True, diis_n=15,):
     """
     Generate 1-RDM.
     """
@@ -455,7 +455,7 @@ def umrks_diis(self, frac_old, load_inv=True):
             optimize="optimal",
         )
 
-        diis = (DIIS(self.mol.nao, n=15), DIIS(self.mol.nao, n=15))
+        diis = (DIIS(self.mol.nao, n=diis_n), DIIS(self.mol.nao, n=diis_n))
 
         for i in range(250):
             dm1_inv_r = np.array(

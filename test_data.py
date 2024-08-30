@@ -173,7 +173,7 @@ if __name__ == "__main__":
         molecular, name = extend(
             name_mol, extend_atom, extend_xyz, distance, args.basis
         )
-
+        name_list.append(name)
         for i in range(len(molecular)):
             index_dict[molecular[i][0]].append(i)
 
@@ -201,7 +201,7 @@ if __name__ == "__main__":
         time_start = timer()
 
         # dm1_scf = dft2cc.dm1_dft
-        dm1_scf = data_real["dm_inv"] * 2
+        dm1_scf = data_real["dm_inv"]
         oe_fock = oe.contract_expression(
             "p,p,pa,pb->ab",
             np.shape(dft2cc.ao_0[:, 0]),

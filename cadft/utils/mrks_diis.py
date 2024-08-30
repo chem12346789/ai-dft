@@ -27,7 +27,7 @@ AU2KJMOL = 2625.5
 CCSDT = False
 
 
-def mrks_diis(self, frac_old, load_inv=True):
+def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
     """
     Generate 1-RDM.
     """
@@ -353,13 +353,13 @@ def mrks_diis(self, frac_old, load_inv=True):
     int1e_grids = self.mol.intor("int1e_grids", grids=coords)
     print(int1e_grids.shape)
 
-    # if (
-    #     load_inv
-    #     and Path(
-    #         self.data_save_path / "dm1_inv.npy"
-    #     ).exists()
-    # ):
-    if False:
+    # if False:
+    if (
+        load_inv
+        and Path(
+            self.data_save_path / "dm1_inv.npy"
+        ).exists()
+    ):
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
         dm1_inv = np.load(self.data_save_path / "dm1_inv.npy")
         vxc_inv = np.load(self.data_save_path / "vxc_inv.npy")
@@ -369,7 +369,7 @@ def mrks_diis(self, frac_old, load_inv=True):
         eigvecs_inv = mf.mo_energy.copy()
         mo_inv = mo.copy()
         dm1_inv = mf.make_rdm1(ao_repr=True)
-        diis = DIIS(self.mol.nao, n=10)
+        diis = DIIS(self.mol.nao, n=diis_n)
 
         vxc_inv = pyscf.dft.libxc.eval_xc(
             "b3lyp",
@@ -402,7 +402,7 @@ def mrks_diis(self, frac_old, load_inv=True):
             optimize="optimal",
         )
 
-        for i in range(2500):
+        for i in range(250):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -653,16 +653,16 @@ def mrks_diis(self, frac_old, load_inv=True):
         exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
         exc_tr_b3lyp=grids.vector_to_matrix(
-            exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
+            exc_over_rho_grids_fake + (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
         ),
         exc1_tr_b3lyp=grids.vector_to_matrix(
-            exc_over_rho_grids_fake1 + 2 * (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
+            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
         ),
         exc_tr=grids.vector_to_matrix(
-            exc_over_rho_grids_fake + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
+            exc_over_rho_grids_fake + (tau_rho_wf - tau_rho_ks) / inv_r
         ),
         exc1_tr=grids.vector_to_matrix(
-            exc_over_rho_grids_fake1 + 2 * (tau_rho_wf - tau_rho_ks) / inv_r
+            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r
         ),
         rho_inv_4_norm=data_grids_norm,
         coords_x=grids.vector_to_matrix(coords[:, 0]),

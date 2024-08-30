@@ -1,13 +1,14 @@
 from cadft import train_model_dp
+from cadft import train_model
 
 TRAIN_STR_DICT = [
     "methane",
-    "ethane",
-    "ethylene",
-    "acetylene",
-    "allene",
-    "cyclopropene",
-    "cyclopropane",
+    # "ethane",
+    # "ethylene",
+    # "acetylene",
+    # "allene",
+    # "cyclopropene",
+    # "cyclopropane",
     # "methyl-openshell",
 ]
 EVAL_STR_DICT = [
@@ -30,5 +31,5 @@ EVAL_STR_DICT = [
 ]
 
 if __name__ == "__main__":
-    # train_model(TRAIN_STR_DICT, EVAL_STR_DICT)
-    train_model_dp(TRAIN_STR_DICT, EVAL_STR_DICT)
+    train_model(TRAIN_STR_DICT, EVAL_STR_DICT)
+    # train_model_dp(TRAIN_STR_DICT, EVAL_STR_DICT)
