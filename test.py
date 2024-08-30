@@ -62,6 +62,7 @@ if __name__ == "__main__":
     }
 
     distance_l = gen_logger(args.distance_list)
+    dm1_scf = None
     for (
         name_mol,
         extend_atom,
@@ -81,11 +82,21 @@ if __name__ == "__main__":
             continue
         df_dict["name"].append(name)
 
-        if abs(distance) > 3:
-            N_DIIS = 20
-        else:
+        if abs(distance) > 4:
+            N_DIIS = 70
+        elif abs(distance) > 3:
             N_DIIS = 50
+        else:
+            N_DIIS = 20
         if "openshell" in name_mol:
             test_uks(args, molecular, name, modeldict, df_dict)
         else:
-            test_rks(args, molecular, name, modeldict, df_dict, n_diis=N_DIIS)
+            dm1_scf = test_rks(
+                args,
+                molecular,
+                name,
+                modeldict,
+                df_dict,
+                n_diis=N_DIIS,
+                dm1_scf=dm1_scf,
+            )

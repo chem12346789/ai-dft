@@ -23,6 +23,7 @@ def test_rks(
     modeldict,
     df_dict: dict,
     n_diis: int = 10,
+    dm1_scf=None,
 ):
     """
     Test the model. Restrict Khon-Sham (no spin).
@@ -41,7 +42,10 @@ def test_rks(
     # 2.1 SCF loop to get the density matrix
     time_start = timer()
 
-    dm1_scf = init_guess_by_minao(dft2cc.mol)
+    if dm1_scf is None:
+        dm1_scf = init_guess_by_minao(dft2cc.mol)
+        # dm1_scf = dft2cc.dm1_dft
+
     oe_fock = oe.contract_expression(
         "p,p,pa,pb->ab",
         np.shape(dft2cc.ao_0[:, 0]),
@@ -58,8 +62,9 @@ def test_rks(
         max_error_scf = 1e-8
 
     diis = DIIS(dft2cc.mol.nao, n=n_diis)
+    converge_setp = 0
 
-    for i in range(2500):
+    for i in range(5000):
         scf_r_3 = pyscf.dft.numint.eval_rho(
             dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
@@ -73,7 +78,7 @@ def test_rks(
 
         diis.add(
             mat_fock,
-            dft2cc.mat_s @ dm1_scf @ mat_fock - mat_fock @ dm1_scf @ dft2cc.mat_s,
+            mat_fock @ dm1_scf @ dft2cc.mat_s - dft2cc.mat_s @ dm1_scf @ mat_fock,
         )
         mat_fock = diis.hybrid()
 
@@ -89,8 +94,13 @@ def test_rks(
             f"dm: {error_dm1::<10.5e}",
         )
         if (i > 0) and (error_dm1 < max_error_scf):
-            dm1_scf = dm1_scf_old.copy()
-            break
+            if converge_setp > 5:
+                dm1_scf = dm1_scf_old.copy()
+                break
+            else:
+                converge_setp += 1
+        else:
+            converge_setp = 0
 
     # 2.2 Check the difference of density (on grids) and dipole
     print(
@@ -225,3 +235,5 @@ def test_rks(
         ),
         index=False,
     )
+
+    return dm1_scf

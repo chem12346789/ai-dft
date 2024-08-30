@@ -46,7 +46,7 @@ class CC_DFT_DATA:
                 self.basis,
                 self.if_basis_str,
             ),
-            # verbose=4,
+            verbose=4,
             spin=spin,
         )
         print(self.mol.atom)
@@ -177,6 +177,7 @@ class CC_DFT_DATA:
             time_start = timer()
             mdft = pyscf.scf.RKS(self.mol)
             mdft.xc = "b3lyp"
+            mdft.max_cycle = 2500
             mdft.kernel()
             self.dm1_dft = mdft.make_rdm1(ao_repr=True)
             self.e_dft = mdft.e_tot
