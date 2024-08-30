@@ -3,7 +3,7 @@
 #slurm options
 #SBATCH -n 20
 #SBATCH --mem 100000
-#SBATCH --nodelist=gpu04
+#SBATCH --nodelist=gpu01
 #SBATCH -p gpu
 #SBATCH -J gen_data_MOL_EXTEND_ATOM
 #SBATCH -o log/%j.log

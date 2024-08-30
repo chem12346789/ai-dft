@@ -41,26 +41,26 @@ for item in Path(main_dir).glob("*"):
             clean_dir(item)
             item.rmdir()
 
-LIST_OF_GPU = itertools.cycle([7])
+LIST_OF_GPU = itertools.cycle([0, 1])
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
+        # "methane",
+        # "ethane",
+        # "ethylene",
+        # "acetylene",
         # "propane",
         # "cyclopropane",
         # "cyclopropene",
         # "propylene",
         # "allene",
-        "ethane",
-        # "acetylene",
         # "methyl-openshell",
-        # "ethylene",
         # "ethyl-openshell",
     ],
     ["cc-pCVTZ"],
     [
-        # (-0.5, 0.0, 26),
-        (-0.5, 2.5, 31),
-        # (0.1, 0.5, 5),
+        (-0.5, 1.0, 16),
+        (1.1, 2.5, 15),
     ],
     ["0-1"],
 ):

@@ -24,7 +24,7 @@ from cadft.utils.diis import DIIS
 from cadft.utils.DataBase import process_input
 
 AU2KJMOL = 2625.5
-CCSDT = False
+CCSDT = True
 
 
 def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
