@@ -2,11 +2,12 @@
 
 #slurm options
 #SBATCH -n 20
-#SBATCH --mem 200000
+#SBATCH --mem 100000
+#SBATCH --nodelist=gpu04
 #SBATCH -p gpu
 #SBATCH -J gen_data_MOL_EXTEND_ATOM
 #SBATCH -o log/%j.log
-#SBATCH --exclude=gpu[01-05]
+#SBATCH --exclude=gpu[06]
 
 ## user's own commands below
 export OMP_NUM_THREADS=20

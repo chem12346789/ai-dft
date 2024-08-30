@@ -45,21 +45,21 @@ LIST_OF_GPU = itertools.cycle([7])
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
-        "propane",
-        "cyclopropane",
-        "cyclopropene",
-        "propylene",
-        "allene",
+        # "propane",
+        # "cyclopropane",
+        # "cyclopropene",
+        # "propylene",
+        # "allene",
         "ethane",
-        "acetylene",
-        "methyl-openshell",
-        "ethylene",
-        "ethyl-openshell",
+        # "acetylene",
+        # "methyl-openshell",
+        # "ethylene",
+        # "ethyl-openshell",
     ],
-    ["cc-pVTZ"],
+    ["cc-pCVTZ"],
     [
         # (-0.5, 0.0, 26),
-        (-0.5, 0.5, 11),
+        (-0.5, 2.5, 31),
         # (0.1, 0.5, 5),
     ],
     ["0-1"],
@@ -94,9 +94,9 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
 
-# for child in (work_dir).glob("*.bash"):
-#     if child.is_file():
-#         cmd = f"""sbatch < {child}"""
-#         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
-#             subprocess.call(cmd, shell=True, stdout=f)
-#         time.sleep(0.01)
+for child in (work_dir).glob("*.bash"):
+    if child.is_file():
+        cmd = f"""sbatch < {child}"""
+        with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
+            subprocess.call(cmd, shell=True, stdout=f)
+        time.sleep(0.01)
