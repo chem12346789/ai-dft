@@ -22,6 +22,7 @@ def test_rks(
     name,
     modeldict,
     df_dict: dict,
+    n_diis: int = 10,
 ):
     """
     Test the model. Restrict Khon-Sham (no spin).
@@ -52,13 +53,13 @@ def test_rks(
     )
 
     if modeldict.dtype == torch.float32:
-        max_error_scf = 1e-4
+        max_error_scf = 1e-5
     else:
         max_error_scf = 1e-8
 
-    diis = DIIS(dft2cc.mol.nao, n=10)
+    diis = DIIS(dft2cc.mol.nao, n=n_diis)
 
-    for i in range(100):
+    for i in range(2500):
         scf_r_3 = pyscf.dft.numint.eval_rho(
             dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
@@ -194,7 +195,6 @@ def test_rks(
 
     scf_r_3 = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA")
     exc_scf = modeldict.get_e(scf_r_3, dft2cc.grids)
-
     exc_ene = np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
     exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
     exc_ene += np.sum(exc_b3lyp * scf_rho_r * dft2cc.grids.weights)

@@ -160,18 +160,22 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             save_csv_loss(
                 database_train.name_list,
                 modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}",
-                loss_rho=train_loss_1,
-                loss_tot_rho=train_loss_0,
-                loss_ene=train_loss_2,
-                loss_tot_ene=train_loss_3,
+                {
+                    "loss_rho": train_loss_1,
+                    "loss_tot_rho": train_loss_0,
+                    "loss_ene": train_loss_2,
+                    "loss_tot_ene": train_loss_3,
+                },
             )
             save_csv_loss(
                 database_eval.name_list,
                 modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}",
-                loss_rho=eval_loss_1,
-                loss_tot_rho=eval_loss_0,
-                loss_ene=eval_loss_2,
-                loss_tot_ene=eval_loss_3,
+                {
+                    "loss_rho": eval_loss_1,
+                    "loss_tot_rho": eval_loss_0,
+                    "loss_ene": eval_loss_2,
+                    "loss_tot_ene": eval_loss_3,
+                },
             )
             modeldict.save_model(epoch)
     pbar0.close()

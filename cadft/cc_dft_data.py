@@ -46,7 +46,7 @@ class CC_DFT_DATA:
                 self.basis,
                 self.if_basis_str,
             ),
-            verbose=4,
+            # verbose=4,
             spin=spin,
         )
         print(self.mol.atom)
@@ -69,12 +69,12 @@ class CC_DFT_DATA:
         print(f"Mrks module. Generate {self.name}")
         mrks(self, frac_old, load_inv)
 
-    def mrks_diis(self, frac_old, load_inv):
+    def mrks_diis(self, frac_old, load_inv, diis_n=15):
         """
         Generate 1-RDM.
         """
         print(f"Mrks diis module. Generate {self.name}")
-        mrks_diis(self, frac_old, load_inv)
+        mrks_diis(self, frac_old, load_inv, diis_n)
 
     def umrks(self, frac_old, load_inv):
         """
@@ -83,12 +83,12 @@ class CC_DFT_DATA:
         print(f"Umrks module. Generate {self.name}")
         umrks(self, frac_old, load_inv)
 
-    def umrks_diis(self, frac_old, load_inv):
+    def umrks_diis(self, frac_old, load_inv, diis_n=15):
         """
         Generate 1-RDM.
         """
         print(f"Umrks diis module. Generate {self.name}")
-        umrks_diis(self, frac_old, load_inv)
+        umrks_diis(self, frac_old, load_inv, diis_n=diis_n)
 
     def gmrks_diis(self, frac_old, load_inv):
         """
@@ -200,7 +200,7 @@ class CC_DFT_DATA:
                 dm1_hf=self.dm1_hf,
             )
 
-        self.grids = Grid(self.mol)
+        self.grids = Grid(self.mol, level=1)
         self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
         self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
 
@@ -296,6 +296,6 @@ class CC_DFT_DATA:
                 dm1_hf=self.dm1_hf,
             )
 
-        self.grids = Grid(self.mol)
+        self.grids = Grid(self.mol, level=1)
         self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
         self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)

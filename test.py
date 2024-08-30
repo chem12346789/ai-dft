@@ -81,7 +81,11 @@ if __name__ == "__main__":
             continue
         df_dict["name"].append(name)
 
+        if abs(distance) > 3:
+            N_DIIS = 20
+        else:
+            N_DIIS = 50
         if "openshell" in name_mol:
             test_uks(args, molecular, name, modeldict, df_dict)
         else:
-            test_rks(args, molecular, name, modeldict, df_dict)
+            test_rks(args, molecular, name, modeldict, df_dict, n_diis=N_DIIS)
