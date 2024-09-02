@@ -13,6 +13,7 @@ args = add_args(parser)
 
 distance_l = gen_logger(args.distance_list)
 
+
 for (
     name_mol,
     extend_atom,
@@ -29,28 +30,41 @@ for (
         print(f"Skip: {name:>40}")
         continue
 
-    spin = 0
+    SPIN = 0
     if "openshell" in name_mol:
-        spin = 1
+        SPIN = 1
 
     dft2cc = CC_DFT_DATA(
         molecular,
         name=name,
         basis=args.basis,
         if_basis_str=args.if_basis_str,
-        spin=spin,
+        spin=SPIN,
     )
 
     if abs(distance) >= 1.5:
-        FACTOR = 0.75
-        diis_n = 25
+        FACTOR = 0.5
+        DIIS_N = 50
     else:
         FACTOR = 0
-        diis_n = 15
+        DIIS_N = 20
+
+    print(f"FACTOR: {FACTOR}, diis_n: {DIIS_N}")
+
     if "openshell" in name_mol:
-        dft2cc.umrks_diis(FACTOR, args.load_inv, diis_n=diis_n)
+        vxc_inv = dft2cc.umrks_diis(
+            FACTOR,
+            args.load_inv,
+            diis_n=DIIS_N,
+            vxc_inv=None,
+        )
     else:
-        dft2cc.mrks_diis(FACTOR, args.load_inv, diis_n=diis_n)
+        vxc_inv = dft2cc.mrks_diis(
+            FACTOR,
+            args.load_inv,
+            diis_n=DIIS_N,
+            vxc_inv=None,
+        )
 
     # dft2cc.deepks()
 

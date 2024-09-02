@@ -15,125 +15,12 @@ import torch
 import numpy as np
 import pandas as pd
 import opt_einsum as oe
-from torch.utils.data import DataLoader
 
 from cadft import CC_DFT_DATA, extend, add_args, gen_logger
-from cadft.utils import Mol
 from cadft.utils import MAIN_PATH, DATA_PATH
-
+from cadft.utils import DIIS
 
 AU2KCALMOL = 627.5096080306
-
-
-def process(data, dtype):
-    """
-    Load the whole data to the gpu.
-    """
-    if len(data.shape) == 4:
-        return data.to(
-            device="cuda",
-            dtype=dtype,
-            memory_format=torch.channels_last,
-        )
-    else:
-        return data.to(
-            device="cuda",
-            dtype=dtype,
-        )
-
-
-class BasicDataset:
-    """
-    Documentation for a class.
-    """
-
-    def __init__(self, input_, weight_, batch_size, dtype):
-        self.input = input_
-        self.weight = weight_
-        self.ids = list(input_.keys())
-        self.batch_size = batch_size
-        if dtype == "float32":
-            self.dtype = torch.float32
-        else:
-            self.dtype = torch.float64
-
-    def __len__(self):
-        return len(self.ids)
-
-    def __getitem__(self, idx):
-        return {
-            "input": self.input[self.ids[idx]],
-            "weight": self.weight[self.ids[idx]],
-        }
-
-    def load_to_gpu(self):
-        """
-        Load the whole data to the device.
-        """
-        dataloader = DataLoader(
-            self,
-            shuffle=False,
-            batch_size=self.batch_size,
-            num_workers=1,
-            pin_memory=True,
-        )
-
-        dataloader_gpu = []
-        for batch in dataloader:
-            batch_gpu = {}
-            # move images and labels to correct device and type
-            (
-                batch_gpu["input"],
-                batch_gpu["weight"],
-            ) = (
-                process(batch["input"], self.dtype),
-                process(batch["weight"], self.dtype),
-            )
-            dataloader_gpu.append(batch_gpu)
-        return dataloader_gpu
-
-
-class DIIS:
-    """
-    DIIS for the Fock matrix.
-    """
-
-    def __init__(self, nao, n=50):
-        self.n = n
-        self.errors = np.zeros((n, nao, nao))
-        self.mat_fock = np.zeros((n, nao, nao))
-        self.step = 0
-
-    def add(self, mat_fock, error):
-        self.mat_fock = np.roll(self.mat_fock, -1, axis=0)
-        self.mat_fock[-1, :, :] = mat_fock
-        self.errors = np.roll(self.errors, -1, axis=0)
-        self.errors[-1, :, :] = error
-
-    def hybrid(self):
-        self.step += 1
-        mat = np.zeros((self.n + 1, self.n + 1))
-        mat[:-1, :-1] = np.einsum("inm,jnm->ij", self.errors, self.errors)
-        mat[-1, :] = -1
-        mat[:, -1] = -1
-        mat[-1, -1] = 0
-
-        b = np.zeros(self.n + 1)
-        b[-1] = -1
-
-        if self.step < self.n:
-            c = np.linalg.solve(
-                mat[-(self.step + 1) :, -(self.step + 1) :], b[-(self.step + 1) :]
-            )
-            mat_fock = np.sum(
-                c[:-1, np.newaxis, np.newaxis] * self.mat_fock[-self.step :], axis=0
-            )
-            return mat_fock
-        else:
-            c = np.linalg.solve(mat, b)
-            mat_fock = np.sum(c[:-1, np.newaxis, np.newaxis] * self.mat_fock, axis=0)
-            return mat_fock
-
 
 if __name__ == "__main__":
     # 0. Prepare the args
@@ -185,7 +72,7 @@ if __name__ == "__main__":
             data_real = np.load(DATA_PATH / f"data_{name}.npz")
         else:
             print(f"No file: {name:>40}")
-            break
+            continue
 
         dft2cc = CC_DFT_DATA(
             molecular,
@@ -194,6 +81,7 @@ if __name__ == "__main__":
             if_basis_str=args.if_basis_str,
         )
         dft2cc.test_mol()
+        # dft2cc.test_mol(data_real["dm_cc"], data_real["e_cc"])
         nocc = dft2cc.mol.nelec[0]
         mdft = pyscf.scf.RKS(dft2cc.mol)
 
@@ -213,7 +101,7 @@ if __name__ == "__main__":
         )
 
         if args.precision == "float32":
-            max_error_scf = 1e-4
+            max_error_scf = 1e-5
         else:
             max_error_scf = 1e-8
 
@@ -222,12 +110,6 @@ if __name__ == "__main__":
         for i in range(100):
             middle_mat = data_real["vxc"]
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
-
-            # inv_r_3 = pyscf.dft.numint.eval_rho(
-            #     dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
-            # )
-            # exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
-            # vxc_scf += exc_b3lyp
 
             vxc_mat = oe_fock(
                 vxc_scf,
@@ -272,21 +154,25 @@ if __name__ == "__main__":
 
         scf_rho_r = pyscf.dft.numint.eval_rho(
             dft2cc.mol,
-            dft2cc.ao_0,
+            dft2cc.ao_0_test,
             dm1_scf,
         )
         cc_rho_r = pyscf.dft.numint.eval_rho(
             dft2cc.mol,
-            dft2cc.ao_0,
+            dft2cc.ao_0_test,
             dft2cc.dm1_cc,
         )
         dft_rho_r = pyscf.dft.numint.eval_rho(
             dft2cc.mol,
-            dft2cc.ao_0,
+            dft2cc.ao_0_test,
             dft2cc.dm1_dft,
         )
-        error_scf_rho_r = np.sum(np.abs(scf_rho_r - cc_rho_r) * dft2cc.grids.weights)
-        error_dft_rho_r = np.sum(np.abs(dft_rho_r - cc_rho_r) * dft2cc.grids.weights)
+        error_scf_rho_r = np.sum(
+            np.abs(scf_rho_r - cc_rho_r) * dft2cc.grids_test.weights
+        )
+        error_dft_rho_r = np.sum(
+            np.abs(dft_rho_r - cc_rho_r) * dft2cc.grids_test.weights
+        )
         print(
             f"error_scf_rho_r: {error_scf_rho_r:.2e}, error_dft_rho_r: {error_dft_rho_r:.2e}",
             flush=True,
@@ -301,13 +187,13 @@ if __name__ == "__main__":
                 dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][0]
             )
         dipole_x = dipole_x_core - np.sum(
-            cc_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
+            cc_rho_r * dft2cc.grids_test.coords[:, 0] * dft2cc.grids_test.weights
         )
         dipole_x_scf = dipole_x_core - np.sum(
-            scf_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
+            scf_rho_r * dft2cc.grids_test.coords[:, 0] * dft2cc.grids_test.weights
         )
         dipole_x_dft = dipole_x_core - np.sum(
-            dft_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
+            dft_rho_r * dft2cc.grids_test.coords[:, 0] * dft2cc.grids_test.weights
         )
 
         dipole_y_core = 0
@@ -316,13 +202,13 @@ if __name__ == "__main__":
                 dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][1]
             )
         dipole_y = dipole_y_core - np.sum(
-            cc_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
+            cc_rho_r * dft2cc.grids_test.coords[:, 1] * dft2cc.grids_test.weights
         )
         dipole_y_scf = dipole_y_core - np.sum(
-            scf_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
+            scf_rho_r * dft2cc.grids_test.coords[:, 1] * dft2cc.grids_test.weights
         )
         dipole_y_dft = dipole_y_core - np.sum(
-            dft_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
+            dft_rho_r * dft2cc.grids_test.coords[:, 1] * dft2cc.grids_test.weights
         )
 
         dipole_z_core = 0
@@ -331,13 +217,13 @@ if __name__ == "__main__":
                 dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][2]
             )
         dipole_z = dipole_z_core - np.sum(
-            cc_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
+            cc_rho_r * dft2cc.grids_test.coords[:, 2] * dft2cc.grids_test.weights
         )
         dipole_z_scf = dipole_z_core - np.sum(
-            scf_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
+            scf_rho_r * dft2cc.grids_test.coords[:, 2] * dft2cc.grids_test.weights
         )
         dipole_z_dft = dipole_z_core - np.sum(
-            dft_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
+            dft_rho_r * dft2cc.grids_test.coords[:, 2] * dft2cc.grids_test.weights
         )
 
         print(
@@ -365,7 +251,7 @@ if __name__ == "__main__":
         output_mat = data_real["exc1_tr_b3lyp"]
 
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
-            scf_rho_r * dft2cc.grids.weights
+            inv_r_3[0] * dft2cc.grids.weights
         )
 
         inv_r_3 = pyscf.dft.numint.eval_rho(
@@ -373,7 +259,7 @@ if __name__ == "__main__":
         )
         exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
 
-        b3lyp_ene = np.sum(exc_b3lyp * scf_rho_r * dft2cc.grids.weights)
+        b3lyp_ene = np.sum(exc_b3lyp * inv_r_3[0] * dft2cc.grids.weights)
 
         print(AU2KCALMOL * b3lyp_ene)
         print(

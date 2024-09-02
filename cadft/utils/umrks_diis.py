@@ -20,7 +20,13 @@ from cadft.utils.DataBase import process_input
 AU2KJMOL = 2625.5
 
 
-def umrks_diis(self, frac_old, load_inv=True, diis_n=15,):
+def umrks_diis(
+    self,
+    frac_old,
+    load_inv=True,
+    diis_n=15,
+    vxc_inv=None,
+):
     """
     Generate 1-RDM.
     """
@@ -884,3 +890,5 @@ def umrks_diis(self, frac_old, load_inv=True, diis_n=15,):
             coords_y=grids.vector_to_matrix(coords[:, 1]),
             coords_z=grids.vector_to_matrix(coords[:, 2]),
         )
+
+    return vxc_inv

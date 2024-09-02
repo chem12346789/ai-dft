@@ -53,7 +53,7 @@ LEBEDEV_ORDER = {
 }
 
 # fmt: off
-# Period  1     2     3     4     5     6     7     8    # level
+# Period        1     2     3     4     5     6     7    # level
 ANG_ORDER = np.array(
     (
         ( 0,   11,   15,   17,   17,   17,   17,   17),  # 0
@@ -69,7 +69,7 @@ ANG_ORDER = np.array(
     )
 )
 
-# Period  1     2     3     4     5     6     7     8   # level
+# Period        1     2     3     4     5     6     7   # level
 RAD_GRIDS = np.array(
     (
         ( 0,   10,   15,   20,   30,   35,   40,   50), # 0
@@ -149,11 +149,11 @@ class Grid(dft.gen_grid.Grids):
     This class is modified from pyscf.dft.gen_grid.Grids. Some default parameters are changed.
     """
 
-    def __init__(self, mol, level=3):
+    def __init__(self, mol, level=1, period=2):
         super().__init__(mol)
         self.n_rad, self.n_ang = (
-            RAD_GRIDS[level, 2],
-            LEBEDEV_ORDER[ANG_ORDER[level, 2]],
+            RAD_GRIDS[level, period],
+            LEBEDEV_ORDER[ANG_ORDER[level, period]],
         )
         self.coord_list = []
         self.atom_grid = {}

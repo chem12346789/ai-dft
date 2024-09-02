@@ -24,10 +24,17 @@ from cadft.utils.diis import DIIS
 from cadft.utils.DataBase import process_input
 
 AU2KJMOL = 2625.5
-CCSDT = True
+CCSDT = False
 
 
-def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
+def mrks_diis(
+    self,
+    frac_old,
+    load_inv=True,
+    diis_n=15,
+    vxc_inv=None,
+    max_inv_step=2500,
+):
     """
     Generate 1-RDM.
     """
@@ -69,7 +76,7 @@ def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
     mat_s = self.mol.intor("int1e_ovlp")
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
 
-    grids = Grid(self.mol, level=1)
+    grids = Grid(self.mol)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
@@ -216,7 +223,6 @@ def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
         np.save(self.data_save_path / "exc_grids.npy", exc_grids)
         np.save(self.data_save_path / "exc_over_rho_grids.npy", exc_over_rho_grids)
 
-    # if False:
     if load_inv and Path(self.data_save_path / "emax.npy").exists():
         print("Load data from saved_data: emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
         emax = np.load(self.data_save_path / "emax.npy")
@@ -353,13 +359,13 @@ def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
     int1e_grids = self.mol.intor("int1e_grids", grids=coords)
     print(int1e_grids.shape)
 
-    # if False:
-    if (
-        load_inv
-        and Path(
-            self.data_save_path / "dm1_inv.npy"
-        ).exists()
-    ):
+    # if (
+    #     load_inv
+    #     and Path(
+    #         self.data_save_path / "dm1_inv.npy"
+    #     ).exists()
+    # ):
+    if False:
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
         dm1_inv = np.load(self.data_save_path / "dm1_inv.npy")
         vxc_inv = np.load(self.data_save_path / "vxc_inv.npy")
@@ -371,15 +377,8 @@ def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
         dm1_inv = mf.make_rdm1(ao_repr=True)
         diis = DIIS(self.mol.nao, n=diis_n)
 
-        vxc_inv = pyscf.dft.libxc.eval_xc(
-            "b3lyp",
-            pyscf.dft.numint.eval_rho(
-                self.mol,
-                ao_value[:4, :, :],
-                dm1_inv,
-                xctype="GGA",
-            ),
-        )[1][0]
+        if vxc_inv is None:
+            vxc_inv = np.zeros_like(rho_cc)
 
         oe_ebar_r_ks = oe.contract_expression(
             "i,mi,ni,pm,pn->p",
@@ -402,7 +401,7 @@ def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
             optimize="optimal",
         )
 
-        for i in range(250):
+        for i in range(max_inv_step):
             dm1_inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
 
             potential_shift = emax - np.max(eigvecs_inv[:nocc])
@@ -642,6 +641,7 @@ def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
+        e_cc=e_cc,
         dm_cc=dm1_cc,
         dm_inv=dm1_inv,
         rho_cc=grids.vector_to_matrix(rho_cc),
@@ -669,3 +669,5 @@ def mrks_diis(self, frac_old, load_inv=True, diis_n=15):
         coords_y=grids.vector_to_matrix(coords[:, 1]),
         coords_z=grids.vector_to_matrix(coords[:, 2]),
     )
+
+    return vxc_inv

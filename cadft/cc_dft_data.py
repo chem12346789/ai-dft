@@ -69,12 +69,19 @@ class CC_DFT_DATA:
         print(f"Mrks module. Generate {self.name}")
         mrks(self, frac_old, load_inv)
 
-    def mrks_diis(self, frac_old, load_inv, diis_n=15):
+    def mrks_diis(self, frac_old, load_inv, diis_n=15, vxc_inv=None, max_inv_step=2500):
         """
         Generate 1-RDM.
         """
         print(f"Mrks diis module. Generate {self.name}")
-        mrks_diis(self, frac_old, load_inv, diis_n)
+        return mrks_diis(
+            self,
+            frac_old,
+            load_inv,
+            diis_n,
+            vxc_inv=vxc_inv,
+            max_inv_step=max_inv_step,
+        )
 
     def umrks(self, frac_old, load_inv):
         """
@@ -83,12 +90,18 @@ class CC_DFT_DATA:
         print(f"Umrks module. Generate {self.name}")
         umrks(self, frac_old, load_inv)
 
-    def umrks_diis(self, frac_old, load_inv, diis_n=15):
+    def umrks_diis(self, frac_old, load_inv, diis_n=15, vxc_inv=None):
         """
         Generate 1-RDM.
         """
         print(f"Umrks diis module. Generate {self.name}")
-        umrks_diis(self, frac_old, load_inv, diis_n=diis_n)
+        return umrks_diis(
+            self,
+            frac_old,
+            load_inv,
+            diis_n=diis_n,
+            vxc_inv=vxc_inv,
+        )
 
     def gmrks_diis(self, frac_old, load_inv):
         """
@@ -108,10 +121,45 @@ class CC_DFT_DATA:
         deepks(self)
 
     # pylint: disable=W0201
-    def test_mol(self):
+    def test_mol(self, dm1_cc=None, e_cc=None):
         """
         Generate 1-RDM.
         """
+        self.grids = Grid(self.mol, level=1)
+        self.grids_test = Grid(self.mol, level=3, period=2)
+        self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
+        self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
+        self.ao_0_test = pyscf.dft.numint.eval_ao(
+            self.mol,
+            self.grids_test.coords,
+        )
+        self.ao_1_test = pyscf.dft.numint.eval_ao(
+            self.mol,
+            self.grids_test.coords,
+            deriv=1,
+        )
+
+        if (dm1_cc is not None) and (e_cc is not None):
+            self.dm1_cc = dm1_cc
+            self.e_cc = e_cc
+            self.time_cc = 0
+            time_start = timer()
+            mdft = pyscf.scf.RKS(self.mol)
+            mdft.xc = "b3lyp"
+            mdft.kernel()
+            self.dm1_dft = mdft.make_rdm1(ao_repr=True)
+            self.e_dft = mdft.e_tot
+            self.time_dft = timer() - time_start
+
+            mf = pyscf.scf.RHF(self.mol)
+            mf.kernel()
+            self.dm1_hf = mf.make_rdm1(ao_repr=True)
+
+            self.h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
+            self.mat_s = self.mol.intor("int1e_ovlp")
+            self.mat_hs = LA.fractional_matrix_power(self.mat_s, -0.5).real
+            return
+
         # if False:
         if (DATA_CC_PATH / f"data_{self.name}.npz").exists():
             print(f"Load data from {DATA_CC_PATH}/data_{self.name}.npz")
@@ -200,10 +248,6 @@ class CC_DFT_DATA:
                 mat_hs=self.mat_hs,
                 dm1_hf=self.dm1_hf,
             )
-
-        self.grids = Grid(self.mol, level=1)
-        self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
-        self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
 
     def utest_mol(self):
         """
@@ -298,5 +342,22 @@ class CC_DFT_DATA:
             )
 
         self.grids = Grid(self.mol, level=1)
-        self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
-        self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
+        self.grids_test = Grid(self.mol, level=3, period=2)
+        self.ao_0 = pyscf.dft.numint.eval_ao(
+            self.mol,
+            self.grids.coords,
+        )
+        self.ao_1 = pyscf.dft.numint.eval_ao(
+            self.mol,
+            self.grids.coords,
+            deriv=1,
+        )
+        self.ao_0_test = pyscf.dft.numint.eval_ao(
+            self.mol,
+            self.grids_test.coords,
+        )
+        self.ao_1_test = pyscf.dft.numint.eval_ao(
+            self.mol,
+            self.grids_test.coords,
+            deriv=1,
+        )
