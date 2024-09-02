@@ -301,7 +301,7 @@ class ModelDict:
                 torch.tensor([0.0], device=self.device),
             )
 
-            self.zero_grad()
+            # self.zero_grad()
 
             for batch in database_train.data_gpu[name]:
                 loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
@@ -330,7 +330,6 @@ class ModelDict:
                 loss_2 += self.ene_weight * loss_3
                 loss_1.backward(retain_graph=True)
                 loss_2.backward()
-                # loss_1.backward()
 
             self.step()
 
