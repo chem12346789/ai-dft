@@ -631,6 +631,7 @@ def mrks_diis(
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
     inv_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_inv, xctype="GGA")
     evxc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)
+    evxc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", inv_r_3[0])
     exc_b3lyp = evxc_b3lyp[0]
     vxc_b3lyp = evxc_b3lyp[1][0]
 
@@ -641,7 +642,6 @@ def mrks_diis(
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
-        e_cc=e_cc,
         dm_cc=dm1_cc,
         dm_inv=dm1_inv,
         rho_cc=grids.vector_to_matrix(rho_cc),
@@ -650,6 +650,7 @@ def mrks_diis(
         vxc=grids.vector_to_matrix(vxc_inv),
         vxc_b3lyp=grids.vector_to_matrix(vxc_inv - vxc_b3lyp),
         vxc1_b3lyp=grids.vector_to_matrix(vxc_inv - evxc_b3lyp[0]),
+        vxc1_lda=grids.vector_to_matrix(vxc_inv - evxc_lda[1]),
         exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
         exc_tr_b3lyp=grids.vector_to_matrix(
@@ -657,6 +658,9 @@ def mrks_diis(
         ),
         exc1_tr_b3lyp=grids.vector_to_matrix(
             exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
+        ),
+        exc1_tr_lda=grids.vector_to_matrix(
+            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r - evxc_lda[1]
         ),
         exc_tr=grids.vector_to_matrix(
             exc_over_rho_grids_fake + (tau_rho_wf - tau_rho_ks) / inv_r

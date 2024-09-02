@@ -655,12 +655,9 @@ def mrks_append(self, frac_old, load_inv=True):
     data = np.load(DATA_PATH / f"data_{self.name}.npz")
 
     grids = Grid(self.mol)
-    ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
-    inv_r_3 = pyscf.dft.numint.eval_rho(
-        self.mol, ao_value, data["dm_inv"] * 2, xctype="LDA"
-    )
-
-    data_grids_norm = process_input(inv_r_3, grids)
+    ao_value = pyscf.dft.numint.eval_ao(self.mol, grids.coords)
+    inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_value, data["dm1_inv"])
+    evxc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", inv_r)
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
@@ -678,12 +675,10 @@ def mrks_append(self, frac_old, load_inv=True):
         exc1_tr_b3lyp=data["exc1_tr_b3lyp"],
         exc_tr=data["exc_tr"],
         exc1_tr=data["exc1_tr"],
-        rho_inv_4_norm=data_grids_norm,
+        rho_inv_4_norm=data["data_grids_norm"],
         coords_x=data["coords_x"],
         coords_y=data["coords_y"],
         coords_z=data["coords_z"],
-        vxc_svwn=data["vxc_svwn"],
-        vxc1_svwn=data["vxc1_svwn"],
-        exc_tr_svwn=data["exc_tr_svwn"],
-        exc1_tr_svwn=data["exc1_tr_svwn"],
+        exc1_tr_lda=data["exc1_tr"] - grids.vector_to_matrix(evxc_lda[0]),
+        vxc1_lda=data["vxc"] - grids.vector_to_matrix(evxc_lda[1]),
     )
