@@ -141,90 +141,92 @@ class DataBase:
         self.name_list = []
         self.rng = np.random.default_rng()
 
-        for name_mol in self.molecular_list:
-            self.name_list.append(name_mol)
-            self.load_data(name_mol, Mol[name_mol])
+        for (
+            name_mol,
+            extend_atom,
+            extend_xyz,
+            distance,
+        ) in product(
+            self.molecular_list,
+            self.extend_atom,
+            self.extend_xyz,
+            self.distance_l,
+        ):
+            name = f"{name_mol}_{self.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+
+            if "openshell" in name:
+                for i_spin in range(2):
+                    name_ = f"{name}_{i_spin}"
+                    if not (Path(f"{DATA_PATH}") / f"data_{name_}.npz").exists():
+                        print(f"No file: {name_}:>40")
+                        continue
+                    self.name_list.append(f"{name_}")
+                    self.load_data(f"{name_}", Mol[name_mol])
+            else:
+                if not (Path(f"{DATA_PATH}") / f"data_{name}.npz").exists():
+                    print(f"No file: {name:>40}")
+                    continue
+                self.name_list.append(name)
+                self.load_data(name, Mol[name_mol])
 
     def load_data(self, name, mol):
         """
         Load the data.
         """
-        data_path_list = Path(f"{DATA_PATH}").glob(f"data_{name}_*.npz")
+        data = np.load(Path(f"{DATA_PATH}") / f"data_{name}.npz")
+
+        weight = data["weights"]
+        input_mat = data["rho_inv_4_norm"]
+        middle_mat = data["vxc"]
+        output_mat = data["exc1_tr"]
+
+        self.shape[name] = output_mat.shape
         input_ = {}
         middle_ = {}
         weight_ = {}
         output_ = {}
 
-        for data_path in data_path_list:
-            data = np.load(data_path)
-            data_prefix_l = data_path.stem.split("_")
-            data_prefix = (
-                data_prefix_l[-3] + "_" + data_prefix_l[-2] + "_" + data_prefix_l[-1]
-            )
-            print(f"Load {data_prefix:>30}")
+        for i_atom in range(output_mat.shape[0]):
+            if mol[i_atom][0] not in self.train_atom_list:
+                continue
 
-            weight = data["weights"]
-            input_mat = data["rho_inv_4_norm"]
-            middle_mat = data["vxc1_b3lyp"]
-            output_mat = data["exc1_tr_b3lyp"]
+            if self.input_size == 1:
+                input_[i_atom] = input_mat[0, i_atom, :, :][np.newaxis, :, :]
+            elif self.input_size == 4:
+                input_[i_atom] = input_mat[:, i_atom, :, :]
+            else:
+                raise ValueError("input_size should be 1 or 4.")
 
-            self.shape[name] = output_mat.shape
+            weight_[i_atom] = weight[i_atom, :, :][np.newaxis, :, :]
 
-            for i_atom in range(output_mat.shape[0]):
-                if mol[i_atom][0] not in self.train_atom_list:
-                    continue
-
-                if self.input_size == 1:
-                    input_[f"{data_prefix}_{i_atom}"] = input_mat[0, i_atom, :, :][
-                        np.newaxis, :, :
-                    ]
-                elif self.input_size == 4:
-                    input_[f"{data_prefix}_{i_atom}"] = input_mat[:, i_atom, :, :]
-                else:
-                    raise ValueError("input_size should be 1 or 4.")
-
-                weight_[f"{data_prefix}_{i_atom}"] = weight[i_atom, :, :][
-                    np.newaxis, :, :
-                ]
-
-                if self.output_size == 1:
-                    middle_[f"{data_prefix}_{i_atom}"] = middle_mat[i_atom, :, :][
-                        np.newaxis, :, :
-                    ]
-                    output_[f"{data_prefix}_{i_atom}"] = output_mat[i_atom, :, :][
-                        np.newaxis, :, :
-                    ]
-                elif self.output_size == 2:
-                    middle_[f"{data_prefix}_{i_atom}"] = middle_mat[i_atom, :, :][
-                        np.newaxis, :, :
-                    ]
-                    output_[f"{data_prefix}_{i_atom}"] = np.append(
-                        middle_mat[i_atom, :, :][np.newaxis, :, :],
-                        output_mat[i_atom, :, :][np.newaxis, :, :],
-                        axis=0,
-                    )
-                elif self.output_size == -1:
-                    middle_[f"{data_prefix}_{i_atom}"] = middle_mat[i_atom, :, :][
-                        np.newaxis, :, :
-                    ]
-                    output_[f"{data_prefix}_{i_atom}"] = output_mat[i_atom, :, :][
-                        np.newaxis, :, :
-                    ]
-                else:
-                    raise ValueError("output_size should be -1, 1 or 2.")
-
-                print(
-                    f"Load {name:>30}, key_: {i_atom:>3}\n"
-                    #             f"mean input: {np.mean(input_[i_atom]):>7.4e}, "
-                    #             f"max input: {np.max(input_[i_atom]):>7.4e}, "
-                    #             f"var input: {np.var(input_[i_atom]):>7.4e}\n"
-                    #             f"mean middle: {np.mean(middle_[i_atom]):>7.4e}, "
-                    #             f"max middle: {np.max(np.abs(middle_[i_atom])):>7.4e}, "
-                    #             f"var middle: {np.var(middle_[i_atom]):>7.4e}\n"
-                    #             f"mean output: {np.mean(output_[i_atom]):>7.4e}, "
-                    #             f"max output: {np.max(np.abs(output_[i_atom])):>7.4e} "
-                    #             f"var output: {np.var(output_[i_atom]):>7.4e}\n"
+            if self.output_size == 1:
+                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
+                output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
+            elif self.output_size == 2:
+                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
+                output_[i_atom] = np.append(
+                    middle_mat[i_atom, :, :][np.newaxis, :, :],
+                    output_mat[i_atom, :, :][np.newaxis, :, :],
+                    axis=0,
                 )
+            elif self.output_size == -1:
+                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
+                output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
+            else:
+                raise ValueError("output_size should be -1, 1 or 2.")
+
+            print(
+                f"Load {name:>30}, key_: {i_atom:>3}\n"
+                # f"mean input: {np.mean(input_[i_atom]):>7.4e}, "
+                # f"max input: {np.max(input_[i_atom]):>7.4e}, "
+                # f"var input: {np.var(input_[i_atom]):>7.4e}\n"
+                # f"mean middle: {np.mean(middle_[i_atom]):>7.4e}, "
+                # f"max middle: {np.max(np.abs(middle_[i_atom])):>7.4e}, "
+                # f"var middle: {np.var(middle_[i_atom]):>7.4e}\n"
+                # f"mean output: {np.mean(output_[i_atom]):>7.4e}, "
+                # f"max output: {np.max(np.abs(output_[i_atom])):>7.4e} "
+                # f"var output: {np.var(output_[i_atom]):>7.4e}\n"
+            )
 
         self.data_gpu[name] = BasicDataset(
             input_,
