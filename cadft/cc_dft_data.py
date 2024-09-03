@@ -8,11 +8,10 @@ from scipy import linalg as LA
 from cadft.utils import gen_basis
 from cadft.utils import rotate
 from cadft.utils import (
-    mrks,
     mrks_diis,
-    mrks_append,
-    umrks,
     umrks_diis,
+    mrks_append,
+    umrks_append,
     gmrks_diis,
 )
 from cadft.utils_deepks import deepks
@@ -62,13 +61,6 @@ class CC_DFT_DATA:
                 self.aoslice_by_atom[i][1] - self.aoslice_by_atom[i][0]
             )
 
-    def mrks(self, frac_old, load_inv):
-        """
-        Generate 1-RDM.
-        """
-        print(f"Mrks module. Generate {self.name}")
-        mrks(self, frac_old, load_inv)
-
     def mrks_diis(self, frac_old, load_inv, diis_n=15, vxc_inv=None, max_inv_step=2500):
         """
         Generate 1-RDM.
@@ -82,13 +74,6 @@ class CC_DFT_DATA:
             vxc_inv=vxc_inv,
             max_inv_step=max_inv_step,
         )
-
-    def umrks(self, frac_old, load_inv):
-        """
-        Generate 1-RDM.
-        """
-        print(f"Umrks module. Generate {self.name}")
-        umrks(self, frac_old, load_inv)
 
     def umrks_diis(self, frac_old, load_inv, diis_n=15, vxc_inv=None):
         """
@@ -110,12 +95,19 @@ class CC_DFT_DATA:
         print(f"Umrks diis module. Generate {self.name}")
         gmrks_diis(self, frac_old, load_inv)
 
-    def mrks_append(self, frac_old, load_inv):
+    def mrks_append(self):
         """
         Generate 1-RDM.
         """
         print(f"Mrks_append module. Generate {self.name}")
-        mrks_append(self, frac_old, load_inv)
+        mrks_append(self)
+
+    def umrks_append(self):
+        """
+        Generate 1-RDM.
+        """
+        print(f"Mrks_append module. Generate {self.name}")
+        umrks_append(self)
 
     def deepks(self):
         deepks(self)

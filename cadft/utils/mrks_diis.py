@@ -498,8 +498,8 @@ def mrks_diis(
 
     kin_correct = np.sum((tau_rho_wf - tau_rho_ks) * weights)
     kin_correct1 = np.sum((taup_rho_wf - taup_rho_ks) * weights)
-    inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
-    dft_r = pyscf.dft.numint.eval_rho(self.mol, ao_0, mdft.make_rdm1()) + 1e-14
+    rho_inv = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv) + 1e-14
+    rho_dft = pyscf.dft.numint.eval_rho(self.mol, ao_0, mdft.make_rdm1()) + 1e-14
     exc_over_rho_grids_fake = exc_over_rho_grids.copy()
     exc_grids_fake = exc_grids.copy()
     exc_grids_fake1 = exc_grids.copy()
@@ -520,10 +520,10 @@ def mrks_diis(
             dm1_cc,
         )
         exc_grids_fake[i_slice_grids] += vele * (
-            rho_cc[i_slice_grids] - inv_r[i_slice_grids]
+            rho_cc[i_slice_grids] - rho_inv[i_slice_grids]
         )
         exc_grids_fake1[i_slice_grids] += vele * (
-            rho_cc[i_slice_grids] - inv_r[i_slice_grids]
+            rho_cc[i_slice_grids] - rho_inv[i_slice_grids]
         )
 
     for i, coord in enumerate(tqdm(coords)):
@@ -531,24 +531,28 @@ def mrks_diis(
             distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
             if distance > 1e-3:
                 exc_grids_fake[i] -= (
-                    (rho_cc[i] - inv_r[i]) * self.mol.atom_charges()[i_atom] / distance
+                    (rho_cc[i] - rho_inv[i])
+                    * self.mol.atom_charges()[i_atom]
+                    / distance
                 )
             else:
                 exc_grids_fake[i] -= (
-                    (rho_cc[i] - inv_r[i]) * self.mol.atom_charges()[i_atom] / 1e-3
+                    (rho_cc[i] - rho_inv[i]) * self.mol.atom_charges()[i_atom] / 1e-3
                 )
 
             if distance > 1e-2:
                 exc_grids_fake1[i] -= (
-                    (rho_cc[i] - inv_r[i]) * self.mol.atom_charges()[i_atom] / distance
+                    (rho_cc[i] - rho_inv[i])
+                    * self.mol.atom_charges()[i_atom]
+                    / distance
                 )
             else:
                 exc_grids_fake1[i] -= (
-                    (rho_cc[i] - inv_r[i]) * self.mol.atom_charges()[i_atom] / 1e-2
+                    (rho_cc[i] - rho_inv[i]) * self.mol.atom_charges()[i_atom] / 1e-2
                 )
 
-    exc_over_rho_grids_fake = exc_grids_fake / inv_r
-    exc_over_rho_grids_fake1 = exc_grids_fake1 / inv_r
+    exc_over_rho_grids_fake = exc_grids_fake / rho_inv
+    exc_over_rho_grids_fake1 = exc_grids_fake1 / rho_inv
 
     save_data = {}
     save_data["energy"] = AU2KJMOL * e_cc
@@ -565,7 +569,7 @@ def mrks_diis(
     save_data["energy_inv"] = AU2KJMOL * (
         (
             hcore_vj_energy
-            + np.sum(exc_over_rho_grids_fake * inv_r * weights)
+            + np.sum(exc_over_rho_grids_fake * rho_inv * weights)
             + kin_correct
         )
         - e_cc
@@ -573,22 +577,26 @@ def mrks_diis(
     save_data["energy_inv1"] = AU2KJMOL * (
         (
             hcore_vj_energy
-            + np.sum(exc_over_rho_grids_fake1 * inv_r * weights)
+            + np.sum(exc_over_rho_grids_fake1 * rho_inv * weights)
             + kin_correct
         )
         - e_cc
     )
     save_data["energy_inv_real"] = AU2KJMOL * (
-        (hcore_vj_energy + np.sum(exc_over_rho_grids * inv_r * weights) + kin_correct)
+        (hcore_vj_energy + np.sum(exc_over_rho_grids * rho_inv * weights) + kin_correct)
         - e_cc
     )
     save_data["energy_inv_real1"] = AU2KJMOL * (
-        (hcore_vj_energy + np.sum(exc_over_rho_grids * inv_r * weights) + kin_correct1)
+        (
+            hcore_vj_energy
+            + np.sum(exc_over_rho_grids * rho_inv * weights)
+            + kin_correct1
+        )
         - e_cc
     )
 
-    error_inv_r = np.sum(np.abs(inv_r - rho_cc) * weights)
-    error_dft_r = np.sum(np.abs(dft_r - rho_cc) * weights)
+    error_inv_r = np.sum(np.abs(rho_inv - rho_cc) * weights)
+    error_dft_r = np.sum(np.abs(rho_dft - rho_cc) * weights)
     save_data["error of dm1_inv"] = error_inv_r
     save_data["error of dm1_dft"] = error_dft_r
 
@@ -598,8 +606,8 @@ def mrks_diis(
             self.mol.atom_charges()[i_atom] * self.mol.atom_coords()[i_atom][0]
         )
     dipole_x = dipole_x_core - np.sum(rho_cc * coords[:, 0] * weights)
-    dipole_x_inv = dipole_x_core - np.sum(inv_r * coords[:, 0] * weights)
-    dipole_x_dft = dipole_x_core - np.sum(dft_r * coords[:, 0] * weights)
+    dipole_x_inv = dipole_x_core - np.sum(rho_inv * coords[:, 0] * weights)
+    dipole_x_dft = dipole_x_core - np.sum(rho_dft * coords[:, 0] * weights)
     save_data["dipole_x"] = dipole_x
     save_data["dipole_x_inv"] = dipole_x_inv
     save_data["dipole_x_dft"] = dipole_x_dft
@@ -610,8 +618,8 @@ def mrks_diis(
             self.mol.atom_charges()[i_atom] * self.mol.atom_coords()[i_atom][1]
         )
     dipole_y = dipole_y_core - np.sum(rho_cc * coords[:, 1] * weights)
-    dipole_y_inv = dipole_y_core - np.sum(inv_r * coords[:, 1] * weights)
-    dipole_y_dft = dipole_y_core - np.sum(dft_r * coords[:, 1] * weights)
+    dipole_y_inv = dipole_y_core - np.sum(rho_inv * coords[:, 1] * weights)
+    dipole_y_dft = dipole_y_core - np.sum(rho_dft * coords[:, 1] * weights)
     save_data["dipole_y"] = dipole_y
     save_data["dipole_y_inv"] = dipole_y_inv
     save_data["dipole_y_dft"] = dipole_y_dft
@@ -622,19 +630,15 @@ def mrks_diis(
             self.mol.atom_charges()[i_atom] * self.mol.atom_coords()[i_atom][2]
         )
     dipole_z = dipole_z_core - np.sum(rho_cc * coords[:, 2] * weights)
-    dipole_z_inv = dipole_z_core - np.sum(inv_r * coords[:, 2] * weights)
-    dipole_z_dft = dipole_z_core - np.sum(dft_r * coords[:, 2] * weights)
+    dipole_z_inv = dipole_z_core - np.sum(rho_inv * coords[:, 2] * weights)
+    dipole_z_dft = dipole_z_core - np.sum(rho_dft * coords[:, 2] * weights)
     save_data["dipole_z"] = dipole_z
     save_data["dipole_z_inv"] = dipole_z_inv
     save_data["dipole_z_dft"] = dipole_z_dft
 
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
     inv_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_value, dm1_inv, xctype="GGA")
-    evxc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)
     evxc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", inv_r_3[0])
-    exc_b3lyp = evxc_b3lyp[0]
-    vxc_b3lyp = evxc_b3lyp[1][0]
-
     data_grids_norm = process_input(inv_r_3, grids)
 
     with open(DATA_PATH / f"save_data_{self.name}.json", "w", encoding="utf-8") as f:
@@ -642,36 +646,22 @@ def mrks_diis(
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
+        e_cc=e_cc,
         dm_cc=dm1_cc,
         dm_inv=dm1_inv,
-        rho_cc=grids.vector_to_matrix(rho_cc),
-        rho_inv=grids.vector_to_matrix(inv_r),
+        rho_inv=grids.vector_to_matrix(rho_inv),
         weights=grids.vector_to_matrix(weights),
         vxc=grids.vector_to_matrix(vxc_inv),
-        vxc_b3lyp=grids.vector_to_matrix(vxc_inv - vxc_b3lyp),
-        vxc1_b3lyp=grids.vector_to_matrix(vxc_inv - evxc_b3lyp[0]),
         exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
-        exc_tr_b3lyp=grids.vector_to_matrix(
-            exc_over_rho_grids_fake + (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
-        ),
-        exc1_tr_b3lyp=grids.vector_to_matrix(
-            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
+        rho_inv_4_norm=data_grids_norm,
+        exc1_tr=grids.vector_to_matrix(
+            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / rho_inv
         ),
         vxc1_lda=grids.vector_to_matrix(vxc_inv - evxc_lda[1][0]),
         exc1_tr_lda=grids.vector_to_matrix(
-            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r - evxc_lda[0]
+            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / rho_inv - evxc_lda[0]
         ),
-        exc_tr=grids.vector_to_matrix(
-            exc_over_rho_grids_fake + (tau_rho_wf - tau_rho_ks) / inv_r
-        ),
-        exc1_tr=grids.vector_to_matrix(
-            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r
-        ),
-        rho_inv_4_norm=data_grids_norm,
-        coords_x=grids.vector_to_matrix(coords[:, 0]),
-        coords_y=grids.vector_to_matrix(coords[:, 1]),
-        coords_z=grids.vector_to_matrix(coords[:, 2]),
     )
 
     return vxc_inv

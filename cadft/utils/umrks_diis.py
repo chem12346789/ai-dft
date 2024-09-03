@@ -835,9 +835,7 @@ def umrks_diis(
         inv_r_3 = pyscf.dft.numint.eval_rho(
             self.mol, ao_value, dm1_inv[i_spin] * 2, xctype="GGA"
         )
-        evxc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)
-        exc_b3lyp = evxc_b3lyp[0]
-        vxc_b3lyp = evxc_b3lyp[1][0]
+        evxc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", inv_r_3[0])
         data_grids_norm = process_input(inv_r_3, grids)
 
         print(
@@ -851,44 +849,26 @@ def umrks_diis(
             DATA_PATH / f"data_{self.name}_{i_spin}.npz",
             dm_cc=dm1_cc[i_spin],
             dm_inv=dm1_inv[i_spin],
-            rho_cc=grids.vector_to_matrix(rho_cc[i_spin]),
             rho_inv=grids.vector_to_matrix(rho_inv[i_spin]),
             weights=grids.vector_to_matrix(weights),
             vxc=grids.vector_to_matrix(vxc_inv[i_spin]),
-            vxc_b3lyp=grids.vector_to_matrix(vxc_inv[i_spin] - vxc_b3lyp),
-            vxc1_b3lyp=grids.vector_to_matrix(vxc_inv[i_spin] - evxc_b3lyp[0]),
             exc=grids.vector_to_matrix(exc_over_rho_grids_fake[i_spin]),
             exc_real=grids.vector_to_matrix(exc_over_rho_grids[i_spin]),
-            exc_tr=grids.vector_to_matrix(
-                exc_over_rho_grids_fake[i_spin]
-                + (tau_rho_wf[i_spin] - tau_rho_ks[i_spin]) / rho_inv[i_spin]
-            ),
             exc1_tr=grids.vector_to_matrix(
                 exc_over_rho_grids_fake1[i_spin]
-                + (tau_rho_wf[i_spin] - tau_rho_ks[i_spin]) / rho_inv[i_spin]
-            ),
-            exc_tr_real=grids.vector_to_matrix(
-                exc_over_rho_grids[i_spin]
                 + (tau_rho_wf[i_spin] - tau_rho_ks[i_spin]) / rho_inv[i_spin]
             ),
             exc1_tr_real=grids.vector_to_matrix(
                 exc_over_rho_grids[i_spin]
                 + (tau_rho_wf[i_spin] - tau_rho_ks[i_spin]) / rho_inv[i_spin]
             ),
-            exc_tr_b3lyp=grids.vector_to_matrix(
-                exc_over_rho_grids_fake[i_spin]
-                + (tau_rho_wf[i_spin] - tau_rho_ks[i_spin]) / rho_inv[i_spin]
-                - exc_b3lyp
-            ),
-            exc1_tr_b3lyp=grids.vector_to_matrix(
-                exc_over_rho_grids_fake1[i_spin]
-                + (tau_rho_wf[i_spin] - tau_rho_ks[i_spin]) / rho_inv[i_spin]
-                - exc_b3lyp
+            vxc1_lda=grids.vector_to_matrix(vxc_inv - evxc_lda[1][0]),
+            exc1_tr_lda=grids.vector_to_matrix(
+                exc_over_rho_grids_fake1
+                + (tau_rho_wf - tau_rho_ks) / rho_inv[i_spin]
+                - evxc_lda[0]
             ),
             rho_inv_4_norm=data_grids_norm,
-            coords_x=grids.vector_to_matrix(coords[:, 0]),
-            coords_y=grids.vector_to_matrix(coords[:, 1]),
-            coords_z=grids.vector_to_matrix(coords[:, 2]),
         )
 
     return vxc_inv
