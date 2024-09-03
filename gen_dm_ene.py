@@ -51,26 +51,26 @@ for (
 
     print(f"FACTOR: {FACTOR}, diis_n: {DIIS_N}")
 
-    # if "openshell" in name_mol:
-    #     vxc_inv = dft2cc.umrks_diis(
-    #         FACTOR,
-    #         args.load_inv,
-    #         diis_n=DIIS_N,
-    #         vxc_inv=None,
-    #     )
-    # else:
-    #     vxc_inv = dft2cc.mrks_diis(
-    #         FACTOR,
-    #         args.load_inv,
-    #         diis_n=DIIS_N,
-    #         vxc_inv=None,
-    #     )
+    if "openshell" in name_mol:
+        vxc_inv = dft2cc.umrks_diis(
+            FACTOR,
+            args.load_inv,
+            diis_n=DIIS_N,
+            vxc_inv=None,
+        )
+    else:
+        vxc_inv = dft2cc.mrks_diis(
+            FACTOR,
+            args.load_inv,
+            diis_n=DIIS_N,
+            vxc_inv=None,
+        )
 
     # dft2cc.deepks()
-    if "openshell" in name_mol:
-        dft2cc.umrks_append()
-    else:
-        dft2cc.mrks_append()
+    # if "openshell" in name_mol:
+    #     dft2cc.umrks_append()
+    # else:
+    #     dft2cc.mrks_append()
 
     del dft2cc
     gc.collect()
