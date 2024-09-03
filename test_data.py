@@ -60,7 +60,6 @@ if __name__ == "__main__":
         molecular, name = extend(
             name_mol, extend_atom, extend_xyz, distance, args.basis
         )
-        name_list.append(name)
         for i in range(len(molecular)):
             index_dict[molecular[i][0]].append(i)
 
@@ -73,6 +72,7 @@ if __name__ == "__main__":
         else:
             print(f"No file: {name:>40}")
             continue
+        name_list.append(name)
 
         dft2cc = CC_DFT_DATA(
             molecular,
