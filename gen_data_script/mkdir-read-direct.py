@@ -6,7 +6,7 @@ import sys
 
 print(sys.argv)
 main_dir = Path(__file__).resolve().parents[0]
-template_bash = main_dir / "gen_data_template.bash"
+template_bash = main_dir / "gen_data_template_direct.bash"
 time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
 
 # renew out_mkdir
@@ -16,7 +16,7 @@ if (main_dir / "out_mkdir").exists():
 
 work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
-work_bash = work_dir / "gen_data_template.bash"
+work_bash = work_dir / "gen_data_template_direct.bash"
 
 number_of_gpu = sys.argv[1] if len(sys.argv) > 1 else 0
 
