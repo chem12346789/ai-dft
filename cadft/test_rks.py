@@ -23,7 +23,6 @@ def test_rks(
     modeldict,
     df_dict: dict,
     n_diis: int = 10,
-    dm1_scf=None,
 ):
     """
     Test the model. Restrict Khon-Sham (no spin).
@@ -42,9 +41,8 @@ def test_rks(
     # 2.1 SCF loop to get the density matrix
     time_start = timer()
 
-    if dm1_scf is None:
-        dm1_scf = init_guess_by_minao(dft2cc.mol)
-        # dm1_scf = dft2cc.dm1_dft
+    dm1_scf = init_guess_by_minao(dft2cc.mol)
+    # dm1_scf = dft2cc.dm1_dft
 
     oe_fock = oe.contract_expression(
         "p,p,pa,pb->ab",
@@ -65,13 +63,13 @@ def test_rks(
     converge_setp = 0
     max_steps_converge = 5
 
-    for i in range(5000):
+    for i in range(2500):
         scf_r_3 = pyscf.dft.numint.eval_rho(
             dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
         vxc_scf = modeldict.get_v(scf_r_3, dft2cc.grids)
-        # exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_r_3[0])[1][0]
-        exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
+        exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_r_3[0])[1][0]
+        # exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
         vxc_scf += exc_b3lyp
 
         vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights)
@@ -208,8 +206,8 @@ def test_rks(
     scf_r_3 = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA")
     exc_scf = modeldict.get_e(scf_r_3, dft2cc.grids)
     exc_ene = np.sum(exc_scf * scf_r_3[0] * dft2cc.grids.weights)
-    # exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_r_3[0])[0]
-    exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
+    exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_r_3[0])[0]
+    # exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
     exc_ene += np.sum(exc_b3lyp * scf_r_3[0] * dft2cc.grids.weights)
 
     ene_scf = (
@@ -238,5 +236,3 @@ def test_rks(
         ),
         index=False,
     )
-
-    return dm1_scf

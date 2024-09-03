@@ -16,10 +16,6 @@ from cadft.utils.DataBase import process_input
 
 
 class Attention(nn.Module):
-    """
-    Attention
-    """
-
     def __init__(self, **kwargs):
         super(Attention, self).__init__()
         self.channel = kwargs.get("channel", 768)
@@ -162,7 +158,7 @@ class Extractor(nn.Module):
                 for i in range(self.depth)
             ]
         )
-        self.head = nn.Linear(self.hidden_channels, 1, bias=False)
+        self.head = nn.Linear(self.hidden_channels, 2, bias=False)
 
     def forward(self, inputs):
         batch = inputs.shape[0]
@@ -208,7 +204,7 @@ class Extractor(nn.Module):
         results = self.tanh(
             results
         )  # results.shape = (batch, 75, 302, hidden_channels)
-        results = self.head(results)  # results.shape = (batch, 75, 302, 1)
+        results = self.head(results)  # results.shape = (batch, 75, 302, 2)
         return results
 
 
@@ -222,10 +218,25 @@ class PredictorSmall(nn.Module):
         )
 
     def forward(self, inputs):
-        return torch.squeeze(self.predictor(inputs), dim=-1)
+        results = self.predictor(inputs)
+        return results[..., 0], results[..., 1]  # shape = (batch, 75, 302)
 
 
-class ModelDict_xy:
+class PredictorBase(nn.Module):
+    def __init__(self, **kwargs):
+        super(PredictorBase, self).__init__()
+        hidden_channels = kwargs.get("hidden_channels", 512)
+        depth = kwargs.get("depth", 24)
+        self.predictor = Extractor(
+            hidden_channels=hidden_channels, depth=depth, **kwargs
+        )
+
+    def forward(self, inputs):
+        results = self.predictor(inputs)
+        return results[..., 0], results[..., 1]  # shape = (batch, 75, 302)
+
+
+class ModelDict_xy1:
     """
     Model_Dict
     """
@@ -282,12 +293,7 @@ class ModelDict_xy:
         rho = grids.vector_to_matrix(scf_r_3[0, :])  # rho.shape = (natom, 75, 302)
         rho = torch.tensor(rho, dtype=self.dtype).to(self.device)
         inputs = torch.unsqueeze(rho, dim=-1)  # inputs.shape = (natom, 75, 302, 1)
-        rho.requires_grad = True
-        pred_exc = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
-        pred_vxc = (
-            torch.autograd.grad(torch.sum(rho * pred_exc), rho, create_graph=True)[0]
-            + pred_exc
-        )  # pred_exc.shape = (natom, 75, 302)
+        _, pred_vxc = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
         pred_vxc = pred_vxc.detach().cpu().numpy()
         vxc_scf = grids.matrix_to_vector(pred_vxc)
         return vxc_scf
@@ -296,7 +302,6 @@ class ModelDict_xy:
         rho = grids.vector_to_matrix(scf_r_3[0, :])  # rho.shape = (natom, 75, 302)
         rho = torch.tensor(rho, dtype=self.dtype).to(self.device)
         inputs = torch.unsqueeze(rho, dim=-1)  # inputs.shape = (natom, 75, 302, 1)
-        inputs.requires_grad = True
-        pred_exc = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
+        pred_exc, _ = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
         exc_scf = grids.matrix_to_vector(pred_exc)
         return exc_scf
