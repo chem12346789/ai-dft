@@ -3,7 +3,7 @@ import gc
 from itertools import product
 
 from cadft import CC_DFT_DATA, add_args, gen_logger
-from cadft import MAIN_PATH, extend
+from cadft import extend
 
 
 parser = argparse.ArgumentParser(
@@ -67,7 +67,10 @@ for (
     #     )
 
     # dft2cc.deepks()
-    dft2cc.mrks_append(FACTOR, args.load_inv)
+    if "openshell" in name_mol:
+        dft2cc.umrks_append()
+    else:
+        dft2cc.mrks_append()
 
     del dft2cc
     gc.collect()

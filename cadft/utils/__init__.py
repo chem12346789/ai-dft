@@ -4,8 +4,8 @@ import copy
 from cadft.utils.basis import gen_basis
 from cadft.utils.rotate import rotate
 from cadft.utils.parser import add_args
-from cadft.utils.mrks import mrks, mrks_append
-from cadft.utils.umrks import umrks
+from cadft.utils.mrks import mrks_append
+from cadft.utils.umrks import umrks_append
 from cadft.utils.mrks_diis import mrks_diis
 from cadft.utils.umrks_diis import umrks_diis
 from cadft.utils.gmrks_diis import gmrks_diis
