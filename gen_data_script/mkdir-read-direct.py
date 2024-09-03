@@ -71,12 +71,12 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
 
-cmd = "nohup "
+cmd = "nohup bash -c '"
 for child in (work_dir).glob("*.bash"):
     if child.is_file():
         cmd += f"""bash {child} > log/{child.stem};"""
 cmd = cmd[:-1]
-cmd += "&"
+cmd += "'&"
 
 # print(cmd)
 
