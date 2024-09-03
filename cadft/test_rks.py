@@ -23,6 +23,7 @@ def test_rks(
     modeldict,
     df_dict: dict,
     n_diis: int = 10,
+    dm_guess=None,
 ):
     """
     Test the model. Restrict Khon-Sham (no spin).
@@ -41,7 +42,10 @@ def test_rks(
     # 2.1 SCF loop to get the density matrix
     time_start = timer()
 
-    dm1_scf = init_guess_by_minao(dft2cc.mol)
+    if dm_guess is None:
+        dm1_scf = init_guess_by_minao(dft2cc.mol)
+    else:
+        dm1_scf = dm_guess.copy()
     # dm1_scf = dft2cc.dm1_dft
 
     oe_fock = oe.contract_expression(
@@ -236,3 +240,4 @@ def test_rks(
         ),
         index=False,
     )
+    return dm1_scf

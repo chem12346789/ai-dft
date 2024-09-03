@@ -4,19 +4,17 @@ Other parameter are from the argparse.
 """
 
 import argparse
-import copy
 from itertools import product
 
 import torch
 
 from cadft import add_args, extend, gen_logger
 from cadft import test_rks, test_uks
-from cadft.utils import Mol
 
-from cadft.utils import ModelDict_xy1 as ModelDict
+from cadft.utils import ModelDict as ModelDict
 
 # from cadft.utils import ModelDict_xy as ModelDict
-# from cadft.utils import ModelDict as ModelDict
+# from cadft.utils import ModelDict_xy1 as ModelDict
 
 
 if __name__ == "__main__":
@@ -64,6 +62,7 @@ if __name__ == "__main__":
     }
 
     distance_l = gen_logger(args.distance_list)
+    dm_guess = None
 
     for (
         name_mol,
@@ -93,4 +92,12 @@ if __name__ == "__main__":
         if "openshell" in name_mol:
             test_uks(args, molecular, name, modeldict, df_dict)
         else:
-            test_rks(args, molecular, name, modeldict, df_dict, n_diis=N_DIIS)
+            dm_guess = test_rks(
+                args,
+                molecular,
+                name,
+                modeldict,
+                df_dict,
+                n_diis=N_DIIS,
+                dm_guess=dm_guess,
+            )

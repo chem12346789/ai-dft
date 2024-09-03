@@ -22,6 +22,7 @@ def test_uks(
     name,
     modeldict,
     df_dict: dict,
+    dm_guess=None,
 ):
     """
     Test the model. Restrict Khon-Sham (no spin).
@@ -43,8 +44,12 @@ def test_uks(
     time_start = timer()
 
     # dm1_scf = dft2cc.dm1_dft
-    dm1_scf = init_guess_by_minao(dft2cc.mol)
-    dm1_scf = np.array([dm1_scf / 2, dm1_scf / 2])
+    if dm_guess is None:
+        dm1_scf = init_guess_by_minao(dft2cc.mol)
+        dm1_scf = np.array([dm1_scf / 2, dm1_scf / 2])
+    else:
+        dm1_scf = dm_guess.copy()
+
     oe_fock = oe.contract_expression(
         "p,p,pa,pb->ab",
         np.shape(dft2cc.ao_0[:, 0]),
@@ -294,3 +299,4 @@ def test_uks(
         ),
         index=False,
     )
+    return dm1_scf
