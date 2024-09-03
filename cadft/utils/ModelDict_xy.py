@@ -278,69 +278,42 @@ class ModelDict_xy:
         for key in self.keys:
             self.model_dict[key].eval()
 
+    # def get_v(self, scf_r_3, grids):
+    #     rho = grids.vector_to_matrix(scf_r_3[0, :])  # rho.shape = (natom, 75, 302)
+    #     rho = torch.tensor(rho, dtype=self.dtype).to(self.device)
+    #     inputs = torch.unsqueeze(rho, dim=-1)  # inputs.shape = (natom, 75, 302, 1)
+    #     _, pred_vxc = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
+    #     pred_vxc = pred_vxc.detach().cpu().numpy()
+    #     vxc_scf = grids.matrix_to_vector(pred_vxc)
+    #     return vxc_scf
+
+    # def get_e(self, scf_r_3, grids):
+    #     rho = grids.vector_to_matrix(scf_r_3[0, :])  # rho.shape = (natom, 75, 302)
+    #     rho = torch.tensor(rho, dtype=self.dtype).to(self.device )
+    #     inputs = torch.unsqueeze(rho, dim=-1)  # inputs.shape = (natom, 75, 302, 1)
+    #     pred_exc, _ = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
+    #     exc_scf = grids.matrix_to_vector(pred_exc)
+    #     return exc_scf
+
     def get_v(self, scf_r_3, grids):
         rho = grids.vector_to_matrix(scf_r_3[0, :])  # rho.shape = (natom, 75, 302)
         rho = torch.tensor(rho, dtype=self.dtype).to(self.device)
         inputs = torch.unsqueeze(rho, dim=-1)  # inputs.shape = (natom, 75, 302, 1)
-        _, pred_vxc = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
+        inputs.requires_grad = True
+        pred_exc = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
+        pred_vxc = (
+            torch.autograd.grad(torch.sum(rho * pred_exc), rho, create_graph=True)[0]
+            + pred_exc
+        )  # pred_exc.shape = (natom, 75, 302)
         pred_vxc = pred_vxc.detach().cpu().numpy()
         vxc_scf = grids.matrix_to_vector(pred_vxc)
         return vxc_scf
 
     def get_e(self, scf_r_3, grids):
         rho = grids.vector_to_matrix(scf_r_3[0, :])  # rho.shape = (natom, 75, 302)
-        rho = torch.tensor(rho, dtype=self.dtype).to(self.device )
+        rho = torch.tensor(rho, dtype=self.dtype).to(self.device)
         inputs = torch.unsqueeze(rho, dim=-1)  # inputs.shape = (natom, 75, 302, 1)
-        pred_exc, _ = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
+        inputs.requires_grad = True
+        pred_exc = self.model_dict["1"](inputs)  # pred_exc.shape = (natom, 75, 302)
         exc_scf = grids.matrix_to_vector(pred_exc)
         return exc_scf
-
-    # def get_v(self, scf_r_3, grids):
-    #     """
-    #     Obtain the potential.
-    #     Input: [rho, nabla_x rho, nabla_y rho, nabla_z rho] (4, Ngrids), where Ngrids=Nrad*Nang ie, (4, 75*302)
-    #     Output: the potential (Ngrids).
-    #     """
-    #     input_mat = grids.vector_to_matrix(
-    #         scf_r_3[0, :]
-    #     )  # input_mat.shape (Natom, 75, 302)
-    #     input_mat = torch.tensor(
-    #         input_mat[:, :, :, np.newaxis],
-    #         dtype=self.dtype,
-    #     ).to(
-    #         "cuda"
-    #     )  # input_mat.shape (Natom, 75, 302, 1)
-
-    #     input_mat = input_mat.requires_grad_(True)
-    #     with torch.no_grad():
-    #         output_mat = self.model_dict["1"](input_mat)
-    #     middle_mat = (
-    #         torch.autograd.grad(
-    #             torch.sum(input_mat[:, :, :, 0] * output_mat),
-    #             input_mat,
-    #             create_graph=True,
-    #         )[0]
-    #         .detach()
-    #         .cpu()
-    #         .numpy()
-    #     )
-    #     vxc_scf = grids.matrix_to_vector(middle_mat)
-    #     return vxc_scf
-
-    # def get_e(self, scf_r_3, grids):
-    #     """
-    #     Obtain the energy density.
-    #     Input: [rho, nabla rho] (4, ngrids),
-    #     Output: the potential (ngrids).
-    #     """
-    #     input_mat = grids.vector_to_matrix(scf_r_3[0, :])
-    #     input_mat = torch.tensor(
-    #         input_mat[:, :, :, np.newaxis],
-    #         dtype=self.dtype,
-    #     ).to("cuda")
-
-    #     input_mat = input_mat.requires_grad_(True)
-    #     with torch.no_grad():
-    #         output_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
-    #     exc_scf = grids.matrix_to_vector(output_mat)
-    #     return exc_scf
