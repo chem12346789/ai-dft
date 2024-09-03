@@ -80,6 +80,6 @@ cmd += "'&"
 
 # print(cmd)
 
-with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
+with open(f"log/out_{time_stamp}", "a", encoding="utf-8") as f:
     subprocess.call(cmd, shell=True, stdout=f)
 time.sleep(0.01)
