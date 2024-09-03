@@ -75,6 +75,7 @@ cmd = "nohup "
 for child in (work_dir).glob("*.bash"):
     if child.is_file():
         cmd += f"""bash {child} > log/{child.stem};"""
+cmd += "&"
 
 # print(cmd)
 
