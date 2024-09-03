@@ -176,7 +176,7 @@ class DataBase:
         data = np.load(Path(f"{DATA_PATH}") / f"data_{name}.npz")
 
         weight = data["weights"]
-        input_mat = data["rho_inv"]
+        input_mat = data["rho_inv_4_norm"]
         middle_mat = data["vxc1_lda"]
         output_mat = data["exc1_tr_lda"]
 
