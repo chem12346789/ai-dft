@@ -2,22 +2,9 @@ import time
 import subprocess
 from pathlib import Path
 import itertools
-import arrow
+import sys
 
-
-def clean_dir(pth):
-    """
-    clean the directory
-    """
-    pth = Path(pth)
-    for child in pth.glob("*"):
-        if child.is_file():
-            child.unlink()
-        else:
-            clean_dir(child)
-            child.rmdir()
-
-
+print(sys.argv)
 main_dir = Path(__file__).resolve().parents[0]
 template_bash = main_dir / "gen_data_template.bash"
 time_stamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
@@ -31,17 +18,7 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "gen_data_template.bash"
 
-critical_time = arrow.now().shift(hours=-72)
-for item in Path(main_dir).glob("*"):
-    if not item.is_file():
-        ITEM_TIME = arrow.get(item.stat().st_mtime)
-        if ITEM_TIME < critical_time:
-            print(str(item.absolute()))
-            # remove it
-            clean_dir(item)
-            item.rmdir()
-
-number_of_gpu = 0
+number_of_gpu = sys.argv[1] if len(sys.argv) > 1 else 0
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
@@ -98,6 +75,8 @@ cmd = "nohup "
 for child in (work_dir).glob("*.bash"):
     if child.is_file():
         cmd += f"""bash {child} > {child.stem};"""
+
+# print(cmd)
 
 with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
     subprocess.call(cmd, shell=True, stdout=f)
