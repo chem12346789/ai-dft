@@ -25,4 +25,4 @@ export NVIDIA_VISIBLE_DEVICES=1
 # export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
 export CUDA_VISIBLE_DEVICES=NUMBER_OF_GPU
 
-~/anaconda3/envs/pyscf/bin/python gen_dm_ene.py -dl START END STEP -b BASIS --extend_atom EXTEND_ATOM --extend_xyz 0 --name_mol MOL --load_inv True
+~/.conda/envs/pyscf/bin/python gen_dm_ene.py -dl START END STEP -b BASIS --extend_atom EXTEND_ATOM --extend_xyz 0 --name_mol MOL --load_inv True
