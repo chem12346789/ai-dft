@@ -98,7 +98,7 @@ cmd = "nohup "
 for child in (work_dir).glob("*.bash"):
     if child.is_file():
         cmd += f"""bash {child} > {child.stem};"""
-print(cmd)
-# with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
-#     subprocess.call(cmd, shell=True, stdout=f)
-# time.sleep(0.01)
+
+with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
+    subprocess.call(cmd, shell=True, stdout=f)
+time.sleep(0.01)
