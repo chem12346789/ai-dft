@@ -650,13 +650,14 @@ def mrks_append(self, frac_old, load_inv=True):
     Append the data to the existing npz file.
     """
     if not (DATA_PATH / f"data_{self.name}.npz").exists():
+        print(f"File {DATA_PATH / f'data_{self.name}.npz'} does not exist.")
         return
 
     data = np.load(DATA_PATH / f"data_{self.name}.npz")
 
     grids = Grid(self.mol)
     ao_value = pyscf.dft.numint.eval_ao(self.mol, grids.coords)
-    inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_value, data["dm1_inv"])
+    inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_value, data["dm_inv"])
     evxc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", inv_r)
 
     np.savez_compressed(
@@ -675,10 +676,10 @@ def mrks_append(self, frac_old, load_inv=True):
         exc1_tr_b3lyp=data["exc1_tr_b3lyp"],
         exc_tr=data["exc_tr"],
         exc1_tr=data["exc1_tr"],
-        rho_inv_4_norm=data["data_grids_norm"],
+        rho_inv_4_norm=data["rho_inv_4_norm"],
         coords_x=data["coords_x"],
         coords_y=data["coords_y"],
         coords_z=data["coords_z"],
         exc1_tr_lda=data["exc1_tr"] - grids.vector_to_matrix(evxc_lda[0]),
-        vxc1_lda=data["vxc"] - grids.vector_to_matrix(evxc_lda[1]),
+        vxc1_lda=data["vxc"] - grids.vector_to_matrix(evxc_lda[1][0]),
     )

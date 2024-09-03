@@ -13,8 +13,8 @@ from cadft import add_args, extend, gen_logger
 from cadft import test_rks, test_uks
 from cadft.utils import Mol
 
-# from cadft.utils import ModelDict_xy as ModelDict
-from cadft.utils import ModelDict as ModelDict
+from cadft.utils import ModelDict_xy as ModelDict
+# from cadft.utils import ModelDict as ModelDict
 
 
 if __name__ == "__main__":

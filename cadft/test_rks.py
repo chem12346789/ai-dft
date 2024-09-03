@@ -63,12 +63,14 @@ def test_rks(
 
     diis = DIIS(dft2cc.mol.nao, n=n_diis)
     converge_setp = 0
+    max_steps_converge = 5
 
     for i in range(5000):
         scf_r_3 = pyscf.dft.numint.eval_rho(
             dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
         vxc_scf = modeldict.get_v(scf_r_3, dft2cc.grids)
+        # exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_r_3[0])[1][0]
         exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
         vxc_scf += exc_b3lyp
 
@@ -94,7 +96,7 @@ def test_rks(
             f"dm: {error_dm1::<10.5e}",
         )
         if (i > 0) and (error_dm1 < max_error_scf):
-            if converge_setp > 5:
+            if converge_setp > max_steps_converge:
                 dm1_scf = dm1_scf_old.copy()
                 break
             else:
@@ -205,9 +207,10 @@ def test_rks(
 
     scf_r_3 = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA")
     exc_scf = modeldict.get_e(scf_r_3, dft2cc.grids)
-    exc_ene = np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
+    exc_ene = np.sum(exc_scf * scf_r_3[0] * dft2cc.grids.weights)
+    # exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_r_3[0])[0]
     exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
-    exc_ene += np.sum(exc_b3lyp * scf_rho_r * dft2cc.grids.weights)
+    exc_ene += np.sum(exc_b3lyp * scf_r_3[0] * dft2cc.grids.weights)
 
     ene_scf = (
         oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)

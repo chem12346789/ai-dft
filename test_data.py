@@ -245,44 +245,13 @@ if __name__ == "__main__":
 
         # 2.3 check the difference of energy (total)
 
-        inv_r_3 = pyscf.dft.numint.eval_rho(
-            dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
-        )
-        output_mat = data_real["exc1_tr_b3lyp"]
-
+        inv_r = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dm1_scf)
+        output_mat = data_real["exc1_tr_lda"]
         output_mat_exc = output_mat * dft2cc.grids.vector_to_matrix(
-            inv_r_3[0] * dft2cc.grids.weights
+            inv_r * dft2cc.grids.weights
         )
-
-        inv_r_3 = pyscf.dft.numint.eval_rho(
-            dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
-        )
-        exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", inv_r_3)[0]
-
-        b3lyp_ene = np.sum(exc_b3lyp * inv_r_3[0] * dft2cc.grids.weights)
-
-        print(AU2KCALMOL * b3lyp_ene)
-        print(
-            AU2KCALMOL
-            * np.sum(
-                (data_real["exc1_tr"] - data_real["exc1_tr_b3lyp"])
-                * data_real["rho_inv"]
-                * data_real["weights"]
-            ),
-            AU2KCALMOL
-            * (
-                oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
-                + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
-                + dft2cc.mol.energy_nuc()
-                + np.sum(
-                    data_real["exc1_tr_b3lyp"]
-                    * data_real["rho_inv"]
-                    * data_real["weights"]
-                )
-                + b3lyp_ene
-                - dft2cc.e_cc
-            ),
-        )
+        exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", inv_r)[0]
+        b3lyp_ene = np.sum(exc_b3lyp * inv_r * dft2cc.grids.weights)
 
         ene_scf = (
             oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)

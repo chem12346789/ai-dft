@@ -46,7 +46,7 @@ class CC_DFT_DATA:
                 self.basis,
                 self.if_basis_str,
             ),
-            verbose=4,
+            # verbose=4,
             spin=spin,
         )
         print(self.mol.atom)
@@ -125,7 +125,7 @@ class CC_DFT_DATA:
         """
         Generate 1-RDM.
         """
-        self.grids = Grid(self.mol, level=1)
+        self.grids = Grid(self.mol)
         self.grids_test = Grid(self.mol, level=3, period=2)
         self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
         self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
@@ -341,7 +341,7 @@ class CC_DFT_DATA:
                 dm1_hf=self.dm1_hf,
             )
 
-        self.grids = Grid(self.mol, level=1)
+        self.grids = Grid(self.mol)
         self.grids_test = Grid(self.mol, level=3, period=2)
         self.ao_0 = pyscf.dft.numint.eval_ao(
             self.mol,

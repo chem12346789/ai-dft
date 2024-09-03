@@ -82,6 +82,8 @@ class ModelDict:
             self.keys = ["1"]
         elif self.output_size == -1:
             self.keys = ["1"]
+        elif self.output_size == -2:
+            self.keys = ["1"]
 
         self.model_dict = {}
         self.model_dict["size"] = {}
@@ -92,7 +94,7 @@ class ModelDict:
             self.model_dict[key] = Model(
                 self.input_size,
                 self.hidden_size,
-                abs(self.output_size),
+                self.output_size if output_size > 0 else 1,
                 self.residual,
                 self.num_layers,
             ).to(device)
@@ -125,15 +127,9 @@ class ModelDict:
         self.loss_fn2 = torch.nn.MSELoss()
         self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
 
-        # self.loss_multiplier = 1.0
         # self.loss_fn1 = torch.nn.L1Loss()
         # self.loss_fn2 = torch.nn.L1Loss()
         # self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
-
-        # self.loss_multiplier = 2.0 * 0.1
-        # self.loss_fn1 = torch.nn.SmoothL1Loss(beta=0.1)
-        # self.loss_fn2 = torch.nn.SmoothL1Loss(beta=0.1)
-        # self.loss_fn3 = torch.nn.SmoothL1Loss(beta=0.1, reduction="sum")
 
     def load_model(self):
         """
@@ -254,18 +250,32 @@ class ModelDict:
                 torch.sum(output_mat_real * input_mat[:, [0], :, :] * weight),
             )
 
-            middle_mat = input_mat[:, [0], :, :] * torch.autograd.grad(
-                torch.sum(output_mat),
+            middle_mat = torch.autograd.grad(
+                torch.sum(input_mat[:, [0], :, :] * output_mat),
                 input_mat,
                 create_graph=True,
             )[0]
             loss_0_i = self.loss_multiplier * self.loss_fn1(
                 middle_mat * weight,
-                (middle_mat_real - output_mat) * weight,
+                middle_mat_real * weight,
             )
             loss_1_i = self.loss_multiplier * self.loss_fn1(
                 middle_mat,
-                (middle_mat_real - output_mat),
+                middle_mat_real,
+            )
+        elif self.output_size == -2:
+            output_mat = self.model_dict["1"](input_mat)
+            loss_2_i = self.loss_multiplier * self.loss_fn2(
+                output_mat,
+                output_mat_real,
+            )
+            loss_3_i = self.loss_multiplier * self.loss_fn3(
+                torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
+                torch.sum(output_mat_real * input_mat[:, [0], :, :] * weight),
+            )
+            (loss_0_i, loss_1_i) = (
+                torch.tensor([0.0], device=self.device),
+                torch.tensor([0.0], device=self.device),
             )
         return loss_0_i, loss_1_i, loss_2_i, loss_3_i
 
@@ -301,7 +311,7 @@ class ModelDict:
                 torch.tensor([0.0], device=self.device),
             )
 
-            # self.zero_grad()
+            self.zero_grad()
 
             for batch in database_train.data_gpu[name]:
                 loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
@@ -329,6 +339,9 @@ class ModelDict:
                 loss_1 += self.pot_weight * loss_0
                 loss_2 += self.ene_weight * loss_3
                 loss_1.backward(retain_graph=True)
+                loss_2.backward()
+            elif self.output_size == -2:
+                loss_2 += self.ene_weight * loss_3
                 loss_2.backward()
 
             self.step()
@@ -393,7 +406,7 @@ class ModelDict:
             with torch.no_grad():
                 middle_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
             middle_mat = middle_mat[:, 0, :, :]
-        elif self.output_size == -1:
+        elif self.output_size == -1 or self.output_size == -2:
             input_mat = input_mat.requires_grad_(True)
             with torch.no_grad():
                 output_mat = self.model_dict["1"](input_mat)
@@ -437,7 +450,7 @@ class ModelDict:
             with torch.no_grad():
                 output_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()
             output_mat = output_mat[:, 1, :, :]
-        elif self.output_size == -1:
+        elif self.output_size == -1 or self.output_size == -2:
             input_mat = input_mat.requires_grad_(True)
             with torch.no_grad():
                 output_mat = self.model_dict["1"](input_mat).detach().cpu().numpy()

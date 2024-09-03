@@ -650,7 +650,6 @@ def mrks_diis(
         vxc=grids.vector_to_matrix(vxc_inv),
         vxc_b3lyp=grids.vector_to_matrix(vxc_inv - vxc_b3lyp),
         vxc1_b3lyp=grids.vector_to_matrix(vxc_inv - evxc_b3lyp[0]),
-        vxc1_lda=grids.vector_to_matrix(vxc_inv - evxc_lda[1]),
         exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
         exc_tr_b3lyp=grids.vector_to_matrix(
@@ -659,8 +658,9 @@ def mrks_diis(
         exc1_tr_b3lyp=grids.vector_to_matrix(
             exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r - exc_b3lyp
         ),
+        vxc1_lda=grids.vector_to_matrix(vxc_inv - evxc_lda[1][0]),
         exc1_tr_lda=grids.vector_to_matrix(
-            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r - evxc_lda[1]
+            exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / inv_r - evxc_lda[0]
         ),
         exc_tr=grids.vector_to_matrix(
             exc_over_rho_grids_fake + (tau_rho_wf - tau_rho_ks) / inv_r

@@ -67,7 +67,7 @@ for (
     #     )
 
     # dft2cc.deepks()
-    dft2cc.mrks_append()
+    dft2cc.mrks_append(FACTOR, args.load_inv)
 
     del dft2cc
     gc.collect()

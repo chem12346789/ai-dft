@@ -176,9 +176,9 @@ class DataBase:
         data = np.load(Path(f"{DATA_PATH}") / f"data_{name}.npz")
 
         weight = data["weights"]
-        input_mat = data["rho_inv_4_norm"]
-        middle_mat = data["vxc"]
-        output_mat = data["exc1_tr"]
+        input_mat = data["rho_inv"]
+        middle_mat = data["vxc1_lda"]
+        output_mat = data["exc1_tr_lda"]
 
         self.shape[name] = output_mat.shape
         input_ = {}
@@ -191,41 +191,44 @@ class DataBase:
                 continue
 
             if self.input_size == 1:
-                input_[i_atom] = input_mat[0, i_atom, :, :][np.newaxis, :, :]
+                input_[i_atom] = input_mat[[0], i_atom, :, :]
             elif self.input_size == 4:
                 input_[i_atom] = input_mat[:, i_atom, :, :]
             else:
                 raise ValueError("input_size should be 1 or 4.")
 
-            weight_[i_atom] = weight[i_atom, :, :][np.newaxis, :, :]
+            weight_[i_atom] = weight[[i_atom], :, :]
 
             if self.output_size == 1:
-                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
-                output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
+                middle_[i_atom] = middle_mat[[i_atom], :, :]
+                output_[i_atom] = output_mat[[i_atom], :, :]
             elif self.output_size == 2:
-                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
+                middle_[i_atom] = middle_mat[[i_atom], :, :]
                 output_[i_atom] = np.append(
-                    middle_mat[i_atom, :, :][np.newaxis, :, :],
-                    output_mat[i_atom, :, :][np.newaxis, :, :],
+                    middle_mat[[i_atom], :, :],
+                    output_mat[[i_atom], :, :],
                     axis=0,
                 )
             elif self.output_size == -1:
-                middle_[i_atom] = middle_mat[i_atom, :, :][np.newaxis, :, :]
-                output_[i_atom] = output_mat[i_atom, :, :][np.newaxis, :, :]
+                middle_[i_atom] = middle_mat[[i_atom], :, :]
+                output_[i_atom] = output_mat[[i_atom], :, :]
+            elif self.output_size == -2:
+                middle_[i_atom] = middle_mat[[i_atom], :, :]
+                output_[i_atom] = output_mat[[i_atom], :, :]
             else:
                 raise ValueError("output_size should be -1, 1 or 2.")
 
             print(
                 f"Load {name:>30}, key_: {i_atom:>3}\n"
-                # f"mean input: {np.mean(input_[i_atom]):>7.4e}, "
-                # f"max input: {np.max(input_[i_atom]):>7.4e}, "
-                # f"var input: {np.var(input_[i_atom]):>7.4e}\n"
-                # f"mean middle: {np.mean(middle_[i_atom]):>7.4e}, "
-                # f"max middle: {np.max(np.abs(middle_[i_atom])):>7.4e}, "
-                # f"var middle: {np.var(middle_[i_atom]):>7.4e}\n"
-                # f"mean output: {np.mean(output_[i_atom]):>7.4e}, "
-                # f"max output: {np.max(np.abs(output_[i_atom])):>7.4e} "
-                # f"var output: {np.var(output_[i_atom]):>7.4e}\n"
+                f"mean input: {np.mean(input_[i_atom]):>7.4e}, "
+                f"max input: {np.max(input_[i_atom]):>7.4e}, "
+                f"var input: {np.var(input_[i_atom]):>7.4e}\n"
+                f"mean middle: {np.mean(middle_[i_atom]):>7.4e}, "
+                f"max middle: {np.max(np.abs(middle_[i_atom])):>7.4e}, "
+                f"var middle: {np.var(middle_[i_atom]):>7.4e}\n"
+                f"mean output: {np.mean(output_[i_atom]):>7.4e}, "
+                f"max output: {np.max(np.abs(output_[i_atom])):>7.4e} "
+                f"var output: {np.var(output_[i_atom]):>7.4e}\n"
             )
 
         self.data_gpu[name] = BasicDataset(

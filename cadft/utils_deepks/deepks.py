@@ -57,31 +57,3 @@ def deepks(self):
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=1)
     dft_dm1 = mdft.make_rdm1()
     dft_r_3 = pyscf.dft.numint.eval_rho(self.mol, ao_value, dft_dm1, xctype="GGA")
-
-    # test the fake molecule
-    dft_r = dft_r_3[1]
-    c = oe.contract(
-        "p, p, pj, jk -> k",
-        dft_r,
-        fake_grids.weights,
-        fake_ao_value,
-        fake_mat_s_inv,
-    )
-    back_rho = oe.contract("k, pk -> p", c, fake_ao_value)
-    print(np.sum(np.abs(back_rho * weights - dft_r * weights)))
-    print(np.sum((back_rho * weights - dft_r * weights)))
-
-    # data_grids_norm = process_input(dft_r_3, grids)
-
-    # for oxyz in range(1):
-    #     for i_atom in range(self.mol.natm):
-    #         data = data_grids_norm[oxyz, i_atom, :, :]
-
-    # np.savez_compressed(
-    #     DATA_PATH / f"data_{self.name}.npz",
-    #     weights=grids.vector_to_matrix(weights),
-    #     eigenval=eigenval,
-    #     eigenvector=eigenvector,
-    #     rho_inv_4_norm=data_grids_norm,
-    #     delta_ene=mycc.e_tot - mdft.e_tot,
-    # )
