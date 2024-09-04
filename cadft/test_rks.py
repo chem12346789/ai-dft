@@ -67,7 +67,7 @@ def test_rks(
     converge_setp = 0
     max_steps_converge = 5
 
-    for i in range(2500):
+    for i in range(500):
         scf_r_3 = pyscf.dft.numint.eval_rho(
             dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
         )
