@@ -12,6 +12,7 @@ import opt_einsum as oe
 from cadft import CC_DFT_DATA
 from cadft.utils import DIIS
 from cadft.utils import MAIN_PATH
+from cadft.utils import calculate_density_dipole
 
 AU2KCALMOL = 627.5096080306
 
@@ -68,12 +69,9 @@ def test_rks(
     max_steps_converge = 5
 
     for i in range(500):
-        scf_r_3 = pyscf.dft.numint.eval_rho(
-            dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA"
-        )
-        vxc_scf = modeldict.get_v(scf_r_3, dft2cc.grids)
-        exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_r_3[0])[1][0]
-        # exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
+        scf_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dm1_scf)
+        vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
+        exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[1][0]
         vxc_scf += exc_b3lyp
 
         vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights)
@@ -118,101 +116,19 @@ def test_rks(
     gc.collect()
     torch.cuda.empty_cache()
 
+    df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
+
+    # 2.3 check the difference of energy (total)
     scf_rho_r = pyscf.dft.numint.eval_rho(
         dft2cc.mol,
         dft2cc.ao_0,
         dm1_scf,
     )
-    cc_rho_r = pyscf.dft.numint.eval_rho(
-        dft2cc.mol,
-        dft2cc.ao_0,
-        dft2cc.dm1_cc,
+    exc_scf = (
+        modeldict.get_e(scf_rho_r, dft2cc.grids)
+        + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[0]
     )
-    dft_rho_r = pyscf.dft.numint.eval_rho(
-        dft2cc.mol,
-        dft2cc.ao_0,
-        dft2cc.dm1_dft,
-    )
-    error_scf_rho_r = np.sum(np.abs(scf_rho_r - cc_rho_r) * dft2cc.grids.weights)
-    error_dft_rho_r = np.sum(np.abs(dft_rho_r - cc_rho_r) * dft2cc.grids.weights)
-    print(
-        f"error_scf_rho_r: {error_scf_rho_r:.2e}",
-        f"error_dft_rho_r: {error_dft_rho_r:.2e}",
-        flush=True,
-    )
-    df_dict["error_scf_rho_r"].append(error_scf_rho_r)
-    df_dict["error_dft_rho_r"].append(error_dft_rho_r)
-
-    dipole_x_core = 0
-    for i_atom in range(dft2cc.mol.natm):
-        dipole_x_core += (
-            dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][0]
-        )
-    dipole_x = dipole_x_core - np.sum(
-        cc_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
-    )
-    dipole_x_scf = dipole_x_core - np.sum(
-        scf_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
-    )
-    dipole_x_dft = dipole_x_core - np.sum(
-        dft_rho_r * dft2cc.grids.coords[:, 0] * dft2cc.grids.weights
-    )
-
-    dipole_y_core = 0
-    for i_atom in range(dft2cc.mol.natm):
-        dipole_y_core += (
-            dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][1]
-        )
-    dipole_y = dipole_y_core - np.sum(
-        cc_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
-    )
-    dipole_y_scf = dipole_y_core - np.sum(
-        scf_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
-    )
-    dipole_y_dft = dipole_y_core - np.sum(
-        dft_rho_r * dft2cc.grids.coords[:, 1] * dft2cc.grids.weights
-    )
-
-    dipole_z_core = 0
-    for i_atom in range(dft2cc.mol.natm):
-        dipole_z_core += (
-            dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][2]
-        )
-    dipole_z = dipole_z_core - np.sum(
-        cc_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
-    )
-    dipole_z_scf = dipole_z_core - np.sum(
-        scf_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
-    )
-    dipole_z_dft = dipole_z_core - np.sum(
-        dft_rho_r * dft2cc.grids.coords[:, 2] * dft2cc.grids.weights
-    )
-
-    print(
-        f"dipole_x, cc: {dipole_x:.4f}, scf {dipole_x_scf:.4f}, dft {dipole_x_dft:.4f}"
-    )
-    print(
-        f"dipole_y, cc: {dipole_y:.4f}, scf {dipole_y_scf:.4f}, dft {dipole_y_dft:.4f}"
-    )
-    print(
-        f"dipole_z, cc: {dipole_z:.4f}, scf {dipole_z_scf:.4f}, dft {dipole_z_dft:.4f}",
-        flush=True,
-    )
-    df_dict["dipole_x_diff_scf"].append(dipole_x_scf - dipole_x)
-    df_dict["dipole_y_diff_scf"].append(dipole_y_scf - dipole_y)
-    df_dict["dipole_z_diff_scf"].append(dipole_z_scf - dipole_z)
-    df_dict["dipole_x_diff_dft"].append(dipole_x_dft - dipole_x)
-    df_dict["dipole_y_diff_dft"].append(dipole_y_dft - dipole_y)
-    df_dict["dipole_z_diff_dft"].append(dipole_z_dft - dipole_z)
-
-    # 2.3 check the difference of energy (total)
-
-    scf_r_3 = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_1, dm1_scf, xctype="GGA")
-    exc_scf = modeldict.get_e(scf_r_3, dft2cc.grids)
-    exc_ene = np.sum(exc_scf * scf_r_3[0] * dft2cc.grids.weights)
-    exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_r_3[0])[0]
-    # exc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_r_3)[0]
-    exc_ene += np.sum(exc_b3lyp * scf_r_3[0] * dft2cc.grids.weights)
+    exc_ene = np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
 
     ene_scf = (
         oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)

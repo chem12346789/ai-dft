@@ -9,14 +9,14 @@ from itertools import product
 import torch
 
 from cadft import add_args, extend, gen_logger
-from cadft import test_rks, test_uks
+from cadft import test_rks, test_uks, test_rks_pyscf
 
 from cadft.utils import ModelDict as ModelDict
 
 # from cadft.utils import ModelDict_xy as ModelDict
 # from cadft.utils import ModelDict_xy1 as ModelDict
 
-
+# class ModelDict_data()
 if __name__ == "__main__":
     # 0. Prepare the args
     parser = argparse.ArgumentParser(
@@ -57,12 +57,19 @@ if __name__ == "__main__":
         "dipole_x_diff_dft": [],
         "dipole_y_diff_dft": [],
         "dipole_z_diff_dft": [],
+        "error_force_x_scf": [],
+        "error_force_y_scf": [],
+        "error_force_z_scf": [],
+        "error_force_x_dft": [],
+        "error_force_y_dft": [],
+        "error_force_z_dft": [],
         "time_cc": [],
         "time_dft": [],
     }
 
     distance_l = gen_logger(args.distance_list)
     dm_guess = None
+    name_mol_now = args.name_mol[0]
 
     for (
         name_mol,
@@ -75,6 +82,10 @@ if __name__ == "__main__":
         args.extend_xyz,
         distance_l,
     ):
+        if name_mol_now != name_mol:
+            dm_guess = None
+            name_mol_now = name_mol
+
         molecular, name = extend(
             name_mol, extend_atom, extend_xyz, distance, args.basis
         )
@@ -83,21 +94,32 @@ if __name__ == "__main__":
             continue
         df_dict["name"].append(name)
 
-        if abs(distance) > 4:
-            N_DIIS = 70
+        if abs(distance) > 3.5:
+            N_DIIS = 100
         elif abs(distance) > 3:
+            N_DIIS = 75
+        elif abs(distance) > 2:
             N_DIIS = 50
         else:
             N_DIIS = 20
         if "openshell" in name_mol:
             test_uks(args, molecular, name, modeldict, df_dict)
         else:
-            dm_guess = test_rks(
+            # dm_guess = test_rks(
+            #     args,
+            #     molecular,
+            #     name,
+            #     modeldict,
+            #     df_dict,
+            #     n_diis=N_DIIS,
+            #     dm_guess=dm_guess,
+            # )
+            dm_guess = test_rks_pyscf(
                 args,
                 molecular,
                 name,
                 modeldict,
                 df_dict,
                 n_diis=N_DIIS,
-                dm_guess=None,
+                dm_guess=dm_guess,
             )
