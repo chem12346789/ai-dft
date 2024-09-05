@@ -391,12 +391,20 @@ class ModelDict:
         Output: the potential (ngrids).
         """
         if self.input_size == 1:
-            input_mat = grids.vector_to_matrix(scf_r_3[0, :])
+            if len(np.shape(scf_r_3)) == 2:
+                input_mat = grids.vector_to_matrix(scf_r_3[0, :])
+            elif len(np.shape(scf_r_3)) == 1:
+                input_mat = grids.vector_to_matrix(scf_r_3)
+            else:
+                raise ValueError("scf_r_3 must be lda or gga density")
             input_mat = torch.tensor(
                 input_mat[:, np.newaxis, :, :], dtype=self.dtype
             ).to("cuda")
         elif self.input_size == 4:
-            input_mat = process_input(scf_r_3, grids)
+            if len(np.shape(scf_r_3)) == 2:
+                input_mat = process_input(scf_r_3, grids)
+            else:
+                raise ValueError("scf_r_3 must be gga density")
             input_mat = np.transpose(input_mat, (1, 0, 2, 3))
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
         else:
@@ -431,12 +439,20 @@ class ModelDict:
         Output: the potential (ngrids).
         """
         if self.input_size == 1:
-            input_mat = grids.vector_to_matrix(scf_r_3[0, :])
+            if len(np.shape(scf_r_3)) == 2:
+                input_mat = grids.vector_to_matrix(scf_r_3[0, :])
+            elif len(np.shape(scf_r_3)) == 1:
+                input_mat = grids.vector_to_matrix(scf_r_3)
+            else:
+                raise ValueError("scf_r_3 must be lda or gga density")
             input_mat = torch.tensor(
                 input_mat[:, np.newaxis, :, :], dtype=self.dtype
             ).to("cuda")
         elif self.input_size == 4:
-            input_mat = process_input(scf_r_3, grids)
+            if len(np.shape(scf_r_3)) == 2:
+                input_mat = process_input(scf_r_3, grids)
+            else:
+                raise ValueError("scf_r_3 must be gga density")
             input_mat = np.transpose(input_mat, (1, 0, 2, 3))
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
         else:

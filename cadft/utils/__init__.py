@@ -1,5 +1,7 @@
 import pandas as pd
 import copy
+import numpy as np
+import pyscf
 
 from cadft.utils.basis import gen_basis
 from cadft.utils.rotate import rotate
@@ -22,6 +24,8 @@ from cadft.utils.diis import DIIS
 
 from cadft.utils.mol import Mol
 from cadft.utils.env_var import MAIN_PATH, DATA_PATH, DATA_SAVE_PATH, DATA_CC_PATH
+
+ORIENTATION_NUMBER_DICT = {"x": 0, "y": 1, "z": 2}
 
 
 def save_csv_loss(
@@ -116,3 +120,127 @@ def extend(
         molecular[extend_atom][extend_xyz] += distance
     print("extend mol", molecular)
     return molecular, name
+
+
+def calculate_density_dipole(dm1_scf, df_dict, dft2cc):
+    """
+    Calculate the density and dipole
+    """
+    if len(np.shape(dm1_scf)) == 2:
+        scf_rho_r = pyscf.dft.numint.eval_rho(
+            dft2cc.mol,
+            dft2cc.ao_0_test,
+            dm1_scf,
+        )
+        cc_rho_r = pyscf.dft.numint.eval_rho(
+            dft2cc.mol,
+            dft2cc.ao_0_test,
+            dft2cc.dm1_cc,
+        )
+        dft_rho_r = pyscf.dft.numint.eval_rho(
+            dft2cc.mol,
+            dft2cc.ao_0_test,
+            dft2cc.dm1_dft,
+        )
+    elif len(np.shape(dm1_scf)) == 3:
+        scf_rho_r = np.array(
+            [
+                pyscf.dft.numint.eval_rho(
+                    dft2cc.mol,
+                    dft2cc.ao_0_test,
+                    dm1_scf[i_spin],
+                )
+                for i_spin in range(2)
+            ]
+        )
+        dft_rho_r = np.array(
+            [
+                pyscf.dft.numint.eval_rho(
+                    dft2cc.mol,
+                    dft2cc.ao_0_test,
+                    dft2cc.dm1_dft[i_spin],
+                )
+                for i_spin in range(2)
+            ]
+        )
+        cc_rho_r = np.array(
+            [
+                pyscf.dft.numint.eval_rho(
+                    dft2cc.mol,
+                    dft2cc.ao_0_test,
+                    dft2cc.dm1_cc[i_spin],
+                )
+                for i_spin in range(2)
+            ]
+        )
+    else:
+        raise ValueError("dm1_scf shape error")
+
+    error_scf_rho_r = np.sum(np.abs(scf_rho_r - cc_rho_r) * dft2cc.grids_test.weights)
+    error_dft_rho_r = np.sum(np.abs(dft_rho_r - cc_rho_r) * dft2cc.grids_test.weights)
+    print(
+        f"error_scf_rho_r: {error_scf_rho_r:.2e}",
+        f"error_dft_rho_r: {error_dft_rho_r:.2e}",
+        flush=True,
+    )
+    df_dict["error_scf_rho_r"].append(error_scf_rho_r)
+    df_dict["error_dft_rho_r"].append(error_dft_rho_r)
+
+    for orientation in ["x", "y", "z"]:
+        orientation_number = ORIENTATION_NUMBER_DICT[orientation]
+        dipole_core = 0
+        for i_atom in range(dft2cc.mol.natm):
+            dipole_core += (
+                dft2cc.mol.atom_charges()[i_atom] * dft2cc.mol.atom_coords()[i_atom][0]
+            )
+
+        dipole = dipole_core - np.sum(
+            cc_rho_r
+            * dft2cc.grids_test.coords[:, orientation_number]
+            * dft2cc.grids_test.weights
+        )
+        dipole_scf = dipole_core - np.sum(
+            scf_rho_r
+            * dft2cc.grids_test.coords[:, orientation_number]
+            * dft2cc.grids_test.weights
+        )
+        dipole_dft = dipole_core - np.sum(
+            dft_rho_r
+            * dft2cc.grids_test.coords[:, orientation_number]
+            * dft2cc.grids_test.weights
+        )
+
+        print(
+            f"dipole_{orientation}, scf {dipole_scf - dipole:.4f}, dft {dipole_dft - dipole:.4f}"
+        )
+        df_dict[f"dipole_{orientation}_diff_scf"].append(dipole_scf - dipole)
+        df_dict[f"dipole_{orientation}_diff_dft"].append(dipole_dft - dipole)
+    return df_dict
+
+
+def calculate_force(grad_ai, df_dict, dft2cc):
+    """
+    Calculate the force
+    """
+    for orientation in ["x", "y", "z"]:
+        orientation_number = ORIENTATION_NUMBER_DICT[orientation]
+
+        error_force_ai = np.linalg.norm(
+            grad_ai[:, orientation_number] - dft2cc.grad_ccsd[:, orientation_number],
+            ord=1,
+        )
+        error_force_dft = np.linalg.norm(
+            dft2cc.grad_dft[:, orientation_number]
+            - dft2cc.grad_ccsd[:, orientation_number],
+            ord=1,
+        )
+
+        print(
+            f"error_force_{orientation}, scf: {error_force_ai:.2e}, "
+            f"dft: {error_force_dft:.2e}",
+            flush=True,
+        )
+
+        df_dict[f"error_force_{orientation}_scf"].append(error_force_ai)
+        df_dict[f"error_force_{orientation}_dft"].append(error_force_dft)
+    return df_dict
