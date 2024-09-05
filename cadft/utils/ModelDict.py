@@ -311,7 +311,7 @@ class ModelDict:
                 torch.tensor([0.0], device=self.device),
             )
 
-            self.zero_grad()
+            # self.zero_grad()
 
             for batch in database_train.data_gpu[name]:
                 loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
