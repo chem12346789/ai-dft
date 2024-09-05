@@ -145,6 +145,7 @@ def test_rks_pyscf(
     g = mdft.nuc_grad_method()
     g.get_veff = types.MethodType(get_veff_grad, g)
     grad_ai = g.kernel()
+    print("If net force", np.sum(grad_ai, axis=0))
 
     del oe_fock
     gc.collect()
