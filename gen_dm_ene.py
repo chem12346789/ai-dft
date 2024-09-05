@@ -60,6 +60,7 @@ for (
             args.load_inv,
             diis_n=DIIS_N,
             vxc_inv=None,
+            cc_triple=args.cc_triple,
         )
     else:
         vxc_inv = dft2cc.mrks_diis(
@@ -67,6 +68,7 @@ for (
             args.load_inv,
             diis_n=DIIS_N,
             vxc_inv=None,
+            cc_triple=args.cc_triple,
         )
 
     # dft2cc.deepks()

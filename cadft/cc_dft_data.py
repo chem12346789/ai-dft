@@ -62,7 +62,15 @@ class CC_DFT_DATA:
                 self.aoslice_by_atom[i][1] - self.aoslice_by_atom[i][0]
             )
 
-    def mrks_diis(self, frac_old, load_inv, diis_n=15, vxc_inv=None, max_inv_step=2500):
+    def mrks_diis(
+        self,
+        frac_old,
+        load_inv,
+        diis_n=15,
+        vxc_inv=None,
+        max_inv_step=2500,
+        cc_triple=False,
+    ):
         """
         Generate 1-RDM.
         """
@@ -74,9 +82,18 @@ class CC_DFT_DATA:
             diis_n,
             vxc_inv=vxc_inv,
             max_inv_step=max_inv_step,
+            cc_triple=cc_triple,
         )
 
-    def umrks_diis(self, frac_old, load_inv, diis_n=15, vxc_inv=None):
+    def umrks_diis(
+        self,
+        frac_old,
+        load_inv,
+        diis_n=15,
+        vxc_inv=None,
+        max_inv_step=2500,
+        cc_triple=False,
+    ):
         """
         Generate 1-RDM.
         """
@@ -87,6 +104,8 @@ class CC_DFT_DATA:
             load_inv,
             diis_n=diis_n,
             vxc_inv=vxc_inv,
+            max_inv_step=max_inv_step,
+            cc_triple=cc_triple,
         )
 
     def gmrks_diis(self, frac_old, load_inv):

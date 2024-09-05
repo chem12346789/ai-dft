@@ -42,12 +42,15 @@ def mrks_diis(
     Path(self.data_save_path).mkdir(parents=True, exist_ok=True)
     n_slices = 150
 
+    mf = pyscf.scf.RHF(self.mol)
+    mf.kernel()
+
     mdft = pyscf.scf.RKS(self.mol)
     mdft.xc = "b3lyp"
     mdft.kernel()
 
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
-    mo = mdft.mo_coeff
+    mo = mf.mo_coeff
     nocc = self.mol.nelec[0]
     norb = mo.shape[1]
     print(h1e.shape)
@@ -99,9 +102,6 @@ def mrks_diis(
         """
         return new * (1 - frac_old_) + old * frac_old_
 
-    rho_cc = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc) + 1e-14
-    exc_grids = np.zeros_like(rho_cc)
-
     if load_inv and Path(self.data_save_path / "exc_grids.npy").exists():
         print("Load data from saved_data: exc_grids, exc_over_rho_grids.")
         exc_grids = np.load(self.data_save_path / "exc_grids.npy")
@@ -138,9 +138,9 @@ def mrks_diis(
                 e_cc = mycc.e_tot
             np.save(self.data_save_path / "dm1_cc.npy", dm1_cc)
             np.save(self.data_save_path / "e_cc.npy", e_cc)
+        rho_cc = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc) + 1e-14
+        exc_grids = np.zeros_like(rho_cc)
     else:
-        mf = pyscf.scf.RHF(self.mol)
-        mf.kernel()
         mycc = pyscf.cc.CCSD(mf)
         mycc.direct = True
         mycc.incore_complete = True
@@ -158,17 +158,19 @@ def mrks_diis(
             dm1_cc = mycc.make_rdm1(ao_repr=True)
             e_cc = mycc.e_tot
 
+        rho_cc = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc) + 1e-14
+        exc_grids = np.zeros_like(rho_cc)
+
         print("Calculating exc_grids")
         if cc_triple:
             d1 = _gamma1_intermediates(mycc, t1, t2, l1, l2, eris)
             d2 = _gamma2_intermediates(mycc, t1, t2, l1, l2, eris)
             dm2_cc = ccsd_rdm._make_rdm2(mycc, d1, d2, True, True, ao_repr=True)
-            dm12 = dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)
-            del dm2_cc, d1, d2
+            del d1, d2
         else:
             dm2_cc = mycc.make_rdm2(ao_repr=True)
-            dm12 = dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)
-            del dm2_cc
+        dm12 = dm2_cc - oe.contract("pq,rs->pqrs", dm1_cc, dm1_cc)
+        del dm2_cc
         gc.collect()
 
         for i_batch, j_batch, k_batch, l_batch in product(

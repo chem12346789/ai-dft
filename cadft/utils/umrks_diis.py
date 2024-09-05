@@ -17,9 +17,9 @@ from cadft.utils.env_var import DATA_PATH, DATA_SAVE_PATH
 from cadft.utils.diis import DIIS
 from cadft.utils.DataBase import process_input
 
-# from pyscf.cc import uccsd_t_lambda_slow as ccsd_t_lambda
-# from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
-# from pyscf.cc import uccsd_t_slow as uccsd_t
+from pyscf.cc import uccsd_t_lambda as uccsd_t_lambda
+from pyscf.cc import uccsd_t_rdm as uccsd_t_rdm
+from pyscf.cc import uccsd_t as uccsd_t
 from pyscf.cc import uccsd_rdm
 from pyscf.cc.uccsd_t_rdm import _gamma1_intermediates
 from pyscf.cc.uccsd_t_rdm import _gamma2_intermediates
@@ -33,6 +33,8 @@ def umrks_diis(
     load_inv=True,
     diis_n=15,
     vxc_inv=None,
+    max_inv_step=2500,
+    cc_triple=False,
 ):
     """
     Generate 1-RDM.
@@ -50,9 +52,12 @@ def umrks_diis(
     mdft.stability(external=True)
     dm1_dft = mdft.make_rdm1(ao_repr=True)
 
+    mf = pyscf.scf.UHF(self.mol)
+    mf.kernel()
+    mf.stability(external=True)
+
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
     mo = mf.mo_coeff
-    mo_cc = mycc.mo_coeff
     nocc = self.mol.nelec
     nao = self.mol.nao
     print(f"nocc: {nocc}")
@@ -104,19 +109,6 @@ def umrks_diis(
         """
         return new * (1 - frac_old_) + old * frac_old_
 
-    rho_cc_half0 = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc[0]) + 1e-14
-    rho_cc_half1 = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc[1]) + 1e-14
-    rho_cc = np.array([rho_cc_half0, rho_cc_half1])
-    print(np.sum(rho_cc_half0 * weights), np.sum(rho_cc_half1 * weights))
-    if np.sum(rho_cc_half0 * weights) < 1e-7:
-        self.spin_list = [1]
-        print("Warning: rho_cc_half0 is zero.")
-    elif np.sum(rho_cc_half1 * weights) < 1e-7:
-        self.spin_list = [0]
-        print("Warning: rho_cc_half1 is zero.")
-    else:
-        self.spin_list = [0, 1]
-
     if load_inv and Path(self.data_save_path / "exc_grids.npy").exists():
         print("Load data from saved_data: exc_grids, exc_over_rho_grids.")
         exc_grids = np.load(self.data_save_path / "exc_grids.npy")
@@ -131,9 +123,6 @@ def umrks_diis(
             dm1_cc = np.load(self.data_save_path / "dm1_cc.npy")
             e_cc = np.load(self.data_save_path / "e_cc.npy")
         else:
-            mf = pyscf.scf.UHF(self.mol)
-            mf.kernel()
-            mf.stability(external=True)
             mycc = pyscf.cc.UCCSD(mf)
             mycc.direct = True
             mycc.incore_complete = True
@@ -143,11 +132,11 @@ def umrks_diis(
             _, t1, t2 = mycc.kernel()
             if cc_triple:
                 eris = mycc.ao2mo()
-                e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
+                e3ref = uccsd_t.kernel(mycc, eris, t1, t2)
                 e_cc = mycc.e_tot + e3ref
                 print(f"CCSD(T) correlation energy: {e3ref:.8f}")
-                l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
-                dm1_cc = ccsd_t_rdm.make_rdm1(
+                l1, l2 = uccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
+                dm1_cc = uccsd_t_rdm.make_rdm1(
                     mycc, t1, t2, l1, l2, eris=eris, ao_repr=True
                 )
             else:
@@ -155,6 +144,19 @@ def umrks_diis(
                 e_cc = mycc.e_tot
             np.save(self.data_save_path / "dm1_cc.npy", dm1_cc)
             np.save(self.data_save_path / "e_cc.npy", e_cc)
+
+        rho_cc_half0 = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc[0]) + 1e-14
+        rho_cc_half1 = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc[1]) + 1e-14
+        rho_cc = np.array([rho_cc_half0, rho_cc_half1])
+        print(np.sum(rho_cc_half0 * weights), np.sum(rho_cc_half1 * weights))
+        if np.sum(rho_cc_half0 * weights) < 1e-7:
+            self.spin_list = [1]
+            print("Warning: rho_cc_half0 is zero.")
+        elif np.sum(rho_cc_half1 * weights) < 1e-7:
+            self.spin_list = [0]
+            print("Warning: rho_cc_half1 is zero.")
+        else:
+            self.spin_list = [0, 1]
     else:
         mf = pyscf.scf.UHF(self.mol)
         mf.kernel()
@@ -163,13 +165,45 @@ def umrks_diis(
         mycc.direct = True
         mycc.incore_complete = True
         mycc.async_io = False
-        mycc.kernel()
 
-        dm1_cc = np.array(mycc.make_rdm1(ao_repr=True))
-        e_cc = mycc.e_tot
+        _, t1, t2 = mycc.kernel()
+        if cc_triple:
+            eris = mycc.ao2mo()
+            e3ref = uccsd_t.kernel(mycc, eris, t1, t2)
+            e_cc = mycc.e_tot + e3ref
+            print(f"CCSD(T) correlation energy: {e3ref:.8f}")
+            l1, l2 = uccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
+            dm1_cc = uccsd_t_rdm.make_rdm1(
+                mycc, t1, t2, l1, l2, eris=eris, ao_repr=True
+            )
+        else:
+            dm1_cc = mycc.make_rdm1(ao_repr=True)
+            e_cc = mycc.e_tot
+
+        rho_cc_half0 = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc[0]) + 1e-14
+        rho_cc_half1 = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc[1]) + 1e-14
+        rho_cc = np.array([rho_cc_half0, rho_cc_half1])
+        print(np.sum(rho_cc_half0 * weights), np.sum(rho_cc_half1 * weights))
+        if np.sum(rho_cc_half0 * weights) < 1e-7:
+            self.spin_list = [1]
+            print("Warning: rho_cc_half0 is zero.")
+        elif np.sum(rho_cc_half1 * weights) < 1e-7:
+            self.spin_list = [0]
+            print("Warning: rho_cc_half1 is zero.")
+        else:
+            self.spin_list = [0, 1]
 
         print("Calculating exc_grids")
+
         dm2_cc = mycc.make_rdm2(ao_repr=True)
+        if cc_triple:
+            d1 = _gamma1_intermediates(mycc, t1, t2, l1, l2, eris)
+            d2 = _gamma2_intermediates(mycc, t1, t2, l1, l2, eris)
+            dm2_cc = uccsd_rdm._make_rdm2(mycc, d1, d2, True, True, ao_repr=True)
+            del d1, d2
+        else:
+            dm2_cc = mycc.make_rdm2(ao_repr=True)
+
         exc_grids = np.zeros_like(rho_cc)
         exc_over_rho_grids = np.zeros_like(rho_cc)
         for i_spin in self.spin_list:
@@ -262,8 +296,15 @@ def umrks_diis(
         nmob = mo_b.shape[1]
         print(f"nmoa: {nmoa}, nmob: {nmob}")
 
-        dm1_cc_mo = mycc.make_rdm1()
-        dm2_cc_mo = mycc.make_rdm2()
+        if cc_triple:
+            dm1_cc_mo = uccsd_t_rdm.make_rdm1(
+                mycc, t1, t2, l1, l2, eris=eris, ao_repr=False
+            )
+            dm2_cc_mo = uccsd_t_rdm.make_rdm2(mycc, t1, t2, l1, l2, eris=eris)
+        else:
+            dm1_cc_mo = mycc.make_rdm1(ao_repr=False)
+            dm2_cc_mo = mycc.make_rdm2(ao_repr=False)
+
         eriaa = pyscf.ao2mo.kernel(mf._eri, mo_a, compact=False).reshape([nmoa] * 4)
         eribb = pyscf.ao2mo.kernel(mf._eri, mo_b, compact=False).reshape([nmob] * 4)
         eriab = pyscf.ao2mo.kernel(mf._eri, (mo_a, mo_a, mo_b, mo_b), compact=False)
@@ -275,93 +316,89 @@ def umrks_diis(
         for i_spin in self.spin_list:
             h1_mo = np.einsum("ab,ai,bj->ij", h1e, mo[i_spin], mo[i_spin])
             generalized_fock = dm1_cc_mo[i_spin] @ h1_mo
-            if i_spin == 0:
-                generalized_fock += oe.contract(
-                    "aijk,bijk->ba",
-                    dm2_cc_mo[2 * i_spin],
-                    eri_mo[2 * i_spin],
+
+            for a_batch, b_batch, i_batch, j_batch, k_batch in product(
+                range(n_batchs),
+                range(n_batchs),
+                range(n_batchs),
+                range(n_batchs),
+                range(n_batchs),
+            ):
+                print(f"Batch: {a_batch, b_batch, i_batch, j_batch, k_batch}")
+                nao_slice_a = (
+                    n_slices
+                    if a_batch != n_batchs - 1
+                    else self.mol.nao - n_slices * a_batch
                 )
-                generalized_fock += oe.contract(
-                    "aijk,bijk->ba",
-                    dm2_cc_mo[1],
-                    eri_mo[1],
+                nao_slice_b = (
+                    n_slices
+                    if b_batch != n_batchs - 1
+                    else self.mol.nao - n_slices * b_batch
                 )
-            else:
-                generalized_fock += oe.contract(
-                    "jkai,jkbi->ba",
-                    dm2_cc_mo[2 * i_spin],
-                    eri_mo[2 * i_spin],
+                nao_slice_i = (
+                    n_slices
+                    if i_batch != n_batchs - 1
+                    else self.mol.nao - n_slices * i_batch
                 )
-                generalized_fock += oe.contract(
-                    "jkai,jkbi->ba",
-                    dm2_cc_mo[1],
-                    eri_mo[1],
+                nao_slice_j = (
+                    n_slices
+                    if j_batch != n_batchs - 1
+                    else self.mol.nao - n_slices * j_batch
+                )
+                nao_slice_k = (
+                    n_slices
+                    if k_batch != n_batchs - 1
+                    else self.mol.nao - n_slices * k_batch
                 )
 
-            # for a_batch, b_batch, i_batch, j_batch, k_batch in product(
-            #     range(n_batchs),
-            #     range(n_batchs),
-            #     range(n_batchs),
-            #     range(n_batchs),
-            #     range(n_batchs),
-            # ):
-            #     print(f"Batch: {a_batch, b_batch, i_batch, j_batch, k_batch}")
-            #     nao_slice_a = (
-            #         n_slices
-            #         if a_batch != n_batchs - 1
-            #         else self.mol.nao - n_slices * a_batch
-            #     )
-            #     nao_slice_b = (
-            #         n_slices
-            #         if b_batch != n_batchs - 1
-            #         else self.mol.nao - n_slices * b_batch
-            #     )
-            #     nao_slice_i = (
-            #         n_slices
-            #         if i_batch != n_batchs - 1
-            #         else self.mol.nao - n_slices * i_batch
-            #     )
-            #     nao_slice_j = (
-            #         n_slices
-            #         if j_batch != n_batchs - 1
-            #         else self.mol.nao - n_slices * j_batch
-            #     )
-            #     nao_slice_k = (
-            #         n_slices
-            #         if k_batch != n_batchs - 1
-            #         else self.mol.nao - n_slices * k_batch
-            #     )
+                a_slice = slice(n_slices * a_batch, n_slices * a_batch + nao_slice_a)
+                b_slice = slice(n_slices * b_batch, n_slices * b_batch + nao_slice_b)
+                i_slice = slice(n_slices * i_batch, n_slices * i_batch + nao_slice_i)
+                j_slice = slice(n_slices * j_batch, n_slices * j_batch + nao_slice_j)
+                k_slice = slice(n_slices * k_batch, n_slices * k_batch + nao_slice_k)
 
-            #     a_slice = slice(n_slices * a_batch, n_slices * a_batch + nao_slice_a)
-            #     b_slice = slice(n_slices * b_batch, n_slices * b_batch + nao_slice_b)
-            #     i_slice = slice(n_slices * i_batch, n_slices * i_batch + nao_slice_i)
-            #     j_slice = slice(n_slices * j_batch, n_slices * j_batch + nao_slice_j)
-            #     k_slice = slice(n_slices * k_batch, n_slices * k_batch + nao_slice_k)
+                if i_spin == 0:
+                    expr_dm2_cc = oe.contract_expression(
+                        "aijk,bijk->ba",
+                        (nao_slice_a, nao_slice_i, nao_slice_j, nao_slice_k),
+                        (nao_slice_b, nao_slice_i, nao_slice_j, nao_slice_k),
+                        optimize="optimal",
+                    )
+                    generalized_fock[b_slice, a_slice] += expr_dm2_cc(
+                        dm2_cc_mo[0][a_slice, i_slice, j_slice, k_slice],
+                        eri_mo[0][b_slice, i_slice, j_slice, k_slice],
+                        backend="torch",
+                    )
+                    generalized_fock[b_slice, a_slice] += expr_dm2_cc(
+                        dm2_cc_mo[1][a_slice, i_slice, j_slice, k_slice],
+                        eri_mo[1][b_slice, i_slice, j_slice, k_slice],
+                        backend="torch",
+                    )
+                else:
+                    expr_dm2_cc = oe.contract_expression(
+                        "jkai,jkbi->ba",
+                        (nao_slice_a, nao_slice_i, nao_slice_j, nao_slice_k),
+                        (nao_slice_b, nao_slice_i, nao_slice_j, nao_slice_k),
+                        optimize="optimal",
+                    )
+                    generalized_fock[b_slice, a_slice] += expr_dm2_cc(
+                        dm2_cc_mo[2][a_slice, i_slice, j_slice, k_slice],
+                        eri_mo[2][b_slice, i_slice, j_slice, k_slice],
+                        backend="torch",
+                    )
+                    generalized_fock[b_slice, a_slice] += expr_dm2_cc(
+                        dm2_cc_mo[1][a_slice, i_slice, j_slice, k_slice],
+                        eri_mo[1][b_slice, i_slice, j_slice, k_slice],
+                        backend="torch",
+                    )
 
-            #     expr_dm2_cc = oe.contract_expression(
-            #         "aijk,bijk->ba",
-            #         (nao_slice_a, nao_slice_i, nao_slice_j, nao_slice_k),
-            #         (nao_slice_b, nao_slice_i, nao_slice_j, nao_slice_k),
-            #         optimize="optimal",
-            #     )
-            #     generalized_fock[b_slice, a_slice] += expr_dm2_cc(
-            #         dm2_cc_mo[1][a_slice, i_slice, j_slice, k_slice],
-            #         eri_mo[2 * i_spin + 1][b_slice, i_slice, j_slice, k_slice],
-            #         backend="torch",
-            #     )
-            #     # generalized_fock[b_slice, a_slice] += expr_dm2_cc(
-            #     #     dm2_cc_mo[2 * i_spin][a_slice, i_slice, j_slice, k_slice],
-            #     #     eri_mo[2 * i_spin][b_slice, i_slice, j_slice, k_slice],
-            #     #     backend="torch",
-            #     # )
-
-            #     del expr_dm2_cc
-            #     gc.collect()
-            #     torch.cuda.empty_cache()
+                del expr_dm2_cc
+                gc.collect()
+                torch.cuda.empty_cache()
 
             generalized_fock = 0.5 * (generalized_fock + generalized_fock.T)
             eig_e, eig_v = np.linalg.eigh(generalized_fock)
-            eig_v = mo_cc[i_spin] @ eig_v
+            eig_v = mo[i_spin] @ eig_v
 
             expr_e_bar_r_wf = oe.contract_expression(
                 "i,mi,ni,pm,pn->p",
@@ -389,7 +426,7 @@ def umrks_diis(
 
         for i_spin in self.spin_list:
             eigs_e_dm1, eigs_v_dm1 = LA.eigh(dm1_cc_mo[i_spin])
-            eigs_v_dm1 = mo_cc[i_spin] @ eigs_v_dm1
+            eigs_v_dm1 = mo[i_spin] @ eigs_v_dm1
 
             taup_rho_wf[i_spin] = gen_taup_rho(
                 rho_cc[i_spin],
@@ -426,7 +463,8 @@ def umrks_diis(
     )
     int1e_grids = self.mol.intor("int1e_grids", grids=coords)
 
-    if load_inv and Path(self.data_save_path / "dm1_inv.npy").exists():
+    # if load_inv and Path(self.data_save_path / "dm1_inv.npy").exists():
+    if False:
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
         dm1_inv = np.load(self.data_save_path / "dm1_inv.npy")
         vxc_inv = np.load(self.data_save_path / "vxc_inv.npy")
@@ -492,7 +530,7 @@ def umrks_diis(
 
         diis = (DIIS(self.mol.nao, n=diis_n), DIIS(self.mol.nao, n=diis_n))
 
-        for i in range(250):
+        for i in range(max_inv_step):
             dm1_inv_r = np.array(
                 [
                     pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_inv[0]) + 1e-14,
@@ -801,19 +839,6 @@ def umrks_diis(
         (hcore_vj_energy + np.sum(exc_over_rho_grids * rho_inv * weights) + kin_correct)
         - e_cc
     )
-    save_data["energy_cc_real"] = AU2KJMOL * (
-        (
-            np.sum(h1e * (dm1_cc[0] + dm1_cc[1]))
-            + 0.5
-            * np.sum(
-                mf.get_jk(self.mol, dm1_cc[0] + dm1_cc[1], 1)[0]
-                * (dm1_cc[0] + dm1_cc[1])
-            )
-            + self.mol.energy_nuc()
-            + np.sum(exc_over_rho_grids * rho_cc * weights)
-        )
-        - e_cc
-    )
 
     error_inv_r = np.sum(np.abs(rho_inv - rho_cc) * weights)
     error_dft_r = np.sum(np.abs(rho_dft - rho_cc) * weights)
@@ -891,10 +916,10 @@ def umrks_diis(
                 exc_over_rho_grids[i_spin]
                 + (tau_rho_wf[i_spin] - tau_rho_ks[i_spin]) / rho_inv[i_spin]
             ),
-            vxc1_lda=grids.vector_to_matrix(vxc_inv - evxc_lda[1][0]),
+            vxc1_lda=grids.vector_to_matrix(vxc_inv[i_spin] - evxc_lda[1][0]),
             exc1_tr_lda=grids.vector_to_matrix(
-                exc_over_rho_grids_fake1
-                + (tau_rho_wf - tau_rho_ks) / rho_inv[i_spin]
+                exc_over_rho_grids_fake1[i_spin]
+                + (tau_rho_wf[i_spin] - tau_rho_ks[i_spin]) / rho_inv[i_spin]
                 - evxc_lda[0]
             ),
             rho_inv_4_norm=data_grids_norm,
