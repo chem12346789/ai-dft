@@ -94,7 +94,10 @@ def test_rks_pyscf(
 
     mdft.get_veff = types.MethodType(get_veff, mdft)
     mdft.xc = "lda,vwn"
-    mdft.conv_tol = 1e-6
+    if args.precision == "float32":
+        mdft.conv_tol = 1e-5
+    elif args.precision == "float64":
+        mdft.conv_tol = 1e-8
     mdft.diis_space = n_diis
     mdft.max_cycle = 250
     mdft.level_shift = 0
