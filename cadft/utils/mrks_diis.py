@@ -17,14 +17,13 @@ from pyscf.cc import ccsd_rdm
 from pyscf.cc.ccsd_t_rdm_slow import _gamma1_intermediates
 from pyscf.cc.ccsd_t_rdm_slow import _gamma2_intermediates
 
-from cadft.utils.gen_tau import gen_taup_rho, gen_taul_rho, gen_tau_rho
+from cadft.utils.gen_tau import gen_taup_rho, gen_tau_rho
 from cadft.utils.Grids import Grid
 from cadft.utils.env_var import DATA_PATH, DATA_SAVE_PATH
 from cadft.utils.diis import DIIS
 from cadft.utils.DataBase import process_input
 
 AU2KJMOL = 2625.5
-CCSDT = False
 
 
 def mrks_diis(
@@ -34,6 +33,7 @@ def mrks_diis(
     diis_n=15,
     vxc_inv=None,
     max_inv_step=2500,
+    cc_triple=False,
 ):
     """
     Generate 1-RDM.
@@ -46,27 +46,8 @@ def mrks_diis(
     mdft.xc = "b3lyp"
     mdft.kernel()
 
-    mf = pyscf.scf.RHF(self.mol)
-    mf.kernel()
-    mycc = pyscf.cc.CCSD(mf)
-    mycc.direct = True
-    mycc.incore_complete = True
-    mycc.async_io = False
-
-    _, t1, t2 = mycc.kernel()
-    if CCSDT:
-        eris = mycc.ao2mo()
-        e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
-        e_cc = mycc.e_tot + e3ref
-        print(f"CCSD(T) correlation energy: {e3ref:.8f}")
-        l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
-        dm1_cc = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris, ao_repr=True)
-    else:
-        dm1_cc = mycc.make_rdm1(ao_repr=True)
-        e_cc = mycc.e_tot
-
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
-    mo = mf.mo_coeff
+    mo = mdft.mo_coeff
     nocc = self.mol.nelec[0]
     norb = mo.shape[1]
     print(h1e.shape)
@@ -102,14 +83,6 @@ def mrks_diis(
         optimize="optimal",
     )
 
-    oe_taul_rho = oe.contract_expression(
-        "n,kpn->pk",
-        (norb,),
-        ao_1,
-        constants=[1],
-        optimize="optimal",
-    )
-
     oe_tau_rho = oe.contract_expression(
         "pm,m,n,pn->p",
         ao_0,
@@ -133,9 +106,60 @@ def mrks_diis(
         print("Load data from saved_data: exc_grids, exc_over_rho_grids.")
         exc_grids = np.load(self.data_save_path / "exc_grids.npy")
         exc_over_rho_grids = np.load(self.data_save_path / "exc_over_rho_grids.npy")
+        print("Load data from saved_data: emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
+        emax = np.load(self.data_save_path / "emax.npy")
+        taup_rho_wf = np.load(self.data_save_path / "taup_rho_wf.npy")
+        tau_rho_wf = np.load(self.data_save_path / "tau_rho_wf.npy")
+        v_vxc_e_taup = np.load(self.data_save_path / "v_vxc_e_taup.npy")
+
+        if load_inv and Path(self.data_save_path / "dm1_cc.npy").exists():
+            dm1_cc = np.load(self.data_save_path / "dm1_cc.npy")
+            e_cc = np.load(self.data_save_path / "e_cc.npy")
+        else:
+            mf = pyscf.scf.RHF(self.mol)
+            mf.kernel()
+            mycc = pyscf.cc.CCSD(mf)
+            mycc.direct = True
+            mycc.incore_complete = True
+            mycc.async_io = False
+
+            _, t1, t2 = mycc.kernel()
+            if cc_triple:
+                eris = mycc.ao2mo()
+                e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
+                e_cc = mycc.e_tot + e3ref
+                print(f"CCSD(T) correlation energy: {e3ref:.8f}")
+                l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
+                dm1_cc = ccsd_t_rdm.make_rdm1(
+                    mycc, t1, t2, l1, l2, eris=eris, ao_repr=True
+                )
+            else:
+                dm1_cc = mycc.make_rdm1(ao_repr=True)
+                e_cc = mycc.e_tot
+            np.save(self.data_save_path / "dm1_cc.npy", dm1_cc)
+            np.save(self.data_save_path / "e_cc.npy", e_cc)
     else:
+        mf = pyscf.scf.RHF(self.mol)
+        mf.kernel()
+        mycc = pyscf.cc.CCSD(mf)
+        mycc.direct = True
+        mycc.incore_complete = True
+        mycc.async_io = False
+
+        _, t1, t2 = mycc.kernel()
+        if cc_triple:
+            eris = mycc.ao2mo()
+            e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
+            e_cc = mycc.e_tot + e3ref
+            print(f"CCSD(T) correlation energy: {e3ref:.8f}")
+            l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
+            dm1_cc = ccsd_t_rdm.make_rdm1(mycc, t1, t2, l1, l2, eris=eris, ao_repr=True)
+        else:
+            dm1_cc = mycc.make_rdm1(ao_repr=True)
+            e_cc = mycc.e_tot
+
         print("Calculating exc_grids")
-        if CCSDT:
+        if cc_triple:
             d1 = _gamma1_intermediates(mycc, t1, t2, l1, l2, eris)
             d2 = _gamma2_intermediates(mycc, t1, t2, l1, l2, eris)
             dm2_cc = ccsd_rdm._make_rdm2(mycc, d1, d2, True, True, ao_repr=True)
@@ -222,15 +246,10 @@ def mrks_diis(
 
         np.save(self.data_save_path / "exc_grids.npy", exc_grids)
         np.save(self.data_save_path / "exc_over_rho_grids.npy", exc_over_rho_grids)
+        np.save(self.data_save_path / "dm1_cc.npy", dm1_cc)
+        np.save(self.data_save_path / "e_cc.npy", e_cc)
 
-    if load_inv and Path(self.data_save_path / "emax.npy").exists():
-        print("Load data from saved_data: emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
-        emax = np.load(self.data_save_path / "emax.npy")
-        taup_rho_wf = np.load(self.data_save_path / "taup_rho_wf.npy")
-        tau_rho_wf = np.load(self.data_save_path / "tau_rho_wf.npy")
-        v_vxc_e_taup = np.load(self.data_save_path / "v_vxc_e_taup.npy")
-    else:
-        if CCSDT:
+        if cc_triple:
             dm1_cc_mo = ccsd_t_rdm.make_rdm1(
                 mycc, t1, t2, l1, l2, eris=eris, ao_repr=False
             )
