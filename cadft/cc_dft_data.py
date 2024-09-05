@@ -144,6 +144,32 @@ class CC_DFT_DATA:
                 self.dm1_hf = data_saved["dm1_hf"]
                 self.grad_ccsd = data_saved["grad_ccsd"]
                 self.grad_dft = data_saved["grad_dft"]
+                time_start = timer()
+                mdft = pyscf.scf.RKS(self.mol)
+                mdft.xc = "b3lyp"
+                mdft.max_cycle = 2500
+                mdft.grids.level = 1
+                mdft.kernel()
+                g = mdft.nuc_grad_method()
+                self.grad_dft = g.kernel()
+                self.dm1_dft = mdft.make_rdm1(ao_repr=True)
+                self.e_dft = mdft.e_tot
+                self.time_dft = timer() - time_start
+                np.savez_compressed(
+                    Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
+                    dm1_cc=self.dm1_cc,
+                    e_cc=self.e_cc,
+                    grad_ccsd=self.grad_ccsd,
+                    time_cc=self.time_cc,
+                    dm1_dft=self.dm1_dft,
+                    e_dft=self.e_dft,
+                    grad_dft=self.grad_dft,
+                    time_dft=self.time_dft,
+                    h1e=self.h1e,
+                    mat_s=self.mat_s,
+                    mat_hs=self.mat_hs,
+                    dm1_hf=self.dm1_hf,
+                )
                 return
 
         print(f"Generate data for {self.name}")
@@ -171,7 +197,6 @@ class CC_DFT_DATA:
         mdft.kernel()
         g = mdft.nuc_grad_method()
         self.grad_dft = g.kernel()
-
         self.dm1_dft = mdft.make_rdm1(ao_repr=True)
         self.e_dft = mdft.e_tot
         self.time_dft = timer() - time_start
