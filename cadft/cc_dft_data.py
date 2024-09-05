@@ -165,7 +165,7 @@ class CC_DFT_DATA:
 
         time_start = timer()
         mdft = pyscf.scf.RKS(self.mol)
-        mdft.xc = "lda,vwn"
+        mdft.xc = "b3lyp"
         mdft.max_cycle = 2500
         mdft.grids.level = 1
         mdft.kernel()

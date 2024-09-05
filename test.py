@@ -106,14 +106,6 @@ if __name__ == "__main__":
             test_uks(args, molecular, name, modeldict, df_dict)
         else:
             # dm_guess = test_rks(
-            #     args,
-            #     molecular,
-            #     name,
-            #     modeldict,
-            #     df_dict,
-            #     n_diis=N_DIIS,
-            #     dm_guess=dm_guess,
-            # )
             dm_guess = test_rks_pyscf(
                 args,
                 molecular,
