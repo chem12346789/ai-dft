@@ -17,6 +17,13 @@ from cadft.utils.env_var import DATA_PATH, DATA_SAVE_PATH
 from cadft.utils.diis import DIIS
 from cadft.utils.DataBase import process_input
 
+# from pyscf.cc import uccsd_t_lambda_slow as ccsd_t_lambda
+# from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
+# from pyscf.cc import uccsd_t_slow as uccsd_t
+from pyscf.cc import uccsd_rdm
+from pyscf.cc.uccsd_t_rdm import _gamma1_intermediates
+from pyscf.cc.uccsd_t_rdm import _gamma2_intermediates
+
 AU2KJMOL = 2625.5
 
 
@@ -43,19 +50,6 @@ def umrks_diis(
     mdft.stability(external=True)
     dm1_dft = mdft.make_rdm1(ao_repr=True)
 
-    mf = pyscf.scf.UHF(self.mol)
-    mf.kernel()
-    mf.stability(external=True)
-    # mycc = pyscf.ci.UCISD(mf)
-    mycc = pyscf.cc.UCCSD(mf)
-    mycc.max_cycle = 100
-    mycc.conv_tol = 1e-8
-    mycc.conv_tol_normt = 1e-8
-    # mycc.direct = True
-    # mycc.incore_complete = True
-    # mycc.async_io = False
-    mycc.kernel()
-
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
     mo = mf.mo_coeff
     mo_cc = mycc.mo_coeff
@@ -67,9 +61,6 @@ def umrks_diis(
 
     mat_s = self.mol.intor("int1e_ovlp")
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
-
-    dm1_cc = np.array(mycc.make_rdm1(ao_repr=True))
-    e_cc = mycc.e_tot
 
     grids = Grid(self.mol)
     coords = grids.coords
@@ -130,7 +121,53 @@ def umrks_diis(
         print("Load data from saved_data: exc_grids, exc_over_rho_grids.")
         exc_grids = np.load(self.data_save_path / "exc_grids.npy")
         exc_over_rho_grids = np.load(self.data_save_path / "exc_over_rho_grids.npy")
+        print("Load data from saved_data: emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
+        emax = np.load(self.data_save_path / "emax.npy")
+        taup_rho_wf = np.load(self.data_save_path / "taup_rho_wf.npy")
+        tau_rho_wf = np.load(self.data_save_path / "tau_rho_wf.npy")
+        v_vxc_e_taup = np.load(self.data_save_path / "v_vxc_e_taup.npy")
+
+        if load_inv and Path(self.data_save_path / "dm1_cc.npy").exists():
+            dm1_cc = np.load(self.data_save_path / "dm1_cc.npy")
+            e_cc = np.load(self.data_save_path / "e_cc.npy")
+        else:
+            mf = pyscf.scf.UHF(self.mol)
+            mf.kernel()
+            mf.stability(external=True)
+            mycc = pyscf.cc.UCCSD(mf)
+            mycc.direct = True
+            mycc.incore_complete = True
+            mycc.async_io = False
+            mycc.kernel()
+
+            _, t1, t2 = mycc.kernel()
+            if cc_triple:
+                eris = mycc.ao2mo()
+                e3ref = ccsd_t.kernel(mycc, eris, t1, t2)
+                e_cc = mycc.e_tot + e3ref
+                print(f"CCSD(T) correlation energy: {e3ref:.8f}")
+                l1, l2 = ccsd_t_lambda.kernel(mycc, eris, t1, t2)[1:]
+                dm1_cc = ccsd_t_rdm.make_rdm1(
+                    mycc, t1, t2, l1, l2, eris=eris, ao_repr=True
+                )
+            else:
+                dm1_cc = mycc.make_rdm1(ao_repr=True)
+                e_cc = mycc.e_tot
+            np.save(self.data_save_path / "dm1_cc.npy", dm1_cc)
+            np.save(self.data_save_path / "e_cc.npy", e_cc)
     else:
+        mf = pyscf.scf.UHF(self.mol)
+        mf.kernel()
+        mf.stability(external=True)
+        mycc = pyscf.cc.UCCSD(mf)
+        mycc.direct = True
+        mycc.incore_complete = True
+        mycc.async_io = False
+        mycc.kernel()
+
+        dm1_cc = np.array(mycc.make_rdm1(ao_repr=True))
+        e_cc = mycc.e_tot
+
         print("Calculating exc_grids")
         dm2_cc = mycc.make_rdm2(ao_repr=True)
         exc_grids = np.zeros_like(rho_cc)
@@ -219,14 +256,6 @@ def umrks_diis(
         np.save(self.data_save_path / "exc_grids.npy", exc_grids)
         np.save(self.data_save_path / "exc_over_rho_grids.npy", exc_over_rho_grids)
 
-    # if False:
-    if load_inv and Path(self.data_save_path / "emax.npy").exists():
-        print("Load data from saved_data: emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
-        emax = np.load(self.data_save_path / "emax.npy")
-        taup_rho_wf = np.load(self.data_save_path / "taup_rho_wf.npy")
-        tau_rho_wf = np.load(self.data_save_path / "tau_rho_wf.npy")
-        v_vxc_e_taup = np.load(self.data_save_path / "v_vxc_e_taup.npy")
-    else:
         mo_a = mf.mo_coeff[0]
         mo_b = mf.mo_coeff[1]
         nmoa = mo_a.shape[1]

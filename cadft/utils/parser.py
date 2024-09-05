@@ -87,7 +87,7 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--cc_triple",
         type=str2bool,
-        default="False",
+        default="False", 
         help="Weather to use the noniterative CCSD(T) in the coupled cluster method. Default is False.",
     )
 
