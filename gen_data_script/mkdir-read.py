@@ -59,7 +59,7 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     ],
     ["cc-pCVTZ"],
     [
-        (-0.5, 2.5, 31),
+        (1.1, 2.5, 15),
         # (2.4, 2.5, 2),
         # (1.5, 2.0, 6),
     ],

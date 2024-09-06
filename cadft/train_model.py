@@ -106,11 +106,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             train_loss_3,
         ) = modeldict.train_model(database_train)
         for key in modeldict.keys:
-            if not isinstance(
-                modeldict.scheduler_dict[key],
-                torch.optim.lr_scheduler.ReduceLROnPlateau,
-            ):
-                modeldict.scheduler_dict[key].step()
+            modeldict.scheduler_dict[key].step()
 
         if epoch % args.eval_step == 0:
             (
@@ -119,14 +115,6 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 eval_loss_2,
                 eval_loss_3,
             ) = modeldict.eval_model(database_eval)
-            for i, key in enumerate(modeldict.keys):
-                if isinstance(
-                    modeldict.scheduler_dict[key],
-                    torch.optim.lr_scheduler.ReduceLROnPlateau,
-                ):
-                    modeldict.scheduler_dict[key].step(
-                        np.mean([eval_loss_1, eval_loss_2][i])
-                    )
 
             experiment_dict = {
                 "epoch": epoch,

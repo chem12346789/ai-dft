@@ -42,10 +42,23 @@ for (
         spin=SPIN,
     )
 
+    # if abs(distance) >= 2.0:
+    #     FACTOR = 0.75
+    #     DIIS_N = 50
+    # elif abs(distance) >= 1.5:
+    #     FACTOR = 0.5
+    #     DIIS_N = 50
+    # else:
+    #     FACTOR = 0
+    #     DIIS_N = 20
+
     if abs(distance) >= 2.0:
-        FACTOR = 0.75
+        FACTOR = 0.875
         DIIS_N = 50
     elif abs(distance) >= 1.5:
+        FACTOR = 0.75
+        DIIS_N = 50
+    elif abs(distance) >= 1.0:
         FACTOR = 0.5
         DIIS_N = 50
     else:

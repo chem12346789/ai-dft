@@ -3,7 +3,7 @@
 #slurm options
 #SBATCH -n 2
 #SBATCH -p gpu
-# SBATCH --nodelist=gpu04
+#SBATCH --nodelist=gpu06
 #SBATCH -J train-ccdft-EVAL_STEP-INPUT_SIZE-HIDDEN_SIZE-OUTPUT_SIZE-NUM_LAYER-RESIDUAL-BATCH_SIZE-ENE_WEIGHT-POT_WEIGHT-WITH_EVAL
 #SBATCH -o log/%j.log
 

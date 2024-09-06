@@ -55,16 +55,17 @@ for (
     (pot_weight, ene_weight),
     with_eval,
 ) in itertools.product(
-    [16],
+    [32],
     [10],
     [
-        (1, 64, 1, 4, -1, "2024-09-03-23-01-24"),
+        (1, 64, 1, 4, -1, "New"),
     ],
     [
         (0, 1),
     ],
     [
-        "True",
+        # "True",
+        "False",
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
@@ -93,9 +94,9 @@ for child in (work_dir).glob("*.bash"):
             subprocess.call(cmd, shell=True, stdout=f)
 
         # Best time for ai training is 6 seconds (according to the HuaWei)
-        time.sleep(6)
-        time.sleep(6)
-        time.sleep(6)
-        time.sleep(6)
-        time.sleep(6)
-        time.sleep(6)
+        # time.sleep(6)
+        # time.sleep(6)
+        # time.sleep(6)
+        # time.sleep(6)
+        # time.sleep(6)
+        # time.sleep(6)

@@ -4,6 +4,8 @@ Generate list of model.
 
 from pathlib import Path
 import datetime
+import importlib.resources
+import os
 
 import numpy as np
 import torch
@@ -67,6 +69,17 @@ class ModelDict:
         else:
             self.dtype = torch.float64
 
+        with importlib.resources.path("cadft", "utils") as resource_path:
+            with open(
+                Path(os.fspath(resource_path)) / "ModelDict.py",
+                "r",
+                encoding="utf-8",
+            ) as fthis:
+                print(f"**** ModelDict file is {fthis} ****")
+                print(fthis.read())
+                print("******************** input file end ********************")
+                print("\n")
+
         self.dir_checkpoint = Path(
             CHECKPOINTS_PATH
             / f"checkpoint-ccdft_{datetime.datetime.today():%Y-%m-%d-%H-%M-%S}_{self.input_size}_{self.hidden_size}_{self.output_size}_{self.num_layers}_{self.residual}/"
@@ -109,27 +122,19 @@ class ModelDict:
             )
 
         for key in self.keys:
-            if self.with_eval:
-                self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
-                    self.optimizer_dict[key],
-                    mode="min",
-                    factor=0.5,
-                    patience=10,
-                )
-            else:
-                self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
-                    self.optimizer_dict[key],
-                    gamma=1.0,
-                )
+            self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
+                self.optimizer_dict[key],
+                gamma=1.0,
+            )
 
         self.loss_multiplier = 1.0
-        self.loss_fn1 = torch.nn.MSELoss()
-        self.loss_fn2 = torch.nn.MSELoss()
-        self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
+        # self.loss_fn1 = torch.nn.MSELoss()
+        # self.loss_fn2 = torch.nn.MSELoss()
+        # self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
 
-        # self.loss_fn1 = torch.nn.L1Loss()
-        # self.loss_fn2 = torch.nn.L1Loss()
-        # self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
+        self.loss_fn1 = torch.nn.L1Loss()
+        self.loss_fn2 = torch.nn.L1Loss()
+        self.loss_fn3 = torch.nn.L1Loss(reduction="sum")
 
     def load_model(self):
         """
@@ -311,7 +316,7 @@ class ModelDict:
                 torch.tensor([0.0], device=self.device),
             )
 
-            # self.zero_grad()
+            self.zero_grad()
 
             for batch in database_train.data_gpu[name]:
                 loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
