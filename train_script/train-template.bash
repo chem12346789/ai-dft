@@ -20,4 +20,4 @@ export PYSCF_MAX_MEMORY=80000
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
 export DATA_PATH=~/workdir/cadft/data/grids_mrks
 
-~/anaconda3/envs/pyscf/bin/python train.py -dl -0.5 2.5 31 -b cc-pCVTZ --extend_atom 0-1 0 0-2 --extend_xyz 0 --eval_step EVAL_STEP --batch_size BATCH_SIZE --epoch 25000 --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --pot_weight POT_WEIGHT --with_eval WITH_EVAL --load LOAD_MODEL
+~/anaconda3/envs/pyscf/bin/python train.py -dl -0.5 2.5 31 -b cc-pCVTZ --extend_atom 0-1 0 0-2 0-3 0.2-1.3 --extend_xyz 0 --eval_step EVAL_STEP --batch_size BATCH_SIZE --epoch 25000 --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --num_layer NUM_LAYER --residual RESIDUAL --precision float32 --ene_weight ENE_WEIGHT --pot_weight POT_WEIGHT --with_eval WITH_EVAL --load LOAD_MODEL

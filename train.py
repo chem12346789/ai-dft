@@ -13,7 +13,7 @@ TRAIN_STR_DICT = [
 ]
 EVAL_STR_DICT = [
     "propane",
-    # "propylene",
+    "propylene",
     # "propyne",
     # "butane",
     # "butyne",
