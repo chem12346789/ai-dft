@@ -122,10 +122,24 @@ class ModelDict:
             )
 
         for key in self.keys:
-            self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
-                self.optimizer_dict[key],
-                gamma=1.0,
-            )
+            if self.with_eval:
+                self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
+                    self.optimizer_dict[key],
+                    mode="min",
+                    factor=0.5,
+                    patience=10,
+                    verbose=True,
+                    threshold=1e-6,
+                    threshold_mode="rel",
+                    cooldown=0,
+                    min_lr=1e-8,
+                    eps=1e-8,
+                )
+            else:
+                self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
+                    self.optimizer_dict[key],
+                    gamma=1.0,
+                )
 
         self.loss_multiplier = 1.0
         # self.loss_fn1 = torch.nn.MSELoss()
@@ -351,7 +365,12 @@ class ModelDict:
 
             self.step()
 
-        return train_loss_0, train_loss_1, train_loss_2, train_loss_3
+        return (
+            np.array(train_loss_0),
+            np.array(train_loss_1),
+            np.array(train_loss_2),
+            np.array(train_loss_3),
+        )
 
     def eval_model(self, database_eval):
         """
@@ -387,7 +406,12 @@ class ModelDict:
             eval_loss_2.append(loss_2.item())
             eval_loss_3.append(loss_3.item())
 
-        return eval_loss_0, eval_loss_1, eval_loss_2, eval_loss_3
+        return (
+            np.array(eval_loss_0),
+            np.array(eval_loss_1),
+            np.array(eval_loss_2),
+            np.array(eval_loss_3),
+        )
 
     def get_v(self, scf_r_3, grids):
         """

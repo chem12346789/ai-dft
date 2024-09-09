@@ -23,14 +23,14 @@ number_of_gpu = sys.argv[1] if len(sys.argv) > 1 else 0
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
         # "methane",
-        "ethane",
-        "ethylene",
-        "acetylene",
-        # "propane",
-        # "cyclopropane",
-        # "cyclopropene",
-        # "propylene",
-        # "allene",
+        # "ethane",
+        # "ethylene",
+        # "acetylene",
+        "cyclopropane",
+        "cyclopropene",
+        "propane",
+        "propylene",
+        "allene",
         # "methyl-openshell",
         # "ethyl-openshell",
     ],
@@ -40,7 +40,7 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
         # (2.4, 2.5, 2),
         # (1.5, 2.0, 6),
     ],
-    ["0-2"],
+    ["0-3"],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/MOL/{mol}/g" {work_bash}"""
