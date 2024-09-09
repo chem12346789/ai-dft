@@ -78,12 +78,12 @@ def test_rks(
     for i in range(500):
         scf_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dm1_scf)
         if from_data:
+            middle_mat = data_real["vxc"]
+            vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
+        else:
             vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
             vxc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[1][0]
             vxc_scf += vxc_b3lyp
-        else:
-            middle_mat = data_real["vxc"]
-            vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
 
         vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights)
         vj_scf = mdft.get_j(dft2cc.mol, dm1_scf)
@@ -136,14 +136,14 @@ def test_rks(
         dm1_scf,
     )
     if from_data:
-        exc_scf = (
-            modeldict.get_e(scf_rho_r, dft2cc.grids)
-            + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[0]
-        )
-    else:
         output_mat = data_real["exc1_tr_lda"]
         exc_scf = (
             dft2cc.grids.matrix_to_vector(output_mat)
+            + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[0]
+        )
+    else:
+        exc_scf = (
+            modeldict.get_e(scf_rho_r, dft2cc.grids)
             + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[0]
         )
 

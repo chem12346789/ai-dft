@@ -82,16 +82,16 @@ def test_rks_pyscf(
         # exc_ene = np.sum(vexc_lda[0] * scf_rho_r * dft2cc.grids.weights)
 
         if from_data:
-            vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids) + vexc_lda[1][0]
-        else:
             middle_mat = data_real["vxc"]
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
+        else:
+            vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids) + vexc_lda[1][0]
 
         if from_data:
-            exc_scf = modeldict.get_e(scf_rho_r, dft2cc.grids) + vexc_lda[0]
-        else:
             output_mat = data_real["exc1_tr_lda"]
             exc_scf = dft2cc.grids.matrix_to_vector(output_mat) + vexc_lda[0]
+        else:
+            exc_scf = modeldict.get_e(scf_rho_r, dft2cc.grids) + vexc_lda[0]
         vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights)
         exc_ene = np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
 
@@ -138,10 +138,10 @@ def test_rks_pyscf(
         vexc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)
 
         if from_data:
-            vxc = modeldict.get_v(scf_rho_r, dft2cc.grids) + vexc_lda[1][0]
-        else:
             middle_mat = data_real["vxc"]
             vxc = dft2cc.grids.matrix_to_vector(middle_mat)
+        else:
+            vxc = modeldict.get_v(scf_rho_r, dft2cc.grids) + vexc_lda[1][0]
 
         wv = dft2cc.grids.weights * vxc
         aow = np.einsum("gi,g->gi", dft2cc.ao_1[0], wv)
