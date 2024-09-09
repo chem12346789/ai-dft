@@ -132,9 +132,22 @@ def test_uks(
     gc.collect()
     torch.cuda.empty_cache()
 
-    df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
+    if hasattr(dft2cc, "time_cc"):
+        print(
+            f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
+            flush=True,
+        )
+        df_dict["time_cc"].append(dft2cc.time_cc)
+        df_dict["time_dft"].append(dft2cc.time_dft)
+        df_dict["time_ai"].append(timer() - time_start)
+    else:
+        df_dict["time_cc"].append(-1)
+        df_dict["time_dft"].append(-1)
+        df_dict["time_ai"].append(timer() - time_start)
 
     # 2.3 check the difference of energy (total)
+    df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
+
     b3lyp_ene = 0
     for i_spin in range(2):
         exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[0]
