@@ -17,7 +17,7 @@ import numpy as np
 import opt_einsum as oe
 
 from cadft import CC_DFT_DATA, cc_dft_data
-from cadft.utils import MAIN_PATH
+from cadft.utils import MAIN_PATH, DATA_PATH
 from cadft.utils import calculate_density_dipole, calculate_force
 
 AU2KCALMOL = 627.5096080306
@@ -35,6 +35,10 @@ def test_rks_pyscf(
     """
     Test the model. Restrict Khon-Sham (no spin).
     """
+
+    from_data = getattr(args, "from_data", False)
+    require_grad = getattr(args, "require_grad", False)
+
     # 2.0 Prepare
     dft2cc = CC_DFT_DATA(
         molecular,
@@ -42,8 +46,15 @@ def test_rks_pyscf(
         basis=args.basis,
         if_basis_str=args.if_basis_str,
     )
-    dft2cc.test_mol()
+    dft2cc.test_mol(require_grad)
     mdft = pyscf.scf.RKS(dft2cc.mol)
+
+    if from_data:
+        if (DATA_PATH / f"data_{name}.npz").exists():
+            data_real = np.load(DATA_PATH / f"data_{name}.npz")
+        else:
+            print(f"No file: {name:>40}")
+            return
 
     # 2.1 SCF loop to get the density matrix
     time_start = timer()
@@ -70,10 +81,19 @@ def test_rks_pyscf(
         # vxc_mat = oe_fock(vexc_lda[1][0], dft2cc.grids.weights)
         # exc_ene = np.sum(vexc_lda[0] * scf_rho_r * dft2cc.grids.weights)
 
-        vxc = modeldict.get_v(scf_rho_r, dft2cc.grids)
-        vxc_mat = oe_fock(vxc + vexc_lda[1][0], dft2cc.grids.weights)
-        exc = modeldict.get_e(scf_rho_r, dft2cc.grids)
-        exc_ene = np.sum((exc + vexc_lda[0]) * scf_rho_r * dft2cc.grids.weights)
+        if from_data:
+            vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids) + vexc_lda[1][0]
+        else:
+            middle_mat = data_real["vxc"]
+            vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
+
+        if from_data:
+            exc_scf = modeldict.get_e(scf_rho_r, dft2cc.grids) + vexc_lda[0]
+        else:
+            output_mat = data_real["exc1_tr_lda"]
+            exc_scf = dft2cc.grids.matrix_to_vector(output_mat) + vexc_lda[0]
+        vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights)
+        exc_ene = np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
 
         vk = None
         if (
@@ -116,8 +136,13 @@ def test_rks_pyscf(
         # print("Using modified get_vxc", flush=True)
         scf_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dms)
         vexc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)
-        vxc = modeldict.get_v(scf_rho_r, dft2cc.grids)
-        vxc += vexc_lda[1][0]
+
+        if from_data:
+            vxc = modeldict.get_v(scf_rho_r, dft2cc.grids) + vexc_lda[1][0]
+        else:
+            middle_mat = data_real["vxc"]
+            vxc = dft2cc.grids.matrix_to_vector(middle_mat)
+
         wv = dft2cc.grids.weights * vxc
         aow = np.einsum("gi,g->gi", dft2cc.ao_1[0], wv)
         vmat = np.array([dft2cc.ao_1[i].T @ aow for i in range(1, 4)])
@@ -125,39 +150,47 @@ def test_rks_pyscf(
         # - sign because nabla_X = -nabla_x
         return exc, -vmat
 
-    def get_veff_grad(ks_grad, mol=None, dm=None):
-        """
-        Modification of the get_veff function in pyscf.grad.rks.py
-        https://pyscf.org/_modules/pyscf/grad/rks.html
-        """
-        # print("Using modified get_veff_grad", flush=True)
-        if mol is None:
-            mol = ks_grad.mol
-        if dm is None:
-            dm = ks_grad.base.make_rdm1()
+    if require_grad:
 
-        exc, vxc = get_vxc(dm)
-        vj = ks_grad.get_j(mol, dm)
-        vxc += vj
+        def get_veff_grad(ks_grad, mol=None, dm=None):
+            """
+            Modification of the get_veff function in pyscf.grad.rks.py
+            https://pyscf.org/_modules/pyscf/grad/rks.html
+            """
+            # print("Using modified get_veff_grad", flush=True)
+            if mol is None:
+                mol = ks_grad.mol
+            if dm is None:
+                dm = ks_grad.base.make_rdm1()
 
-        return lib.tag_array(vxc, exc1_grid=exc)
+            exc, vxc = get_vxc(dm)
+            vj = ks_grad.get_j(mol, dm)
+            vxc += vj
 
-    g = mdft.nuc_grad_method()
-    g.get_veff = types.MethodType(get_veff_grad, g)
-    grad_ai = g.kernel()
-    print("If net force", np.sum(grad_ai, axis=0))
+            return lib.tag_array(vxc, exc1_grid=exc)
+
+        g = mdft.nuc_grad_method()
+        g.get_veff = types.MethodType(get_veff_grad, g)
+        grad_ai = g.kernel()
+        print("If net force", np.sum(grad_ai, axis=0))
 
     del oe_fock
     gc.collect()
     torch.cuda.empty_cache()
 
     # 2.2 Check the difference of density (on grids) and dipole
-    print(
-        f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
-        flush=True,
-    )
-    df_dict["time_cc"].append(dft2cc.time_cc)
-    df_dict["time_dft"].append(timer() - time_start)
+    if hasattr(dft2cc, "time_cc"):
+        print(
+            f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
+            flush=True,
+        )
+        df_dict["time_cc"].append(dft2cc.time_cc)
+        df_dict["time_dft"].append(dft2cc.time_dft)
+        df_dict["time_ai"].append(timer() - time_start)
+    else:
+        df_dict["time_cc"].append(-1)
+        df_dict["time_dft"].append(-1)
+        df_dict["time_ai"].append(timer() - time_start)
 
     df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
 
@@ -169,7 +202,6 @@ def test_rks_pyscf(
         f"error_scf_ene: {error_ene_scf:.2e}, error_dft_ene: {error_ene_dft:.2e}",
         flush=True,
     )
-
     df_dict["error_scf_ene"].append(error_ene_scf)
     df_dict["error_dft_ene"].append(error_ene_dft)
     df_dict["abs_scf_ene"].append(AU2KCALMOL * ene_scf)
@@ -177,7 +209,12 @@ def test_rks_pyscf(
     df_dict["abs_cc_ene"].append(AU2KCALMOL * dft2cc.e_cc)
 
     # check the difference of force
-    df_dict = calculate_force(grad_ai, df_dict, dft2cc)
+    if require_grad:
+        df_dict = calculate_force(grad_ai, df_dict, dft2cc)
+    else:
+        for orientation in ["x", "y", "z"]:
+            df_dict[f"error_force_{orientation}_scf"].append(-1)
+            df_dict[f"error_force_{orientation}_dft"].append(-1)
 
     df = pd.DataFrame(df_dict)
     df.to_csv(

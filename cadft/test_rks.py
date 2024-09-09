@@ -11,7 +11,7 @@ import opt_einsum as oe
 
 from cadft import CC_DFT_DATA
 from cadft.utils import DIIS
-from cadft.utils import MAIN_PATH
+from cadft.utils import MAIN_PATH, DATA_PATH
 from cadft.utils import calculate_density_dipole
 
 AU2KCALMOL = 627.5096080306
@@ -25,6 +25,7 @@ def test_rks(
     df_dict: dict,
     n_diis: int = 10,
     dm_guess=None,
+    from_data=False,
 ):
     """
     Test the model. Restrict Khon-Sham (no spin).
@@ -47,7 +48,13 @@ def test_rks(
         dm1_scf = init_guess_by_minao(dft2cc.mol)
     else:
         dm1_scf = dm_guess.copy()
-    # dm1_scf = dft2cc.dm1_dft
+
+    if from_data:
+        if (DATA_PATH / f"data_{name}.npz").exists():
+            data_real = np.load(DATA_PATH / f"data_{name}.npz")
+        else:
+            print(f"No file: {name:>40}")
+            return
 
     oe_fock = oe.contract_expression(
         "p,p,pa,pb->ab",
@@ -70,9 +77,13 @@ def test_rks(
 
     for i in range(500):
         scf_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dm1_scf)
-        vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
-        exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[1][0]
-        vxc_scf += exc_b3lyp
+        if from_data:
+            vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
+            vxc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[1][0]
+            vxc_scf += vxc_b3lyp
+        else:
+            middle_mat = data_real["vxc"]
+            vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
 
         vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights)
         vj_scf = mdft.get_j(dft2cc.mol, dm1_scf)
@@ -124,17 +135,23 @@ def test_rks(
         dft2cc.ao_0,
         dm1_scf,
     )
-    exc_scf = (
-        modeldict.get_e(scf_rho_r, dft2cc.grids)
-        + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[0]
-    )
-    exc_ene = np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
+    if from_data:
+        exc_scf = (
+            modeldict.get_e(scf_rho_r, dft2cc.grids)
+            + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[0]
+        )
+    else:
+        output_mat = data_real["exc1_tr_lda"]
+        exc_scf = (
+            dft2cc.grids.matrix_to_vector(output_mat)
+            + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)[0]
+        )
 
     ene_scf = (
         oe.contract("ij,ji->", dft2cc.h1e, dm1_scf)
         + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf)
+        + np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
         + dft2cc.mol.energy_nuc()
-        + exc_ene
     )
     error_ene_scf = AU2KCALMOL * (ene_scf - dft2cc.e_cc)
     error_ene_dft = AU2KCALMOL * (dft2cc.e_dft - dft2cc.e_cc)

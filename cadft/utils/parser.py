@@ -87,7 +87,7 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--cc_triple",
         type=str2bool,
-        default="False", 
+        default="False",
         help="Weather to use the noniterative CCSD(T) in the coupled cluster method. Default is False.",
     )
 
@@ -170,7 +170,7 @@ def add_args(parser: argparse.ArgumentParser):
         default=1.0,
         help="Weight for the energy. Default is 1.0.",
     )
-    
+
     parser.add_argument(
         "--pot_weight",
         type=float,
@@ -205,6 +205,21 @@ def add_args(parser: argparse.ArgumentParser):
         type=str2bool,
         default=False,
         help="Weather to load the inversed potential. Default is False.",
+    )
+
+    # for test
+    parser.add_argument(
+        "--from_data",
+        type=str2bool,
+        default=False,
+        help="Weather to use the data from the data file. Default is False.",
+    )
+
+    parser.add_argument(
+        "--require_grad",
+        type=str2bool,
+        default=False,
+        help="Weather to require the grad. Default is False.",
     )
 
     args = parser.parse_args()
