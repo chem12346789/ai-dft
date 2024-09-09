@@ -115,18 +115,23 @@ def test_rks(
         else:
             converge_setp = 0
 
-    # 2.2 Check the difference of density (on grids) and dipole
-    print(
-        f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
-        flush=True,
-    )
-    df_dict["time_cc"].append(dft2cc.time_cc)
-    df_dict["time_dft"].append(timer() - time_start)
-
     del oe_fock
     gc.collect()
     torch.cuda.empty_cache()
 
+    # 2.2 Check the difference of density (on grids) and dipole
+    if hasattr(dft2cc, "time_cc"):
+        print(
+            f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
+            flush=True,
+        )
+        df_dict["time_cc"].append(dft2cc.time_cc)
+        df_dict["time_dft"].append(dft2cc.time_dft)
+        df_dict["time_ai"].append(timer() - time_start)
+    else:
+        df_dict["time_cc"].append(-1)
+        df_dict["time_dft"].append(-1)
+        df_dict["time_ai"].append(timer() - time_start)
     df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
 
     # 2.3 check the difference of energy (total)
