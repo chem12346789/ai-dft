@@ -41,6 +41,8 @@ work_dir = main_dir / ("bash_submitted" + time_stamp)
 work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
+LIST_OF_GPU = itertools.cycle([0, 1])
+
 for (
     batch_size,
     eval_step,
@@ -58,7 +60,9 @@ for (
     [32],
     [10],
     [
-        (1, 64, 1, 4, -1, "New"),
+        # (4, 64, 1, 4, -1, "New"),
+        # (4, 64, 1, 4, 0, "New"),
+        (1, 64, 1, 4, 0, "New"),
     ],
     [
         (1, 1),
@@ -68,6 +72,7 @@ for (
         # "False",
     ],
 ):
+    number_of_gpu = next(LIST_OF_GPU)
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/INPUT_SIZE/{input_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
@@ -80,6 +85,7 @@ for (
     cmd += "&&" + f"""sed -i "s/POT_WEIGHT/{pot_weight}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/WITH_EVAL/{with_eval}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/LOAD_MODEL/{load_model}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/NUMBER_OF_GPU/{number_of_gpu}/g" {work_bash}"""
     cmd += (
         "&&"
         + f"""mv {work_bash} {work_dir / f"train_{input_size}_{hidden_size}_{output_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}_{pot_weight}_{with_eval}_{load_model}.bash"}"""

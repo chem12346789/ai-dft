@@ -3,7 +3,7 @@
 #slurm options
 #SBATCH -n 2
 #SBATCH -p gpu
-#SBATCH --nodelist=gpu06
+#SBATCH --nodelist=gpu07
 #SBATCH -J train-ccdft-EVAL_STEP-INPUT_SIZE-HIDDEN_SIZE-OUTPUT_SIZE-NUM_LAYER-RESIDUAL-BATCH_SIZE-ENE_WEIGHT-POT_WEIGHT-WITH_EVAL
 #SBATCH -o log/%j.log
 
@@ -13,7 +13,8 @@ export MKL_NUM_THREADS=2
 export OPENBLAS_NUM_THREADS=2
 
 export NVIDIA_VISIBLE_DEVICES=1
-export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=memory.free,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+# export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=power.draw,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
+export CUDA_VISIBLE_DEVICES=NUMBER_OF_GPU
 
 export PYTHONPATH=~/python:$PYTHONPATH
 export PYSCF_MAX_MEMORY=80000
