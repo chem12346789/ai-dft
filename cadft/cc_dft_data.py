@@ -46,7 +46,7 @@ class CC_DFT_DATA:
                 self.basis,
                 self.if_basis_str,
             ),
-            # verbose=4,
+            verbose=4,
             spin=spin,
         )
         print(self.mol.atom)
