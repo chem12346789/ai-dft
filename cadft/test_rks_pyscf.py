@@ -3,20 +3,18 @@
 """
 
 import gc
-from pathlib import Path
 from timeit import default_timer as timer
 import types
 
 import pyscf
 from pyscf import lib
-from pyscf.dft import numint
 
 import pandas as pd
 import torch
 import numpy as np
 import opt_einsum as oe
 
-from cadft import CC_DFT_DATA, cc_dft_data
+from cadft import CC_DFT_DATA
 from cadft.utils import MAIN_PATH, DATA_PATH
 from cadft.utils import calculate_density_dipole, calculate_force
 
@@ -119,6 +117,7 @@ def test_rks_pyscf(
     elif args.precision == "float64":
         mdft.conv_tol = 1e-8
     mdft.diis_space = n_diis
+    mdft.DIIS = pyscf.scf.ADIIS
     mdft.max_cycle = 250
     mdft.level_shift = 0
     if dm_guess is not None:
