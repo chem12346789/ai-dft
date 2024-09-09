@@ -46,7 +46,7 @@ class CC_DFT_DATA:
                 self.basis,
                 self.if_basis_str,
             ),
-            verbose=4,
+            # verbose=4,
             spin=spin,
         )
         print(self.mol.atom)
@@ -210,10 +210,10 @@ class CC_DFT_DATA:
             mdft.kernel()
             self.dm1_dft = mdft.make_rdm1(ao_repr=True)
             self.e_dft = mdft.e_tot
+            self.time_dft = timer() - time_start
             if require_grad:
                 g = mdft.nuc_grad_method()
                 self.grad_dft = g.kernel()
-                self.time_dft = timer() - time_start
 
             time_start = timer()
             mf = pyscf.scf.RHF(self.mol)
@@ -235,21 +235,36 @@ class CC_DFT_DATA:
             self.mat_s = self.mol.intor("int1e_ovlp")
             self.mat_hs = LA.fractional_matrix_power(self.mat_s, -0.5).real
 
-            np.savez_compressed(
-                Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
-                dm1_cc=self.dm1_cc,
-                e_cc=self.e_cc,
-                grad_ccsd=self.grad_ccsd,
-                time_cc=self.time_cc,
-                dm1_dft=self.dm1_dft,
-                e_dft=self.e_dft,
-                grad_dft=self.grad_dft,
-                time_dft=self.time_dft,
-                h1e=self.h1e,
-                mat_s=self.mat_s,
-                mat_hs=self.mat_hs,
-                dm1_hf=self.dm1_hf,
-            )
+            if require_grad:
+                np.savez_compressed(
+                    Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
+                    dm1_cc=self.dm1_cc,
+                    e_cc=self.e_cc,
+                    grad_ccsd=self.grad_ccsd,
+                    time_cc=self.time_cc,
+                    dm1_dft=self.dm1_dft,
+                    e_dft=self.e_dft,
+                    grad_dft=self.grad_dft,
+                    time_dft=self.time_dft,
+                    h1e=self.h1e,
+                    mat_s=self.mat_s,
+                    mat_hs=self.mat_hs,
+                    dm1_hf=self.dm1_hf,
+                )
+            else:
+                np.savez_compressed(
+                    Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
+                    dm1_cc=self.dm1_cc,
+                    e_cc=self.e_cc,
+                    time_cc=self.time_cc,
+                    dm1_dft=self.dm1_dft,
+                    e_dft=self.e_dft,
+                    time_dft=self.time_dft,
+                    h1e=self.h1e,
+                    mat_s=self.mat_s,
+                    mat_hs=self.mat_hs,
+                    dm1_hf=self.dm1_hf,
+                )
 
     def utest_mol(self):
         """

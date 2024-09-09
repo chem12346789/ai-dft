@@ -178,7 +178,6 @@ def test_rks_pyscf(
     gc.collect()
     torch.cuda.empty_cache()
 
-    # 2.2 Check the difference of density (on grids) and dipole
     if hasattr(dft2cc, "time_cc"):
         print(
             f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
@@ -192,6 +191,7 @@ def test_rks_pyscf(
         df_dict["time_dft"].append(-1)
         df_dict["time_ai"].append(timer() - time_start)
 
+    # 2.2 Check the difference of density (on grids) and dipole
     df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
 
     # 2.3 check the difference of energy (total)
@@ -217,10 +217,10 @@ def test_rks_pyscf(
             df_dict[f"error_force_{orientation}_dft"].append(-1)
 
     df = pd.DataFrame(df_dict)
-    df.to_csv(
-        Path(
-            f"{MAIN_PATH}/validate/ccdft_{args.load}_{args.hidden_size}_{args.num_layers}_{args.residual}"
-        ),
-        index=False,
+    csv_path = (
+        MAIN_PATH
+        / f"validate/ccdft_{args.load}_{args.hidden_size}_{args.num_layers}_{args.residual}"
     )
+    print(csv_path)
+    df.to_csv(csv_path, index=False)
     return dm1_scf

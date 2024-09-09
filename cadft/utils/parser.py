@@ -124,28 +124,28 @@ def add_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--input_size",
         type=int,
-        default=100,
+        default=1,
         help="Number of input size for training. Default is 100.",
     )
 
     parser.add_argument(
         "--hidden_size",
         type=int,
-        default=100,
+        default=64,
         help="Number of hidden size for training. Default is 100.",
     )
 
     parser.add_argument(
         "--output_size",
         type=int,
-        default=100,
+        default=1,
         help="Number of output size for training. Default is 100.",
     )
 
     parser.add_argument(
         "--num_layers",
         type=int,
-        default=3,
+        default=4,
         help="Number of layers for training. Default is 3.",
     )
 
