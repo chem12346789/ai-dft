@@ -65,6 +65,7 @@ if __name__ == "__main__":
         "error_force_z_dft": [],
         "time_cc": [],
         "time_dft": [],
+        "time_ai": [],
     }
 
     distance_l = gen_logger(args.distance_list)
