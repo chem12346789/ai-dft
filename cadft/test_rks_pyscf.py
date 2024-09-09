@@ -211,6 +211,10 @@ def test_rks_pyscf(
     # check the difference of force
     if require_grad:
         df_dict = calculate_force(grad_ai, df_dict, dft2cc)
+    else:
+        for orientation in ["x", "y", "z"]:
+            df_dict[f"error_force_{orientation}_scf"].append(-1)
+            df_dict[f"error_force_{orientation}_dft"].append(-1)
 
     df = pd.DataFrame(df_dict)
     df.to_csv(
