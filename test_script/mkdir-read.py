@@ -43,7 +43,7 @@ work_bash = work_dir / "validate-template.bash"
 
 for (checkpoint_hidden_size,) in itertools.product(
     [
-        # "checkpoint-ccdft_2024-07-28-16-00-16_4_64_1_4_0",
+        "checkpoint-ccdft_2024-07-28-16-00-16_4_64_1_4_0",
         # "checkpoint-ccdft_2024-08-22-13-40-22_4_64_1_4_0",
         # "checkpoint-ccdft_2024-08-22-13-40-58_4_64_1_4_-1",
         # "checkpoint-ccdft_2024-08-22-15-20-41_4_64_1_4_0",
@@ -53,7 +53,7 @@ for (checkpoint_hidden_size,) in itertools.product(
         # "checkpoint-ccdft_2024-08-26-16-14-49_4_64_1_4_-1",
         # "checkpoint-ccdft_2024-08-27-19-34-30_4_64_1_4_-1",
         # "checkpoint-ccdft_2024-09-03-16-44-05_1_64_1_4_-1",
-        "checkpoint-ccdft_2024-09-07-22-40-00_1_64_1_4_-1",
+        # "checkpoint-ccdft_2024-09-07-22-40-00_1_64_1_4_-1",
         # "checkpoint-ccdft_2024-09-07-13-36-50_1_64_1_4_-1",
     ],
 ):
