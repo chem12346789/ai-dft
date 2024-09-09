@@ -61,11 +61,11 @@ for (
         (1, 64, 1, 4, -1, "New"),
     ],
     [
-        (0, 1),
+        (1, 1),
     ],
     [
-        # "True",
-        "False",
+        "True",
+        # "False",
     ],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
