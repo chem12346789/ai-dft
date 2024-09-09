@@ -149,7 +149,7 @@ class Grid(dft.gen_grid.Grids):
     This class is modified from pyscf.dft.gen_grid.Grids. Some default parameters are changed.
     """
 
-    def __init__(self, mol, level=3, period=2):
+    def __init__(self, mol, level=1, period=2):
         super().__init__(mol)
         self.n_rad, self.n_ang = (
             RAD_GRIDS[level, period],
