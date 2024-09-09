@@ -95,9 +95,8 @@ def test_rks_pyscf(
                 scf_rho_r3 = pyscf.dft.numint.eval_rho(
                     dft2cc.mol, dft2cc.ao_1, dm, xctype="GGA"
                 )
-                vexc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3)
-                vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids) + vexc_b3lyp[0]
-                exc_scf = modeldict.get_e(scf_rho_r3, dft2cc.grids) + vexc_b3lyp[0]
+                vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids) + vexc_lda[1][0]
+                exc_scf = modeldict.get_e(scf_rho_r3, dft2cc.grids) + vexc_lda[0]
                 zero_index = np.abs(scf_rho_r3[0]) < 1e-4
                 vxc_scf[zero_index] = 0
                 exc_scf[zero_index] = 0
@@ -160,8 +159,7 @@ def test_rks_pyscf(
                 scf_rho_r3 = pyscf.dft.numint.eval_rho(
                     dft2cc.mol, dft2cc.ao_1, dms, xctype="GGA"
                 )
-                vexc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3)
-                vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids) + vexc_b3lyp[0]
+                vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids) + vexc_lda[1][0]
                 zero_index = np.abs(scf_rho_r3[0]) < 1e-5
                 vxc_scf[zero_index] = 0
 

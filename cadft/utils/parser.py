@@ -151,9 +151,9 @@ def add_args(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--residual",
-        type=int,
-        default=0,
-        help="Type of residual for training. Default is 0. 0 for no residual, 1 for residual, 2 for multi-level residual.",
+        type=str,
+        default="0",
+        help="Type of residual for training. Default is 0. 0 for no residual, 1 for residual, 2 for multi-level residual. In U-net it used for normalization.",
     )
 
     parser.add_argument(

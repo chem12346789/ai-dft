@@ -13,8 +13,8 @@ export MKL_NUM_THREADS=2
 export OPENBLAS_NUM_THREADS=2
 
 export NVIDIA_VISIBLE_DEVICES=1
-# export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=power.draw,index --format=csv,nounits,noheader | sort -nr | head -1 | awk '{ print $NF }')
-export CUDA_VISIBLE_DEVICES=NUMBER_OF_GPU
+export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=power.draw,index --format=csv,nounits,noheader | sort -n | head -1 | awk '{ print $NF }')
+# export CUDA_VISIBLE_DEVICES=NUMBER_OF_GPU
 
 export PYTHONPATH=~/python:$PYTHONPATH
 export PYSCF_MAX_MEMORY=80000
