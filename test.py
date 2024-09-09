@@ -114,6 +114,4 @@ if __name__ == "__main__":
                 df_dict,
                 n_diis=N_DIIS,
                 dm_guess=dm_guess,
-                from_data=False,
-                require_grad=False,
             )
