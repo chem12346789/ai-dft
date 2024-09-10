@@ -6,7 +6,6 @@ TRAIN_STR_DICT = [
     "ethane",
     "ethylene",
     "acetylene",
-    "propylene",
     "allene",
     "cyclopropene",
     "cyclopropane",
