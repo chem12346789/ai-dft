@@ -15,6 +15,7 @@ TRAIN_STR_DICT = [
 EVAL_STR_DICT = [
     "propane",
     "propyne",
+    "propylene",
     # "butane",
     # "butyne",
     # "isobutane",
