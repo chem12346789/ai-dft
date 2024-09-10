@@ -45,10 +45,10 @@ LIST_OF_GPU = itertools.cycle([0, 1])
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
-        # "methane",
-        # "ethane",
+        "methane",
+        "ethane",
         # "ethylene",
-        "acetylene",
+        # "acetylene",
         # "cyclopropane",
         # "cyclopropene",
         # "allene",
@@ -59,13 +59,10 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     ],
     ["cc-pCVTZ"],
     [
-        (-0.9, -0.9, 1)
-        # (-1.0, 1.0, 21),
-        # (-1.0, -0.6, 5),
-        # (2.4, 2.5, 2),
-        # (1.5, 2.0, 6),
+        # (-0.9, -0.9, 1)
+        (-1.0, 1.0, 21),
     ],
-    ["0"],
+    ["2"],
 ):
     number_of_gpu = next(LIST_OF_GPU)
     cmd = f"""cp {template_bash} {work_bash}"""
