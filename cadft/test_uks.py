@@ -69,25 +69,43 @@ def test_uks(
     diis = (DIIS(dft2cc.mol.nao, n=12), DIIS(dft2cc.mol.nao, n=12))
 
     for i in range(100):
-        scf_rho_r = np.array(
-            [
-                pyscf.dft.numint.eval_rho(
-                    dft2cc.mol,
-                    dft2cc.ao_0,
-                    2 * dm1_scf[i_spin],
-                )
-                for i_spin in range(2)
-            ]
-        )
-
-        vxc_scf = np.array(
-            [modeldict.get_v(scf_rho_r[i_spin], dft2cc.grids) for i_spin in range(2)]
-        )
-
-        for i_spin in range(2):
-            vxc_scf[i_spin] += pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[1][
-                0
-            ]
+        if modeldict.input_size == 1:
+            scf_rho_r = np.array(
+                [
+                    pyscf.dft.numint.eval_rho(
+                        dft2cc.mol,
+                        dft2cc.ao_0,
+                        2 * dm1_scf[i_spin],
+                    )
+                    for i_spin in range(2)
+                ]
+            )
+            vxc_scf = np.array(
+                [
+                    modeldict.get_v(scf_rho_r[i_spin], dft2cc.grids)
+                    + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[1][0]
+                    for i_spin in range(2)
+                ]
+            )
+        elif modeldict.input_size == 4:
+            scf_rho_r3 = np.array(
+                [
+                    pyscf.dft.numint.eval_rho(
+                        dft2cc.mol,
+                        dft2cc.ao_1,
+                        2 * dm1_scf[i_spin],
+                        xctype="GGA",
+                    )
+                    for i_spin in range(2)
+                ]
+            )
+            vxc_scf = np.array(
+                [
+                    modeldict.get_v(scf_rho_r3[i_spin], dft2cc.grids)
+                    + pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3[i_spin])[0]
+                    for i_spin in range(2)
+                ]
+            )
 
         vxc_mat = np.array(
             [oe_fock(vxc_scf[i_spin], dft2cc.grids.weights) for i_spin in range(2)]
@@ -148,25 +166,46 @@ def test_uks(
     # 2.3 check the difference of energy (total)
     df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
 
-    b3lyp_ene = 0
-    for i_spin in range(2):
-        exc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[0]
-        b3lyp_ene += np.sum(exc_lda * scf_rho_r[i_spin] * dft2cc.grids.weights)
-
-    exc_scf = np.array(
+    scf_rho_r = np.array(
         [
-            modeldict.get_e(scf_rho_r[0], dft2cc.grids),
-            modeldict.get_e(scf_rho_r[1], dft2cc.grids),
+            pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, 2 * dm1_scf[i_spin])
+            for i_spin in range(2)
         ]
     )
-    output_mat_exc = exc_scf * scf_rho_r * dft2cc.grids.weights
+
+    if modeldict.input_size == 1:
+        exc_scf = np.array(
+            [
+                modeldict.get_e(scf_rho_r[i_spin], dft2cc.grids)
+                + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[0]
+                for i_spin in range(2)
+            ]
+        )
+    elif modeldict.input_size == 4:
+        scf_rho_r3 = np.array(
+            [
+                pyscf.dft.numint.eval_rho(
+                    dft2cc.mol,
+                    dft2cc.ao_1,
+                    2 * dm1_scf[i_spin],
+                    xctype="GGA",
+                )
+                for i_spin in range(2)
+            ]
+        )
+        exc_scf = np.array(
+            [
+                modeldict.get_e(scf_rho_r3[i_spin], dft2cc.grids)
+                + pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3[i_spin])[0]
+                for i_spin in range(2)
+            ]
+        )
 
     ene_scf = (
         oe.contract("ij,ji->", dft2cc.h1e, dm1_scf[0] + dm1_scf[1])
         + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf[0] + dm1_scf[1])
         + dft2cc.mol.energy_nuc()
-        + np.sum(output_mat_exc)
-        + b3lyp_ene
+        + np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
     )
     error_ene_scf = AU2KCALMOL * (ene_scf - dft2cc.e_cc)
     error_ene_dft = AU2KCALMOL * (dft2cc.e_dft - dft2cc.e_cc)
