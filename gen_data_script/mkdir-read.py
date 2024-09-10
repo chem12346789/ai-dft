@@ -60,9 +60,10 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     ["cc-pCVTZ"],
     [
         # (-0.9, -0.9, 1)
-        (-1.0, 1.0, 21),
+        # (-1.0, 1.0, 21),
+        (-0.5, 2.0, 26),
     ],
-    ["2"],
+    ["0-1"],
 ):
     number_of_gpu = next(LIST_OF_GPU)
     cmd = f"""cp {template_bash} {work_bash}"""
