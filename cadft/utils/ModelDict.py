@@ -103,12 +103,16 @@ class ModelDict:
         self.optimizer_dict = {}
         self.scheduler_dict = {}
 
-        for key in self.keys:
+        for i_key, key in enumerate(self.keys):
             self.model_dict[key] = Model(
                 self.input_size,
                 self.hidden_size,
                 self.output_size if output_size > 0 else 1,
-                self.residual,
+                (
+                    int(self.residual)
+                    if "." not in self.residual
+                    else int(self.residual.split(".")[i_key])
+                ),
                 self.num_layers,
             ).to(device)
 
