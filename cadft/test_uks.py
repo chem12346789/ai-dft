@@ -150,8 +150,8 @@ def test_uks(
 
     b3lyp_ene = 0
     for i_spin in range(2):
-        exc_b3lyp = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[0]
-        b3lyp_ene += np.sum(exc_b3lyp * scf_rho_r[i_spin] * dft2cc.grids.weights)
+        exc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[0]
+        b3lyp_ene += np.sum(exc_lda * scf_rho_r[i_spin] * dft2cc.grids.weights)
 
     exc_scf = np.array(
         [

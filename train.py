@@ -6,14 +6,14 @@ TRAIN_STR_DICT = [
     "ethane",
     "ethylene",
     "acetylene",
-    "allene",
     "cyclopropene",
     "cyclopropane",
+    "propyne",
+    "allene",
     # "methyl-openshell",
 ]
 EVAL_STR_DICT = [
     "propane",
-    "propyne",
     "propylene",
     # "butane",
     # "butyne",
