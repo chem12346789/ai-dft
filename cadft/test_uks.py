@@ -35,7 +35,7 @@ def test_uks(
         name=name,
         basis=args.basis,
         if_basis_str=args.if_basis_str,
-        spin=1,
+        spin=0,
     )
     dft2cc.utest_mol()
     nocc = dft2cc.mol.nelec
@@ -137,24 +137,19 @@ def test_uks(
             dm1_scf = dm1_scf_old.copy()
             break
 
-    # 2 check
-    # 2.1 check the difference of density (on grids) and dipole
-    print(
-        f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
-        flush=True,
-    )
-    df_dict["time_cc"].append(dft2cc.time_cc)
-    df_dict["time_dft"].append(timer() - time_start)
-
     del oe_fock
     gc.collect()
     torch.cuda.empty_cache()
 
+    # 2 check
+    # 2.1 check the difference of density (on grids) and dipole
     if hasattr(dft2cc, "time_cc"):
         print(
             f"cc: {dft2cc.time_cc:.2f}s, aidft: {(timer() - time_start):.2f}s",
             flush=True,
         )
+        print(dft2cc.time_cc)
+        print(dft2cc.time_dft)
         df_dict["time_cc"].append(dft2cc.time_cc)
         df_dict["time_dft"].append(dft2cc.time_dft)
         df_dict["time_ai"].append(timer() - time_start)
@@ -165,13 +160,6 @@ def test_uks(
 
     # 2.3 check the difference of energy (total)
     df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
-
-    scf_rho_r = np.array(
-        [
-            pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, 2 * dm1_scf[i_spin])
-            for i_spin in range(2)
-        ]
-    )
 
     if modeldict.input_size == 1:
         exc_scf = np.array(
@@ -201,6 +189,12 @@ def test_uks(
             ]
         )
 
+    scf_rho_r = np.array(
+        [
+            pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dm1_scf[i_spin])
+            for i_spin in range(2)
+        ]
+    )
     ene_scf = (
         oe.contract("ij,ji->", dft2cc.h1e, dm1_scf[0] + dm1_scf[1])
         + 0.5 * oe.contract("ij,ji->", vj_scf, dm1_scf[0] + dm1_scf[1])
@@ -219,6 +213,11 @@ def test_uks(
     df_dict["abs_scf_ene"].append(AU2KCALMOL * ene_scf)
     df_dict["abs_dft_ene"].append(AU2KCALMOL * dft2cc.e_dft)
     df_dict["abs_cc_ene"].append(AU2KCALMOL * dft2cc.e_cc)
+
+    # check the difference of force
+    for orientation in ["x", "y", "z"]:
+        df_dict[f"error_force_{orientation}_scf"].append(-1)
+        df_dict[f"error_force_{orientation}_dft"].append(-1)
 
     print(df_dict)
     df = pd.DataFrame(df_dict)
