@@ -57,7 +57,8 @@ for (checkpoint_hidden_size,) in itertools.product(
         # "checkpoint-ccdft_2024-09-07-22-40-00_1_64_1_4_-1",
         # "checkpoint-ccdft_2024-09-09-16-29-00_4_64_1_4_0",
         # "checkpoint-ccdft_2024-09-09-16-29-00_4_64_1_4_-1",
-        "checkpoint-ccdft_2024-09-09-16-31-49_1_64_1_4_0.-1",
+        # "checkpoint-ccdft_2024-09-09-16-31-49_1_64_1_4_0.-1",
+        "checkpoint-ccdft_2024-09-10-00-09-52_1_64_1_4_0.-1"
     ],
 ):
     (
