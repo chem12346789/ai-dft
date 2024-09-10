@@ -86,11 +86,13 @@ def test_rks_pyscf(
             exc_scf = dft2cc.grids.matrix_to_vector(output_mat) + vexc_lda[0]
         else:
             if modeldict.input_size == 1:
-                vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids) + vexc_lda[1][0]
-                exc_scf = modeldict.get_e(scf_rho_r, dft2cc.grids) + vexc_lda[0]
-                # zero_index = np.abs(scf_rho_r) < 1e-4
-                # vxc_scf[zero_index] = 0
-                # exc_scf[zero_index] = 0
+                vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
+                exc_scf = modeldict.get_e(scf_rho_r, dft2cc.grids)
+                zero_index = np.abs(scf_rho_r) < 1e-4
+                vxc_scf[zero_index] = 0
+                exc_scf[zero_index] = 0
+                vxc_scf += vexc_lda[1][0]
+                exc_scf += vexc_lda[0]
             elif modeldict.input_size == 4:
                 scf_rho_r3 = pyscf.dft.numint.eval_rho(
                     dft2cc.mol, dft2cc.ao_1, dm, xctype="GGA"
@@ -100,9 +102,9 @@ def test_rks_pyscf(
                 exc_scf = modeldict.get_e(scf_rho_r3, dft2cc.grids) + vexc_b3lyp[0]
                 # vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids) + vexc_lda[1][0]
                 # exc_scf = modeldict.get_e(scf_rho_r3, dft2cc.grids) + vexc_lda[0]
-                # zero_index = np.abs(scf_rho_r3[0]) < 1e-4
-                # vxc_scf[zero_index] = 0
-                # exc_scf[zero_index] = 0
+                zero_index = np.abs(scf_rho_r3[0]) < 1e-4
+                vxc_scf[zero_index] = 0
+                exc_scf[zero_index] = 0
 
         vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights)
         exc_ene = np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
@@ -155,18 +157,20 @@ def test_rks_pyscf(
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
         else:
             if modeldict.input_size == 1:
-                vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids) + vexc_lda[1][0]
-                # zero_index = np.abs(scf_rho_r) < 1e-5
-                # vxc_scf[zero_index] = 0
+                vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
+                zero_index = np.abs(scf_rho_r) < 1e-5
+                vxc_scf[zero_index] = 0
+                vxc_scf += vexc_lda[1][0]
             elif modeldict.input_size == 4:
                 scf_rho_r3 = pyscf.dft.numint.eval_rho(
                     dft2cc.mol, dft2cc.ao_1, dms, xctype="GGA"
                 )
                 vexc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3)
-                vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids) + vexc_b3lyp[0]
+                vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids)
+                zero_index = np.abs(scf_rho_r3[0]) < 1e-5
+                vxc_scf[zero_index] = 0
+                vxc_scf += vexc_b3lyp[0]
                 # vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids) + vexc_lda[1][0]
-                # zero_index = np.abs(scf_rho_r3[0]) < 1e-5
-                # vxc_scf[zero_index] = 0
 
         wv = dft2cc.grids.weights * vxc_scf
         aow = np.einsum("gi,g->gi", dft2cc.ao_1[0], wv)
