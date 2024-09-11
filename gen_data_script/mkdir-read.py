@@ -43,7 +43,7 @@ for item in Path(main_dir).glob("*"):
 
 LIST_OF_GPU = itertools.cycle([0, 1])
 
-for mol, basis_set, range_list, extend_atom in itertools.product(
+for mol, basis_set, (range_list, extend_atom) in itertools.product(
     [
         # "methane",
         # "ethane",
@@ -54,16 +54,16 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
         # "allene",
         # "propane",
         # "propylene",
-        "methyl-openshell",
+        # "propyne",
+        # "methyl-openshell",
         # "ethyl-openshell",
     ],
     ["cc-pCVTZ"],
     [
         # (-0.9, -0.9, 1)
-        # (-1.0, 1.0, 21),
-        (-0.5, 2.0, 26),
+        ((-1.0, 1.0, 21), "0"),
+        ((-0.5, 2.0, 26), "0-1"),
     ],
-    ["0-1"],
 ):
     number_of_gpu = next(LIST_OF_GPU)
     cmd = f"""cp {template_bash} {work_bash}"""
