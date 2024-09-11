@@ -68,7 +68,7 @@ def gmrks_diis(self, frac_old, load_inv=True):
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
     mat_hs_sao = LA.block_diag(mat_hs, mat_hs)
 
-    grids = Grid(self.mol)
+    grids = Grid(self.mol, level=1)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)

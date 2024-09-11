@@ -67,7 +67,7 @@ def umrks_diis(
     mat_s = self.mol.intor("int1e_ovlp")
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
 
-    grids = Grid(self.mol)
+    grids = Grid(self.mol, level=1)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
