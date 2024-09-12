@@ -20,7 +20,7 @@ def umrks_append(self):
 
         data = np.load(DATA_PATH / f"data_{self.name}_{i_spin}.npz")
 
-        grids = Grid(self.mol)
+        grids = Grid(self.mol, level=1)
         ao_value = pyscf.dft.numint.eval_ao(self.mol, grids.coords)
         inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_value, data["dm_inv"])
         evxc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", inv_r)
