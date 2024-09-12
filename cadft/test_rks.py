@@ -37,7 +37,7 @@ def test_rks(
         basis=args.basis,
         if_basis_str=args.if_basis_str,
     )
-    dft2cc.test_mol()
+    dft2cc.test_mol(level=args.level)
     nocc = dft2cc.mol.nelec[0]
     mdft = pyscf.scf.RKS(dft2cc.mol)
 

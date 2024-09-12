@@ -11,10 +11,11 @@ import torch
 from cadft import add_args, extend, gen_logger
 from cadft import test_rks, test_uks, test_rks_pyscf
 
-from cadft.utils import ModelDict as ModelDict
+from cadft.utils import ModelDict
 
-# from cadft.utils import ModelDict_xy as ModelDict
+# from cadft.utils.ModelDict_xy import ModelDict
 # from cadft.utils import ModelDict_xy1 as ModelDict
+# from cadft.utils.ModelDict_xy2 import ModelDict
 
 # class ModelDict_data()
 if __name__ == "__main__":

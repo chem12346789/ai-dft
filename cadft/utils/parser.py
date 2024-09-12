@@ -77,6 +77,13 @@ def add_args(parser: argparse.ArgumentParser):
     )
 
     parser.add_argument(
+        "--level",
+        type=int,
+        default=1,
+        help="Level of grids, default is 1.",
+    )
+
+    parser.add_argument(
         "--if_basis_str",
         "-bs",
         type=str2bool,

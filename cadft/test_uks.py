@@ -37,7 +37,7 @@ def test_uks(
         if_basis_str=args.if_basis_str,
         spin=0,
     )
-    dft2cc.utest_mol()
+    dft2cc.utest_mol(level=args.level)
     nocc = dft2cc.mol.nelec
     mdft = pyscf.scf.UKS(dft2cc.mol)
 
