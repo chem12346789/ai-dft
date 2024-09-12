@@ -474,26 +474,9 @@ def umrks_diis(
         eigvecs_inv = mf.mo_energy.copy()
         mo_inv = mf.mo_coeff.copy()
         dm1_inv = mf.make_rdm1(ao_repr=True)
-        vxc_inv = np.array(
-            [
-                pyscf.dft.libxc.eval_xc(
-                    "lda",
-                    pyscf.dft.numint.eval_rho(
-                        self.mol,
-                        ao_0,
-                        dm1_inv[0] * 2,
-                    ),
-                )[1][0],
-                pyscf.dft.libxc.eval_xc(
-                    "lda",
-                    pyscf.dft.numint.eval_rho(
-                        self.mol,
-                        ao_0,
-                        dm1_inv[1] * 2,
-                    ),
-                )[1][0],
-            ]
-        )
+
+        if vxc_inv is None:
+            vxc_inv = np.zeros_like(rho_cc)
 
         oe_ebar_r_ks = [
             oe.contract_expression(

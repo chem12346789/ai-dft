@@ -37,6 +37,15 @@ def test_rks_pyscf(
     from_data = getattr(args, "from_data", False)
     require_grad = getattr(args, "require_grad", False)
 
+    if from_data:
+        if (DATA_PATH / f"data_{name}.npz").exists():
+            data_real = np.load(DATA_PATH / f"data_{name}.npz")
+        else:
+            print(f"No file: {name:>40}")
+            return
+
+    df_dict["name"].append(name)
+
     # 2.0 Prepare
     dft2cc = CC_DFT_DATA(
         molecular,
@@ -46,13 +55,6 @@ def test_rks_pyscf(
     )
     dft2cc.test_mol(require_grad, level=args.level)
     mdft = pyscf.scf.RKS(dft2cc.mol)
-
-    if from_data:
-        if (DATA_PATH / f"data_{name}.npz").exists():
-            data_real = np.load(DATA_PATH / f"data_{name}.npz")
-        else:
-            print(f"No file: {name:>40}")
-            return
 
     # 2.1 SCF loop to get the density matrix
     time_start = timer()

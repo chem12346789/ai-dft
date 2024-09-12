@@ -15,7 +15,6 @@ from cadft.utils import (
     umrks_append,
     gmrks_diis,
 )
-from cadft.utils_deepks import deepks
 from cadft.utils import Mol
 from cadft.utils.Grids import Grid
 from cadft.utils import MAIN_PATH, DATA_CC_PATH
@@ -128,9 +127,6 @@ class CC_DFT_DATA:
         """
         print(f"Mrks_append module. Generate {self.name}")
         umrks_append(self)
-
-    def deepks(self):
-        deepks(self)
 
     # pylint: disable=W0201
     def test_mol(self, require_grad=False, level=1):
