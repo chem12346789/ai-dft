@@ -225,7 +225,7 @@ class PredictorSmall(nn.Module):
         return torch.squeeze(self.predictor(inputs), dim=-1)
 
 
-class ModelDict_xy:
+class ModelDict:
     """
     Model_Dict
     """
@@ -244,6 +244,7 @@ class ModelDict_xy:
             model_dict: dictionary of models
         """
         self.load = kwargs.get("load")
+        self.input_size = kwargs.get("input_size")
         self.dir_checkpoint = Path(CHECKPOINTS_PATH / self.load).resolve()
 
         self.device = kwargs.get("device")

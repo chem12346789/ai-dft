@@ -18,8 +18,6 @@ from cadft.utils.model.fc_net import FCNet
 from cadft.utils.model.transformer import Transformer
 from cadft.utils.Grids import Grid
 from cadft.utils.ModelDict import ModelDict
-from cadft.utils.ModelDict_xy import ModelDict_xy
-from cadft.utils.ModelDict_xy1 import ModelDict_xy1
 from cadft.utils.diis import DIIS
 
 from cadft.utils.mol import Mol

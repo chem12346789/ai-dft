@@ -236,7 +236,7 @@ class PredictorBase(nn.Module):
         return results[..., 0], results[..., 1]  # shape = (batch, 75, 302)
 
 
-class ModelDict_xy1:
+class ModelDict:
     """
     Model_Dict
     """
@@ -255,6 +255,7 @@ class ModelDict_xy1:
             model_dict: dictionary of models
         """
         self.load = kwargs.get("load")
+        self.input_size = kwargs.get("input_size")
         self.dir_checkpoint = Path(CHECKPOINTS_PATH / self.load).resolve()
 
         self.device = kwargs.get("device")

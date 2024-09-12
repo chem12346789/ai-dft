@@ -10,7 +10,7 @@ TRAIN_STR_DICT = [
     "cyclopropane",
     "allene",
     "propyne",
-    # "methyl-openshell",
+    "methyl-openshell",
 ]
 EVAL_STR_DICT = [
     "propane",

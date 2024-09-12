@@ -133,11 +133,11 @@ class CC_DFT_DATA:
         deepks(self)
 
     # pylint: disable=W0201
-    def test_mol(self, require_grad=False):
+    def test_mol(self, require_grad=False, level=1):
         """
         Generate 1-RDM.
         """
-        self.grids = Grid(self.mol)
+        self.grids = Grid(self.mol, level=level)
         self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
         self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
         self.grids_test = Grid(self.mol, level=3, period=2)
@@ -169,7 +169,6 @@ class CC_DFT_DATA:
                     mdft = pyscf.scf.RKS(self.mol)
                     mdft.xc = "b3lyp"
                     mdft.max_cycle = 2500
-                    mdft.grids.level = 1
                     mdft.kernel()
                     g = mdft.nuc_grad_method()
                     self.grad_dft = g.kernel()
@@ -206,7 +205,6 @@ class CC_DFT_DATA:
             mdft = pyscf.scf.RKS(self.mol)
             mdft.xc = "b3lyp"
             mdft.max_cycle = 2500
-            mdft.grids.level = 1
             mdft.kernel()
             self.dm1_dft = mdft.make_rdm1(ao_repr=True)
             self.e_dft = mdft.e_tot
@@ -266,13 +264,11 @@ class CC_DFT_DATA:
                     dm1_hf=self.dm1_hf,
                 )
 
-    def utest_mol(self):
+    def utest_mol(self, level=1):
         """
         Generate 1-RDM.
         """
-        # if False:
-
-        self.grids = Grid(self.mol)
+        self.grids = Grid(self.mol, level=level)
         self.grids_test = Grid(self.mol, level=3, period=2)
         self.ao_0 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords)
         self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
