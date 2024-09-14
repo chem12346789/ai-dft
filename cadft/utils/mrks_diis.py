@@ -670,7 +670,6 @@ def mrks_diis(
         e_cc=e_cc,
         dm_cc=dm1_cc,
         dm_inv=dm1_inv,
-        rho_inv=grids.vector_to_matrix(rho_inv),
         weights=grids.vector_to_matrix(weights),
         vxc=grids.vector_to_matrix(vxc_inv),
         exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
