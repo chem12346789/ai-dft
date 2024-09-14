@@ -29,7 +29,4 @@ export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=power.draw,index --format=c
 #
 ~/anaconda3/envs/pyscf/bin/python test.py -dl -0.45 0.45 10 -b cc-pCVTZ --extend_atom 0 --extend_xyz 0 --load CHECKPOINT --name_mol methane --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --residual RESIDUAL --num_layer NUM_LAYER --precision float32 --load_epoch -1 >log/CHECKPOINT.out
 #
-# ~/anaconda3/envs/pyscf/bin/python test.py -dl -0.5 0.5 11 -b cc-pCVTZ --extend_atom 0 --extend_xyz 0 --load xieyi-1 --name_mol methane --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --residual RESIDUAL --num_layer NUM_LAYER --precision float32 --load_epoch -1 --level 3 >log/CHECKPOINT.out
-#
-#
 # ~/anaconda3/envs/pyscf/bin/python test_data.py -dl -0.5 2.5 31 -b cc-pCVTZ --extend_atom 0-1 --extend_xyz 0 --load CHECKPOINT --name_mol methane ethane ethylene acetylene cyclopropane cyclopropene propane propylene --input_size INPUT_SIZE --hidden_size HIDDEN_SIZE --output_size OUTPUT_SIZE --residual RESIDUAL --num_layer NUM_LAYER --precision float32 --load_epoch -1 >log/CHECKPOINT.out
