@@ -251,7 +251,13 @@ def test_rks_pyscf(
             df_dict[f"error_force_{orientation}_scf"].append(-1)
             df_dict[f"error_force_{orientation}_dft"].append(-1)
 
-    # if generate_data:
+    if generate_data:
+        if (DATA_PATH / f"data_{name}.npz").exists():
+            data_real = np.load(DATA_PATH / f"data_{name}.npz")
+        else:
+            print(f"No file: {name:>40}")
+            return
+        
 
     df = pd.DataFrame(df_dict)
     csv_path = (
