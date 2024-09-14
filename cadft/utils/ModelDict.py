@@ -219,6 +219,7 @@ class ModelDict:
         middle_mat_real = batch["middle"]
         output_mat_real = batch["output"]
         weight = batch["weight"]
+        tot_correct_energy = batch["tot_correct_energy"]
 
         if self.output_size == 1:
             middle_mat = self.model_dict["1"](input_mat)
@@ -237,7 +238,7 @@ class ModelDict:
                 output_mat_real,
             )
             loss_3_i = self.loss_multiplier * self.loss_fn3(
-                torch.sum(output_mat_real * input_mat[:, [0], :, :] * weight),
+                tot_correct_energy,
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
             )
         elif self.output_size == 2:
@@ -256,10 +257,8 @@ class ModelDict:
                 output_mat_real[:, [1], :, :],
             )
             loss_3_i = self.loss_multiplier * self.loss_fn3(
+                tot_correct_energy,
                 torch.sum(output_mat[:, [1], :, :] * input_mat[:, [0], :, :] * weight),
-                torch.sum(
-                    output_mat_real[:, [1], :, :] * input_mat[:, [0], :, :] * weight
-                ),
             )
         elif self.output_size == -1:
             input_mat = input_mat.requires_grad_(True)
@@ -269,8 +268,8 @@ class ModelDict:
                 output_mat_real,
             )
             loss_3_i = self.loss_multiplier * self.loss_fn3(
+                tot_correct_energy,
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
-                torch.sum(output_mat_real * input_mat[:, [0], :, :] * weight),
             )
 
             middle_mat = torch.autograd.grad(
@@ -293,8 +292,8 @@ class ModelDict:
                 output_mat_real,
             )
             loss_3_i = self.loss_multiplier * self.loss_fn3(
+                tot_correct_energy,
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
-                torch.sum(output_mat_real * input_mat[:, [0], :, :] * weight),
             )
             (loss_0_i, loss_1_i) = (
                 torch.tensor([0.0], device=self.device),
@@ -350,21 +349,21 @@ class ModelDict:
 
             if self.output_size == 1:
                 loss_1 += self.pot_weight * loss_0
-                loss_2 += self.ene_weight * loss_3
+                loss_2 = self.ene_weight * loss_2 + loss_3
                 loss_1.backward()
                 loss_2.backward()
             elif self.output_size == 2:
                 loss_1 += self.pot_weight * loss_0
                 loss_1 += loss_2
-                loss_1 += self.ene_weight * loss_3
+                loss_2 = self.ene_weight * loss_2 + loss_3
                 loss_1.backward()
             elif self.output_size == -1:
                 loss_1 += self.pot_weight * loss_0
-                loss_2 += self.ene_weight * loss_3
+                loss_2 = self.ene_weight * loss_2 + loss_3
                 loss_1.backward(retain_graph=True)
                 loss_2.backward()
             elif self.output_size == -2:
-                loss_2 += self.ene_weight * loss_3
+                loss_2 = self.ene_weight * loss_2 + loss_3
                 loss_2.backward()
 
             self.step()

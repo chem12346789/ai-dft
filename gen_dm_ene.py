@@ -69,7 +69,7 @@ for (
         FACTOR = 0
         DIIS_N = 20
 
-    FACTOR = 0
+    FACTOR = 0.99995
     DIIS_N = 50
 
     print(f"FACTOR: {FACTOR}, diis_n: {DIIS_N}")

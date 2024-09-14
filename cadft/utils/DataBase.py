@@ -46,12 +46,10 @@ class BasicDataset:
     Documentation for a class.
     """
 
-    def __init__(self, input_, middle_, output_, weight_, batch_size, dtype):
-        self.input = input_
-        self.middle = middle_
-        self.output = output_
-        self.weight = weight_
-        self.ids = list(input_.keys())
+    def __init__(self, dict_batch, batch_size, dtype, dict_const=None):
+        self.dict_batch = dict_batch
+        self.dict_const = dict_const
+        self.ids = list(dict_batch["input"].keys())
         self.batch_size = batch_size
         if dtype == "float32":
             self.dtype = torch.float32
@@ -62,12 +60,10 @@ class BasicDataset:
         return len(self.ids)
 
     def __getitem__(self, idx):
-        return {
-            "input": self.input[self.ids[idx]],
-            "middle": self.middle[self.ids[idx]],
-            "output": self.output[self.ids[idx]],
-            "weight": self.weight[self.ids[idx]],
-        }
+        dict_out = {}
+        for key, val in self.dict_batch.items():
+            dict_out[key] = val[idx]
+        return dict_out
 
     def load_to_gpu(self):
         """
@@ -84,9 +80,17 @@ class BasicDataset:
         dataloader_gpu = []
         for batch in dataloader:
             batch_gpu = {}
-            for key in batch.keys():
-                batch_gpu[key] = process(batch[key], self.dtype)
+            for key, val in batch.items():
+                batch_gpu[key] = process(val, self.dtype)
+            if self.dict_const is not None:
+                for key, val in self.dict_const.items():
+                    batch_gpu[key] = torch.tensor(val, dtype=self.dtype).to(
+                        device="cuda"
+                    )
             dataloader_gpu.append(batch_gpu)
+            if self.dict_const is not None:
+                if len(dataloader_gpu) > 1:
+                    raise ValueError("Only one batch is allowed.")
         return dataloader_gpu
 
 
@@ -231,18 +235,18 @@ class DataBase:
                 f"var output: {np.var(output_[i_atom]):>7.4e}\n"
             )
 
+        tot_correct_energy = 0
+        for key, val in input_.items():
+            tot_correct_energy += np.sum(val * output_[key] * weight_[key])
+
         self.data_gpu[name] = BasicDataset(
-            input_,
-            middle_,
-            output_,
-            weight_,
+            {
+                "input": input_,
+                "middle": middle_,
+                "output": output_,
+                "weight": weight_,
+            },
             self.batch_size,
             self.dtype,
+            dict_const={"tot_correct_energy": tot_correct_energy},
         ).load_to_gpu()
-
-        self.data[name] = {
-            "input": input_,
-            "middle": middle_,
-            "output": output_,
-            "weight": weight_,
-        }

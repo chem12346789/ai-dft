@@ -35,6 +35,7 @@ def test_rks_pyscf(
     """
 
     from_data = getattr(args, "from_data", False)
+    generate_data = getattr(args, "generate_data", False)
     require_grad = getattr(args, "require_grad", False)
 
     if from_data:
@@ -133,7 +134,7 @@ def test_rks_pyscf(
     mdft.get_veff = types.MethodType(get_veff, mdft)
     mdft.xc = "lda,vwn"
     if args.precision == "float32":
-        mdft.conv_tol = 1e-5
+        mdft.conv_tol = 1e-4
     elif args.precision == "float64":
         mdft.conv_tol = 1e-8
     mdft.diis_space = n_diis
@@ -249,6 +250,14 @@ def test_rks_pyscf(
         for orientation in ["x", "y", "z"]:
             df_dict[f"error_force_{orientation}_scf"].append(-1)
             df_dict[f"error_force_{orientation}_dft"].append(-1)
+
+    if generate_data:
+        if (DATA_PATH / f"data_{name}.npz").exists():
+            data_real = np.load(DATA_PATH / f"data_{name}.npz")
+        else:
+            print(f"No file: {name:>40}")
+            return
+        
 
     df = pd.DataFrame(df_dict)
     csv_path = (

@@ -119,22 +119,23 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             if modeldict.with_eval:
                 if modeldict.output_size == 1:
                     eval_loss_1 += modeldict.pot_weight * eval_loss_0
-                    eval_loss_2 += modeldict.ene_weight * eval_loss_3
+                    eval_loss_2 = modeldict.ene_weight * eval_loss_2 + eval_loss_3
                     modeldict.scheduler_dict["1"].step(np.mean(eval_loss_1))
                     modeldict.scheduler_dict["2"].step(np.mean(eval_loss_2))
                 elif modeldict.output_size == 2:
                     eval_loss_1 += modeldict.pot_weight * eval_loss_0
-                    eval_loss_1 += eval_loss_2
-                    eval_loss_1 += modeldict.ene_weight * eval_loss_3
-                    modeldict.scheduler_dict["1"].step(np.mean(eval_loss_1))
+                    eval_loss_2 = modeldict.ene_weight * eval_loss_2 + eval_loss_3
+                    modeldict.scheduler_dict["1"].step(
+                        np.mean(eval_loss_1 + eval_loss_2)
+                    )
                 elif modeldict.output_size == -1:
                     eval_loss_1 += modeldict.pot_weight * eval_loss_0
-                    eval_loss_2 += modeldict.ene_weight * eval_loss_3
+                    eval_loss_2 = modeldict.ene_weight * eval_loss_2 + eval_loss_3
                     modeldict.scheduler_dict["1"].step(
                         np.mean(eval_loss_1 + eval_loss_2)
                     )
                 elif modeldict.output_size == -2:
-                    eval_loss_2 += modeldict.ene_weight * eval_loss_3
+                    eval_loss_2 = modeldict.ene_weight * eval_loss_2 + eval_loss_3
                     modeldict.scheduler_dict["1"].step(np.mean(eval_loss_2))
 
             experiment_dict = {
