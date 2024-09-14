@@ -38,7 +38,6 @@ else:
 
 print(f"MAIN_PATH: {MAIN_PATH.resolve()}")
 print(f"DATA_PATH: {DATA_PATH.resolve()}")
-print(f"DATA_PATH: {DATA_SCF_PATH.resolve()}")
 print(f"DATA_SAVE_PATH: {DATA_SAVE_PATH.resolve()}")
 print(f"DATA_CC_PATH: {DATA_CC_PATH.resolve()}")
 
