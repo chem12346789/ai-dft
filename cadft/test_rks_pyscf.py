@@ -17,6 +17,7 @@ import opt_einsum as oe
 from cadft import CC_DFT_DATA
 from cadft.utils import MAIN_PATH, DATA_PATH
 from cadft.utils import calculate_density_dipole, calculate_force
+from cadft.utils.DataBase import process_input
 
 AU2KCALMOL = 627.5096080306
 
@@ -251,14 +252,6 @@ def test_rks_pyscf(
             df_dict[f"error_force_{orientation}_scf"].append(-1)
             df_dict[f"error_force_{orientation}_dft"].append(-1)
 
-    if generate_data:
-        if (DATA_PATH / f"data_{name}.npz").exists():
-            data_real = np.load(DATA_PATH / f"data_{name}.npz")
-        else:
-            print(f"No file: {name:>40}")
-            return
-        
-
     df = pd.DataFrame(df_dict)
     csv_path = (
         MAIN_PATH
@@ -266,4 +259,35 @@ def test_rks_pyscf(
     )
     print(csv_path)
     df.to_csv(csv_path, index=False)
+
+    if generate_data:
+        if (DATA_PATH / f"data_{name}.npz").exists():
+            data_real = np.load(DATA_PATH / f"data_{name}.npz")
+        else:
+            print(f"No file: {name:>40}")
+            return
+
+        ao_value = pyscf.dft.numint.eval_ao(dft2cc.mol, dft2cc.grids.coords, deriv=1)
+        inv_r_3 = pyscf.dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_scf, xctype="GGA")
+        data_grids_norm = process_input(inv_r_3, dft2cc.grids)
+
+        if "e_cc" in data_real.files:
+            if abs(data_real["e_cc"] - dft2cc.e_cc) > 1e-6:
+                print(f"e_cc: {data_real['e_cc']}, {dft2cc.e_cc}")
+                raise ValueError("e_cc is different.")
+
+        np.savez_compressed(
+            DATA_PATH / f"data_{name}.npz",
+            e_cc=dft2cc.e_cc,
+            dm_cc=data_real["dm_cc"],
+            weights=data_real["weights"],
+            vxc=data_real["vxc"],
+            exc=data_real["exc"],
+            exc_real=data_real["exc_real"],
+            rho_inv_4_norm=data_grids_norm,
+            error_ene_scf=dft2cc.e_cc - ene_scf,
+            exc1_tr=data_real["exc1_tr"],
+            vxc1_lda=data_real["vxc1_lda"],
+            exc1_tr_lda=data_real["exc1_tr_lda"],
+        )
     return dm1_scf

@@ -235,7 +235,10 @@ class DataBase:
                 f"var output: {np.var(output_[i_atom]):>7.4e}\n"
             )
 
-        tot_correct_energy = 0
+        if "error_ene_scf" in data.files:
+            tot_correct_energy = data["error_ene_scf"]
+        else:
+            tot_correct_energy = 0
         for key, val in input_.items():
             tot_correct_energy += np.sum(val * output_[key] * weight_[key])
 
