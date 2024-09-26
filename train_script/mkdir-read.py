@@ -60,17 +60,20 @@ for (
     [32],
     [10],
     [
-        # (1, 64, 1, 4, "0", "New"),
-        # (1, 32, 1, 3, "0", "New"),
-        (1, 32, -1, 3, "0", "New"),
-        # (1, 16, 1, 6, "0", "New"),
+        (
+            1,  # input_size
+            32,  # hidden_size
+            1,  # output_size
+            5,  # num_layer
+            "4",  # residual
+            "New",  # load_model
+        ),
     ],
     [
-        (1, 0),
+        (1, 1),
     ],
     [
         "True",
-        # "False",
     ],
 ):
     number_of_gpu = next(LIST_OF_GPU)
@@ -99,11 +102,3 @@ for child in (work_dir).glob("*.bash"):
         cmd = f"""sbatch < {child}"""
         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
             subprocess.call(cmd, shell=True, stdout=f)
-
-        # Best time for ai training is 6 seconds (according to the HuaWei)
-        # time.sleep(6)
-        # time.sleep(6)
-        # time.sleep(6)
-        # time.sleep(6)
-        # time.sleep(6)
-        # time.sleep(6)

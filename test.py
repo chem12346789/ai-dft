@@ -10,6 +10,7 @@ import torch
 
 from cadft import add_args, extend, gen_logger
 from cadft import test_rks, test_uks, test_rks_pyscf
+from cadft.utils import DATA_PATH
 
 from cadft.utils import ModelDict
 
@@ -88,9 +89,13 @@ if __name__ == "__main__":
             dm_guess = None
             name_mol_now = name_mol
 
-        molecular, name = extend(
-            name_mol, extend_atom, extend_xyz, distance, args.basis
-        )
+        name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+        generate_data = getattr(args, "generate_data", False)
+        if generate_data:
+            if not (DATA_PATH / f"data_{name}.npz").exists():
+                continue
+        molecular = extend(name_mol, extend_atom, extend_xyz, distance, name)
+
         if molecular is None:
             print(f"Skip: {name:>40}")
             continue

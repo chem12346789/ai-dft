@@ -253,10 +253,16 @@ def test_rks_pyscf(
             df_dict[f"error_force_{orientation}_dft"].append(-1)
 
     df = pd.DataFrame(df_dict)
-    csv_path = (
-        MAIN_PATH
-        / f"validate/ccdft_{args.load}_{args.hidden_size}_{args.num_layers}_{args.residual}"
-    )
+    if generate_data:
+        csv_path = (
+            MAIN_PATH
+            / f"validate/ccdft_{args.load}_{args.hidden_size}_{args.num_layers}_{args.residual}_generate_data"
+        )
+    else:
+        csv_path = (
+            MAIN_PATH
+            / f"validate/ccdft_{args.load}_{args.hidden_size}_{args.num_layers}_{args.residual}"
+        )
     print(csv_path)
     df.to_csv(csv_path, index=False)
 

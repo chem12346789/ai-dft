@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader
 from cadft.utils.mol import Mol
 from cadft.utils.env_var import DATA_PATH
 
+AU2KCALMOL = 627.5096080306
+
 
 def process_input(data, grids):
     """
@@ -164,13 +166,11 @@ class DataBase:
                     if not (Path(f"{DATA_PATH}") / f"data_{name_}.npz").exists():
                         print(f"No file: {name_}:>40")
                         continue
-                    self.name_list.append(f"{name_}")
                     self.load_data(f"{name_}", Mol[name_mol])
             else:
                 if not (Path(f"{DATA_PATH}") / f"data_{name}.npz").exists():
                     print(f"No file: {name:>40}")
                     continue
-                self.name_list.append(name)
                 self.load_data(name, Mol[name_mol])
 
     def load_data(self, name, mol):
@@ -179,11 +179,20 @@ class DataBase:
         """
         data = np.load(Path(f"{DATA_PATH}") / f"data_{name}.npz")
 
+        if "error_ene_scf" in data.files:
+            tot_correct_energy = data["error_ene_scf"]
+            print(f"tot_correct_energy: {tot_correct_energy}")
+            if np.abs(tot_correct_energy) * AU2KCALMOL > 25:
+                return
+        else:
+            tot_correct_energy = 0
+
         weight = data["weights"]
         input_mat = data["rho_inv_4_norm"]
         middle_mat = data["vxc1_lda"]
         output_mat = data["exc1_tr_lda"]
 
+        self.name_list.append(name)
         self.shape[name] = output_mat.shape
         input_ = {}
         middle_ = {}
@@ -235,10 +244,6 @@ class DataBase:
                 f"var output: {np.var(output_[i_atom]):>7.4e}\n"
             )
 
-        if "error_ene_scf" in data.files:
-            tot_correct_energy = data["error_ene_scf"]
-        else:
-            tot_correct_energy = 0
         for key, val in input_.items():
             tot_correct_energy += np.sum(val * output_[key] * weight_[key])
 
