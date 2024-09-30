@@ -10,13 +10,47 @@ import os
 import numpy as np
 import torch
 import torch.optim as optim
+import pyscf
 
 from cadft.utils.model.unet import UNet as Model
 from cadft.utils.env_var import CHECKPOINTS_PATH
 from cadft.utils.DataBase import process_input
+from cadft.utils.Grids import Grid
 
 # from cadft.utils.model.fc_net import FCNet as Model
 # from cadft.utils.model.transformer import Transformer as Model
+
+
+def get_input_mat(
+    ks: pyscf.dft.rks.RKS,
+    grids: Grid,
+    dms: np.ndarray = None,
+    xctype: str = "lda",
+):
+    """
+    Get the input matrix for the model.
+    Input:
+    ks: the dft instance, RKS/UKS object; See https://pyscf.org/_modules/pyscf/dft/rks.html
+    grids: the grids instance, Grids object; See https://pyscf.org/_modules/pyscf/dft/numint.html and the modified version in dft2cc/utils/Grids.py
+    """
+    if isinstance(ks, pyscf.dft.rks.RKS):
+        if xctype.lower() == "lda":
+            if not hasattr(ks, "ao_value"):
+                ks.ao_value = pyscf.dft.numint.eval_ao(ks.mol, grids.coords, deriv=1)
+            scf_r_3 = pyscf.dft.numint.eval_rho(
+                ks.mol, ks.ao_value[0, :], dms, xctype="LDA"
+            )
+            input_mat = process_input(scf_r_3, grids)
+            input_mat = np.transpose(input_mat, (1, 0, 2, 3))
+            input_mat = input_mat[:, [0], :, :]
+            return input_mat
+        elif xctype.lower() == "gga":
+            if not hasattr(ks, "ao_value"):
+                ks.ao_value = pyscf.dft.numint.eval_ao(ks.mol, grids.coords, deriv=1)
+            scf_r_3 = pyscf.dft.numint.eval_rho(ks.mol, ks.ao_value, dms, xctype="GGA")
+            input_mat = process_input(scf_r_3, grids)
+            input_mat = np.transpose(input_mat, (1, 0, 2, 3))
+            return input_mat
 
 
 class ModelDict:
@@ -103,48 +137,6 @@ class ModelDict:
         self.optimizer_dict = {}
         self.scheduler_dict = {}
 
-        for i_key, key in enumerate(self.keys):
-            self.model_dict[key] = Model(
-                self.input_size,
-                self.hidden_size,
-                self.output_size if output_size > 0 else 1,
-                (
-                    int(self.residual)
-                    if "." not in self.residual
-                    else int(self.residual.split(".")[i_key])
-                ),
-                self.num_layers,
-            ).to(device)
-
-        for key in self.keys:
-            if precision == "float64":
-                self.model_dict[key].double()
-
-            self.optimizer_dict[key] = optim.Adam(
-                self.model_dict[key].parameters(),
-                lr=1e-4,
-            )
-
-        for key in self.keys:
-            if self.with_eval:
-                self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
-                    self.optimizer_dict[key],
-                    mode="min",
-                    factor=0.5,
-                    patience=10,
-                    verbose=True,
-                    threshold=1e-6,
-                    threshold_mode="rel",
-                    cooldown=0,
-                    min_lr=1e-8,
-                    eps=1e-8,
-                )
-            else:
-                self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
-                    self.optimizer_dict[key],
-                    gamma=1.0,
-                )
-
         self.loss_multiplier = 1.0
         # self.loss_fn1 = torch.nn.MSELoss()
         # self.loss_fn2 = torch.nn.MSELoss()
@@ -211,6 +203,62 @@ class ModelDict:
         for key in self.keys:
             self.optimizer_dict[key].step()
 
+    def save_model(self, epoch):
+        """
+        Save the model to the checkpoint.
+        """
+        for key in self.keys:
+            state_dict = self.model_dict[key].state_dict()
+            torch.save(
+                state_dict,
+                self.dir_checkpoint / f"{key}-{epoch}.pth",
+            )
+
+
+class ModelDictUnet(ModelDict):
+    """
+    Model_Dict for unet
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        for i_key, key in enumerate(self.keys):
+            self.model_dict[key] = Model(
+                self.input_size,
+                self.hidden_size,
+                self.output_size if self.output_size > 0 else 1,
+                (
+                    int(self.residual)
+                    if "." not in self.residual
+                    else int(self.residual.split(".")[i_key])
+                ),
+                self.num_layers,
+            ).to(self.device)
+
+        for key in self.keys:
+            if self.dtype is torch.float64:
+                self.model_dict[key].double()
+
+            self.optimizer_dict[key] = optim.Adam(
+                self.model_dict[key].parameters(),
+                lr=1e-4,
+            )
+
+        for key in self.keys:
+            if self.with_eval:
+                self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
+                    self.optimizer_dict[key],
+                    mode="min",
+                    factor=0.5,
+                    patience=10,
+                )
+            else:
+                self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
+                    self.optimizer_dict[key],
+                    gamma=1.0,
+                )
+
     def loss(self, batch):
         """
         Calculate the loss.
@@ -223,51 +271,43 @@ class ModelDict:
 
         if self.output_size == 1:
             middle_mat = self.model_dict["1"](input_mat)
-            loss_0_i = self.loss_multiplier * self.loss_fn1(
-                middle_mat * weight,
-                middle_mat_real * weight,
-            )
-            loss_1_i = self.loss_multiplier * self.loss_fn1(
+            loss_pot_i = self.loss_multiplier * self.loss_fn1(
                 middle_mat,
                 middle_mat_real,
             )
 
             output_mat = self.model_dict["2"](input_mat)
-            loss_2_i = self.loss_multiplier * self.loss_fn2(
+            loss_ene_i = self.loss_multiplier * self.loss_fn2(
                 output_mat,
                 output_mat_real,
             )
-            loss_3_i = self.loss_multiplier * self.loss_fn3(
+            loss_ene_tot_i = self.loss_multiplier * self.loss_fn3(
                 tot_correct_energy,
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
             )
         elif self.output_size == 2:
             output_mat = self.model_dict["1"](input_mat)
-            loss_0_i = self.loss_multiplier * self.loss_fn1(
-                output_mat[:, [0], :, :] * weight,
-                output_mat_real[:, [0], :, :] * weight,
-            )
-            loss_1_i = self.loss_multiplier * self.loss_fn1(
+            loss_pot_i = self.loss_multiplier * self.loss_fn1(
                 output_mat[:, [0], :, :],
                 output_mat_real[:, [0], :, :],
             )
 
-            loss_2_i = self.loss_multiplier * self.loss_fn2(
+            loss_ene_i = self.loss_multiplier * self.loss_fn2(
                 output_mat[:, [1], :, :],
                 output_mat_real[:, [1], :, :],
             )
-            loss_3_i = self.loss_multiplier * self.loss_fn3(
+            loss_ene_tot_i = self.loss_multiplier * self.loss_fn3(
                 tot_correct_energy,
                 torch.sum(output_mat[:, [1], :, :] * input_mat[:, [0], :, :] * weight),
             )
         elif self.output_size == -1:
             input_mat = input_mat.requires_grad_(True)
             output_mat = self.model_dict["1"](input_mat)
-            loss_2_i = self.loss_multiplier * self.loss_fn2(
+            loss_ene_i = self.loss_multiplier * self.loss_fn2(
                 output_mat,
                 output_mat_real,
             )
-            loss_3_i = self.loss_multiplier * self.loss_fn3(
+            loss_ene_tot_i = self.loss_multiplier * self.loss_fn3(
                 tot_correct_energy,
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
             )
@@ -277,102 +317,59 @@ class ModelDict:
                 input_mat,
                 create_graph=True,
             )[0]
-            loss_0_i = self.loss_multiplier * self.loss_fn1(
-                middle_mat * weight,
-                middle_mat_real * weight,
-            )
-            loss_1_i = self.loss_multiplier * self.loss_fn1(
+            loss_pot_i = self.loss_multiplier * self.loss_fn1(
                 middle_mat,
                 middle_mat_real,
             )
         elif self.output_size == -2:
             output_mat = self.model_dict["1"](input_mat)
-            loss_2_i = self.loss_multiplier * self.loss_fn2(
+            loss_pot_i = torch.tensor([0.0], device=self.device)
+            loss_ene_i = self.loss_multiplier * self.loss_fn2(
                 output_mat,
                 output_mat_real,
             )
-            loss_3_i = self.loss_multiplier * self.loss_fn3(
+            loss_ene_tot_i = self.loss_multiplier * self.loss_fn3(
                 tot_correct_energy,
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
             )
-            (loss_0_i, loss_1_i) = (
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-            )
-        return loss_0_i, loss_1_i, loss_2_i, loss_3_i
-
-    def save_model(self, epoch):
-        """
-        Save the model to the checkpoint.
-        """
-        for key in self.keys:
-            state_dict = self.model_dict[key].state_dict()
-            torch.save(
-                state_dict,
-                self.dir_checkpoint / f"{key}-{epoch}.pth",
-            )
+        return loss_pot_i, loss_ene_i, loss_ene_tot_i
 
     def train_model(self, database_train):
         """
         Train the model, one epoch.
         """
-        train_loss_0, train_loss_1, train_loss_2, train_loss_3 = [], [], [], []
+        train_loss_pot, train_loss_ene, train_loss_ene_tot = [], [], []
         database_train.rng.shuffle(database_train.name_list)
         self.train()
 
         for name in database_train.name_list:
-            (
-                loss_0,
-                loss_1,
-                loss_2,
-                loss_3,
-            ) = (
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-            )
-
-            self.zero_grad()
-
             for batch in database_train.data_gpu[name]:
-                loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
-                loss_0 += loss_0_i
-                loss_1 += loss_1_i
-                loss_2 += loss_2_i
-                loss_3 += loss_3_i
+                self.zero_grad()
+                loss_pot_i, loss_ene_i, loss_ene_tot_i = self.loss(batch)
 
-            train_loss_0.append(loss_0.item())
-            train_loss_1.append(loss_1.item())
-            train_loss_2.append(loss_2.item())
-            train_loss_3.append(loss_3.item())
+                train_loss_pot.append(loss_pot_i.item())
+                train_loss_ene.append(loss_ene_i.item())
+                train_loss_ene_tot.append(loss_ene_tot_i.item())
 
-            if self.output_size == 1:
-                loss_1 += self.pot_weight * loss_0
-                loss_2 = self.ene_weight * loss_2 + loss_3
-                loss_1.backward()
-                loss_2.backward()
-            elif self.output_size == 2:
-                loss_1 += self.pot_weight * loss_0
-                loss_1 += loss_2
-                loss_2 = self.ene_weight * loss_2 + loss_3
-                loss_1.backward()
-            elif self.output_size == -1:
-                loss_1 += self.pot_weight * loss_0
-                loss_2 = self.ene_weight * loss_2 + loss_3
-                loss_1.backward(retain_graph=True)
-                loss_2.backward()
-            elif self.output_size == -2:
-                loss_2 = self.ene_weight * loss_2 + loss_3
-                loss_2.backward()
+                if self.output_size == 1:
+                    loss_pot_i.backward()
+                    (loss_ene_i + self.ene_weight * loss_ene_tot_i).backward()
+                elif self.output_size == 2:
+                    (
+                        loss_pot_i + loss_ene_i + self.ene_weight * loss_ene_tot_i
+                    ).backward()
+                elif self.output_size == -1:
+                    loss_pot_i.backward(retain_graph=True)
+                    (loss_ene_i + self.ene_weight * loss_ene_tot_i).backward()
+                elif self.output_size == -2:
+                    (loss_ene_i + self.ene_weight * loss_ene_tot_i).backward()
 
-            self.step()
+                self.step()
 
         return (
-            np.array(train_loss_0),
-            np.array(train_loss_1),
-            np.array(train_loss_2),
-            np.array(train_loss_3),
+            np.array(train_loss_pot),
+            np.array(train_loss_ene),
+            np.array(train_loss_ene_tot),
         )
 
     def eval_model(self, database_eval):
@@ -380,63 +377,42 @@ class ModelDict:
         Evaluate the model.
         """
         self.eval()
-
-        eval_loss_0, eval_loss_1, eval_loss_2, eval_loss_3 = [], [], [], []
+        eval_loss_pot, eval_loss_ene, eval_loss_ene_tot = [], [], []
 
         for name in database_eval.name_list:
-            (
-                loss_0,
-                loss_1,
-                loss_2,
-                loss_3,
-            ) = (
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-                torch.tensor([0.0], device=self.device),
-            )
-
             for batch in database_eval.data_gpu[name]:
-                # with torch.no_grad():
-                loss_0_i, loss_1_i, loss_2_i, loss_3_i = self.loss(batch)
-                loss_0 += loss_0_i
-                loss_1 += loss_1_i
-                loss_2 += loss_2_i
-                loss_3 += loss_3_i
+                loss_pot_i, loss_ene_i, loss_ene_tot_i = self.loss(batch)
 
-            eval_loss_0.append(loss_0.item())
-            eval_loss_1.append(loss_1.item())
-            eval_loss_2.append(loss_2.item())
-            eval_loss_3.append(loss_3.item())
+                eval_loss_pot.append(loss_pot_i.item())
+                eval_loss_ene.append(loss_ene_i.item())
+                eval_loss_ene_tot.append(loss_ene_tot_i.item())
 
         return (
-            np.array(eval_loss_0),
-            np.array(eval_loss_1),
-            np.array(eval_loss_2),
-            np.array(eval_loss_3),
+            np.array(eval_loss_pot),
+            np.array(eval_loss_ene),
+            np.array(eval_loss_ene_tot),
         )
 
-    def get_v(self, scf_r_3, grids):
+    def get_v(
+        self,
+        ks: pyscf.dft.rks.RKS,
+        grids: Grid,
+        dms: np.ndarray = None,
+    ):
         """
         Obtain the potential.
         Input: [rho, nabla rho] (4, ngrids),
         Output: the potential (ngrids).
         """
+        if dms is None:
+            dms = ks.make_rdm1()
         if self.input_size == 1:
-            if len(np.shape(scf_r_3)) == 2:
-                input_mat = grids.vector_to_matrix(scf_r_3[0, :])
-            elif len(np.shape(scf_r_3)) == 1:
-                input_mat = grids.vector_to_matrix(scf_r_3)
-            else:
-                raise ValueError("scf_r_3 must be lda or gga density")
+            input_mat = get_input_mat(ks, grids, dms, "lda")
             input_mat = torch.tensor(
                 input_mat[:, np.newaxis, :, :], dtype=self.dtype
             ).to("cuda")
         elif self.input_size == 4:
-            if len(np.shape(scf_r_3)) == 2:
-                input_mat = process_input(scf_r_3, grids)
-            else:
-                raise ValueError("scf_r_3 must be gga density")
+            input_mat = get_input_mat(ks, grids, dms, "gga")
             input_mat = np.transpose(input_mat, (1, 0, 2, 3))
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
         else:
@@ -450,41 +426,36 @@ class ModelDict:
             input_mat = input_mat.requires_grad_(True)
             with torch.no_grad():
                 output_mat = self.model_dict["1"](input_mat)
-            middle_mat = (
-                torch.autograd.grad(
-                    torch.sum(input_mat[:, [0], :, :] * output_mat),
-                    input_mat,
-                    create_graph=True,
-                )[0]
-                .detach()
-                .cpu()
-                .numpy()
-            )
-            middle_mat = middle_mat[:, 0, :, :]
+            middle_mat = torch.autograd.grad(
+                torch.sum(input_mat[:, [0], :, :] * output_mat),
+                input_mat,
+                create_graph=True,
+            )[0]
+            middle_mat = middle_mat.detach().cpu().numpy()[:, 0, :, :]
         vxc_scf = grids.matrix_to_vector(middle_mat)
         return vxc_scf
 
-    def get_e(self, scf_r_3, grids):
+    def get_e(
+        self,
+        ks: pyscf.dft.rks.RKS,
+        grids: Grid,
+        dms: np.ndarray = None,
+    ):
         """
         Obtain the energy density.
         Input: [rho, nabla rho] (4, ngrids),
         Output: the potential (ngrids).
         """
+        if dms is None:
+            dms = ks.make_rdm1()
+
         if self.input_size == 1:
-            if len(np.shape(scf_r_3)) == 2:
-                input_mat = grids.vector_to_matrix(scf_r_3[0, :])
-            elif len(np.shape(scf_r_3)) == 1:
-                input_mat = grids.vector_to_matrix(scf_r_3)
-            else:
-                raise ValueError("scf_r_3 must be lda or gga density")
+            input_mat = get_input_mat(ks, grids, dms, "lda")
             input_mat = torch.tensor(
                 input_mat[:, np.newaxis, :, :], dtype=self.dtype
             ).to("cuda")
         elif self.input_size == 4:
-            if len(np.shape(scf_r_3)) == 2:
-                input_mat = process_input(scf_r_3, grids)
-            else:
-                raise ValueError("scf_r_3 must be gga density")
+            input_mat = get_input_mat(ks, grids, dms, "gga")
             input_mat = np.transpose(input_mat, (1, 0, 2, 3))
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
         else:

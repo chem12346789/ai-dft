@@ -17,7 +17,7 @@ from cadft.utils.DataBase import DataBase
 from cadft.utils.model.fc_net import FCNet
 from cadft.utils.model.transformer import Transformer
 from cadft.utils.Grids import Grid
-from cadft.utils.ModelDict import ModelDict
+from cadft.utils.ModelDict import ModelDictUnet
 from cadft.utils.diis import DIIS
 
 from cadft.utils.mol import Mol

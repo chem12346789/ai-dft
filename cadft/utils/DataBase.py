@@ -110,7 +110,9 @@ def gen_logger(distance_list):
 
 
 class DataBase:
-    """Documentation for a class."""
+    """
+    Documentation for a class.
+    """
 
     def __init__(
         self,

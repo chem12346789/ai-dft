@@ -68,7 +68,7 @@ for mol, basis_set, (range_list, extend_atom) in itertools.product(
         # "F-openshell",
         # "Ne",
     ],
-    ["cc-pCVTZ"],
+    ["cc-pCVDZ"],
     [
         ((0, 0, 1), "0"),
         # (-0.9, -0.9, 1)

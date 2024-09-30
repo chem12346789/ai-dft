@@ -12,7 +12,6 @@ from pyscf import lib
 import pandas as pd
 import torch
 import numpy as np
-import opt_einsum as oe
 
 from cadft import CC_DFT_DATA
 from cadft.utils import MAIN_PATH, DATA_PATH
@@ -61,16 +60,6 @@ def test_rks_pyscf(
     # 2.1 SCF loop to get the density matrix
     time_start = timer()
 
-    oe_fock = oe.contract_expression(
-        "p,p,pa,pb->ab",
-        np.shape(dft2cc.ao_0[:, 0]),
-        np.shape(dft2cc.ao_0[:, 0]),
-        dft2cc.ao_0,
-        dft2cc.ao_0,
-        constants=[2, 3],
-        optimize="optimal",
-    )
-
     def get_veff(ks, mol=None, dm=None, dm_last=0, vhf_last=0, hermi=1):
         # print("Using modified get_veff", flush=True)
         if mol is None:
@@ -78,16 +67,18 @@ def test_rks_pyscf(
         if dm is None:
             dm = ks.make_rdm1()
 
-        scf_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dm)
-        vexc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)
-        # vxc_mat = oe_fock(vexc_lda[1][0], dft2cc.grids.weights)
-        # exc_ene = np.sum(vexc_lda[0] * scf_rho_r * dft2cc.grids.weights)
+        ground_state = isinstance(dm, np.ndarray) and dm.ndim == 2
+        ni = ks._numint
+
+        max_memory = ks.max_memory - lib.current_memory()[0]
+        n, exc, vxc = ni.nr_rks(mol, ks.grids, ks.xc, dm, max_memory=max_memory)
+        scf_rho_r = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dm)
 
         if from_data:
             middle_mat = data_real["vxc"]
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
             output_mat = data_real["exc1_tr_lda"]
-            exc_scf = dft2cc.grids.matrix_to_vector(output_mat) + vexc_lda[0]
+            exc_scf = dft2cc.grids.matrix_to_vector(output_mat)
         else:
             if modeldict.input_size == 1:
                 vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
@@ -95,42 +86,73 @@ def test_rks_pyscf(
                 zero_index = np.abs(scf_rho_r) < 1e-4
                 vxc_scf[zero_index] = 0
                 exc_scf[zero_index] = 0
-                vxc_scf += vexc_lda[1][0]
-                exc_scf += vexc_lda[0]
             elif modeldict.input_size == 4:
-                scf_rho_r3 = pyscf.dft.numint.eval_rho(
-                    dft2cc.mol, dft2cc.ao_1, dm, xctype="GGA"
-                )
+                scf_rho_r3 = ni.eval_rho(dft2cc.mol, dft2cc.ao_1, dm, xctype="GGA")
                 vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids)
                 exc_scf = modeldict.get_e(scf_rho_r3, dft2cc.grids)
                 zero_index = np.abs(scf_rho_r3[0]) < 1e-4
                 vxc_scf[zero_index] = 0
                 exc_scf[zero_index] = 0
-                # vexc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3)
-                # vxc_scf += vexc_b3lyp[0]
-                # exc_scf += vexc_b3lyp[0]
-                vxc_scf += vexc_lda[1][0]
-                exc_scf += vexc_lda[0]
 
-        vxc_mat = oe_fock(vxc_scf, dft2cc.grids.weights)
-        exc_ene = np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
+        vxc += pyscf.dft.numint.eval_mat(
+            dft2cc.mol, dft2cc.ao_0, dft2cc.grids.weights, vxc_scf, vxc_scf
+        )
+        exc += np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
 
-        vk = None
-        if (
-            ks._eri is None
-            and ks.direct_scf
-            and getattr(vhf_last, "vj", None) is not None
-        ):
-            ddm = np.asarray(dm) - np.asarray(dm_last)
-            vj = ks.get_j(mol, ddm, hermi)
-            vj += vhf_last.vj
+        # rho_diff = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dm - dft2cc.dm1_cc)
+        # v_p = pyscf.dft.numint.eval_mat(
+        #     dft2cc.mol, dft2cc.ao_0, dft2cc.grids.weights, rho_diff, rho_diff
+        # )
+        # vxc += 100 * v_p
+
+        if not ni.libxc.is_hybrid_xc(ks.xc):
+            vk = None
+            if (
+                ks._eri is None
+                and ks.direct_scf
+                and getattr(vhf_last, "vj", None) is not None
+            ):
+                ddm = np.asarray(dm) - np.asarray(dm_last)
+                vj = ks.get_j(mol, ddm, hermi)
+                vj += vhf_last.vj
+            else:
+                vj = ks.get_j(mol, dm, hermi)
+            vxc += vj
         else:
-            vj = ks.get_j(mol, dm, hermi)
-        vxc_mat += vj
+            omega, alpha, hyb = ni.rsh_and_hybrid_coeff(ks.xc, spin=mol.spin)
+            if (
+                ks._eri is None
+                and ks.direct_scf
+                and getattr(vhf_last, "vk", None) is not None
+            ):
+                ddm = np.asarray(dm) - np.asarray(dm_last)
+                vj, vk = ks.get_jk(mol, ddm, hermi)
+                vk *= hyb
+                if omega != 0:  # For range separated Coulomb
+                    vklr = ks.get_k(mol, ddm, hermi, omega=omega)
+                    vklr *= alpha - hyb
+                    vk += vklr
+                vj += vhf_last.vj
+                vk += vhf_last.vk
+            else:
+                vj, vk = ks.get_jk(mol, dm, hermi)
+                vk *= hyb
+                if omega != 0:
+                    vklr = ks.get_k(mol, dm, hermi, omega=omega)
+                    vklr *= alpha - hyb
+                    vk += vklr
+            vxc += vj - vk * 0.5
 
-        ecoul = np.einsum("ij,ji", dm, vj).real * 0.5
-        vxc_mat = lib.tag_array(vxc_mat, ecoul=ecoul, exc=exc_ene, vj=vj, vk=vk)
-        return vxc_mat
+            if ground_state:
+                exc -= np.einsum("ij,ji", dm, vk).real * 0.5 * 0.5
+
+        if ground_state:
+            ecoul = np.einsum("ij,ji", dm, vj).real * 0.5
+        else:
+            ecoul = None
+
+        vxc = lib.tag_array(vxc, ecoul=ecoul, exc=exc, vj=vj, vk=vk)
+        return vxc
 
     mdft.get_veff = types.MethodType(get_veff, mdft)
     mdft.xc = "lda,vwn"
@@ -150,13 +172,16 @@ def test_rks_pyscf(
     dm1_scf = mdft.make_rdm1()
     print("Done SCF", flush=True)
 
-    def get_vxc(dms):
+    def get_vxc(ks_grad, dms):
         """
         Modification of the get_vxc function in pyscf.grad.rks.py
         https://pyscf.org/_modules/pyscf/grad/rks.html
         """
         # print("Using modified get_vxc", flush=True)
-        scf_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dms)
+        mf = ks_grad.base
+        ni = mf._numint
+
+        scf_rho_r = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dms)
         vexc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)
 
         if from_data:
@@ -169,14 +194,10 @@ def test_rks_pyscf(
                 vxc_scf[zero_index] = 0
                 vxc_scf += vexc_lda[1][0]
             elif modeldict.input_size == 4:
-                scf_rho_r3 = pyscf.dft.numint.eval_rho(
-                    dft2cc.mol, dft2cc.ao_1, dms, xctype="GGA"
-                )
+                scf_rho_r3 = ni.eval_rho(dft2cc.mol, dft2cc.ao_1, dms, xctype="GGA")
                 vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids)
                 zero_index = np.abs(scf_rho_r3[0]) < 1e-5
                 vxc_scf[zero_index] = 0
-                # vexc_b3lyp = pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3)
-                # vxc_scf += vexc_b3lyp[0]
                 vxc_scf += vexc_lda[1][0]
 
         wv = dft2cc.grids.weights * vxc_scf
@@ -199,7 +220,7 @@ def test_rks_pyscf(
             if dm is None:
                 dm = ks_grad.base.make_rdm1()
 
-            exc, vxc = get_vxc(dm)
+            exc, vxc = get_vxc(ks_grad, dm)
             vj = ks_grad.get_j(mol, dm)
             vxc += vj
 
@@ -210,7 +231,6 @@ def test_rks_pyscf(
         grad_ai = g.kernel()
         print("If net force", np.sum(grad_ai, axis=0))
 
-    del oe_fock
     gc.collect()
     torch.cuda.empty_cache()
 
