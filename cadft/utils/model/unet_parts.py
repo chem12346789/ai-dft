@@ -50,7 +50,59 @@ class DoubleConv(nn.Module):
                 ),
                 nn.ReLU(inplace=True),
             )
-        elif norm_layer == "GroupNorm":
+        elif norm_layer == "GroupNorm1":
+            self.double_conv = nn.Sequential(
+                nn.Conv2d(
+                    in_channels, mid_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.GroupNorm(1, mid_channels, affine=affine),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(
+                    mid_channels, out_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.GroupNorm(1, out_channels, affine=affine),
+                nn.ReLU(inplace=True),
+            )
+        elif norm_layer == "GroupNorm2":
+            self.double_conv = nn.Sequential(
+                nn.Conv2d(
+                    in_channels, mid_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.GroupNorm(2, mid_channels, affine=affine),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(
+                    mid_channels, out_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.GroupNorm(2, out_channels, affine=affine),
+                nn.ReLU(inplace=True),
+            )
+        elif norm_layer == "GroupNorm4":
+            self.double_conv = nn.Sequential(
+                nn.Conv2d(
+                    in_channels, mid_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.GroupNorm(4, mid_channels, affine=affine),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(
+                    mid_channels, out_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.GroupNorm(4, out_channels, affine=affine),
+                nn.ReLU(inplace=True),
+            )
+        elif norm_layer == "GroupNorm8":
+            self.double_conv = nn.Sequential(
+                nn.Conv2d(
+                    in_channels, mid_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.GroupNorm(8, mid_channels, affine=affine),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(
+                    mid_channels, out_channels, kernel_size=3, padding=1, bias=False
+                ),
+                nn.GroupNorm(8, out_channels, affine=affine),
+                nn.ReLU(inplace=True),
+            )
+        elif norm_layer == "GroupNorm16":
             self.double_conv = nn.Sequential(
                 nn.Conv2d(
                     in_channels, mid_channels, kernel_size=3, padding=1, bias=False

@@ -42,39 +42,43 @@ work_dir.mkdir()
 work_bash = work_dir / "train-template.bash"
 
 LIST_OF_GPU = itertools.cycle([0, 1])
+GPU_NODE_POOL = itertools.cycle(
+    [
+        "gpu07",
+    ]
+)
 
 for (
     batch_size,
     eval_step,
-    (
-        input_size,
-        hidden_size,
-        output_size,
-        num_layer,
-        residual,
-        load_model,
-    ),
+    input_size,
+    hidden_size,
+    output_size,
+    num_layer,
+    residual,
+    load_model,
     (pot_weight, ene_weight),
     with_eval,
 ) in itertools.product(
     [32],
     [10],
+    [1],  # input_size
+    [64],  # hidden_size
+    [1],  # output_size
+    [4],  # num_layer
+    ["0.-1"],  # residual
+    ["New"],  # load_model
     [
-        # (1, 64, 1, 4, "0", "New"),
-        # (1, 32, 1, 3, "0", "New"),
-        (1, 32, -1, 3, "0", "New"),
-        # (1, 16, 1, 6, "0", "New"),
-    ],
-    [
-        (1, 0),
+        (1, 1),
     ],
     [
         "True",
-        # "False",
     ],
 ):
     number_of_gpu = next(LIST_OF_GPU)
     cmd = f"""cp {template_bash} {work_bash}"""
+    gpu_node = next(GPU_NODE_POOL)
+    cmd += "&&" + f"""sed -i "s/BASH_GPU_NODE/{gpu_node}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/INPUT_SIZE/{input_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/OUTPUT_SIZE/{output_size}/g" {work_bash}"""
@@ -99,11 +103,4 @@ for child in (work_dir).glob("*.bash"):
         cmd = f"""sbatch < {child}"""
         with open(main_dir / "out_mkdir", "a", encoding="utf-8") as f:
             subprocess.call(cmd, shell=True, stdout=f)
-
-        # Best time for ai training is 6 seconds (according to the HuaWei)
-        # time.sleep(6)
-        # time.sleep(6)
-        # time.sleep(6)
-        # time.sleep(6)
-        # time.sleep(6)
-        # time.sleep(6)
+        time.sleep(6)

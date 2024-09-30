@@ -45,43 +45,79 @@ class UNet(nn.Module):
 
     def __init__(self, input_size, hidden_size, output_size, residual, num_layers):
         super().__init__()
-        self.in_channels = input_size
-        self.classes = output_size
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.output_size = output_size
         self.residual = residual
+        self.num_layers = num_layers
 
-        if self.residual <= 5:
-            if residual == -1:
+        print(
+            f"Model: UNet, residual: {self.residual}"
+            f"num_layers: {self.num_layers}"
+            f"hidden_size: {self.hidden_size}"
+            f"input_size: {self.input_size}"
+            f"output_size: {self.output_size}"
+        )
+
+        if self.residual < 81:
+            if self.residual == -1:
                 norm_layer = "NoNorm2d"
                 affine = True
-            if residual == 0:
+            if self.residual == 0:
                 norm_layer = "BatchNorm2d"
                 affine = True
-            if residual == 1:
+            if self.residual == 1:
                 norm_layer = "BatchNorm2d"
                 affine = False
-            if residual == 2:
+            if self.residual == 2:
                 norm_layer = "InstanceNorm2d"
                 affine = True
-            if residual == 3:
+            if self.residual == 3:
                 norm_layer = "InstanceNorm2d"
                 affine = False
-            if residual == 4:
-                norm_layer = "GroupNorm"
+            if self.residual == 4:
+                norm_layer = "GroupNorm1"
                 affine = True
-            if residual == 5:
-                norm_layer = "GroupNorm"
+            if self.residual == 5:
+                norm_layer = "GroupNorm1"
+                affine = False
+            if self.residual == 6:
+                norm_layer = "GroupNorm2"
+                affine = True
+            if self.residual == 7:
+                norm_layer = "GroupNorm2"
+                affine = False
+            if self.residual == 8:
+                norm_layer = "GroupNorm4"
+                affine = True
+            if self.residual == 9:
+                norm_layer = "GroupNorm4"
+                affine = False
+            if self.residual == 10:
+                norm_layer = "GroupNorm8"
+                affine = True
+            if self.residual == 11:
+                norm_layer = "GroupNorm8"
+                affine = False
+            if self.residual == 12:
+                norm_layer = "GroupNorm16"
+                affine = True
+            if self.residual == 13:
+                norm_layer = "GroupNorm16"
                 affine = False
 
-            if norm_layer == "GroupNorm":
+            print(f"norm_layer: {norm_layer}" f"affine: {affine}")
+
+            if "GroupNorm" in norm_layer:
                 self.inc = DoubleConv(
-                    self.in_channels,
+                    self.input_size,
                     hidden_size,
                     norm_layer="NoNorm2d",
                     affine=True,
                 )
             else:
                 self.inc = DoubleConv(
-                    self.in_channels,
+                    self.input_size,
                     hidden_size,
                     norm_layer=norm_layer,
                     affine=affine,
@@ -95,7 +131,7 @@ class UNet(nn.Module):
                         norm_layer=norm_layer,
                         affine=affine,
                     )
-                    for i in range(num_layers)
+                    for i in range(self.num_layers)
                 ]
             )
             self.up_layers = nn.ModuleList(
@@ -106,32 +142,32 @@ class UNet(nn.Module):
                         norm_layer=norm_layer,
                         affine=affine,
                     )
-                    for i in range(num_layers)[::-1]
+                    for i in range(self.num_layers)[::-1]
                 ]
             )
-            self.outc = OutConv(hidden_size, self.classes)
+            self.outc = OutConv(hidden_size, self.output_size)
         else:
             decoder_channels = []
-            for i in range(num_layers):
-                decoder_channels.append(hidden_size * 2 ** (num_layers - i))
+            for i in range(self.num_layers):
+                decoder_channels.append(hidden_size * 2 ** (self.num_layers - i))
 
-            if self.residual == 11:
+            if self.residual == 81:
                 self.model = smp.UnetPlusPlus(
                     encoder_name="resnet18",
-                    encoder_depth=num_layers,
+                    encoder_depth=self.num_layers,
                     decoder_channels=decoder_channels,
-                    in_channels=self.in_channels,
-                    classes=self.classes,
+                    in_channels=self.input_size,
+                    classes=self.output_size,
                     encoder_weights=None,
                 )
                 self.model = bn_no_track(self.model)
-            if self.residual == 12:
+            if self.residual == 82:
                 self.model = smp.UnetPlusPlus(
                     encoder_name="timm-mobilenetv3_small_100",
-                    encoder_depth=num_layers,
+                    encoder_depth=self.num_layers,
                     decoder_channels=decoder_channels,
-                    in_channels=self.in_channels,
-                    classes=self.classes,
+                    in_channels=self.input_size,
+                    classes=self.output_size,
                     encoder_weights=None,
                 )
                 self.model = bn_no_track(self.model)
@@ -140,7 +176,7 @@ class UNet(nn.Module):
         """
         Standard forward function, required for all nn.Module classes
         """
-        if self.residual < 11:
+        if self.residual < 81:
             x = self.inc(x)
             x_down = []
             for down in self.down_layers:

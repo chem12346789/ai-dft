@@ -10,7 +10,7 @@ import numpy as np
 import wandb
 
 from cadft.utils import add_args, save_csv_loss
-from cadft.utils import DataBase, ModelDict
+from cadft.utils import DataBase, ModelDictUnet as ModelDict
 
 
 def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
@@ -100,10 +100,9 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
     pbar0 = trange(args.epoch + 1)
     for epoch in pbar0:
         (
-            train_loss_0,
-            train_loss_1,
-            train_loss_2,
-            train_loss_3,
+            train_loss_pot,
+            train_loss_ene,
+            train_loss_ene_tot,
         ) = modeldict.train_model(database_train)
         if not modeldict.with_eval:
             for key in modeldict.keys:
@@ -111,44 +110,50 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
 
         if epoch % args.eval_step == 0:
             (
-                eval_loss_0,
-                eval_loss_1,
-                eval_loss_2,
-                eval_loss_3,
+                eval_loss_pot,
+                eval_loss_ene,
+                eval_loss_ene_tot,
             ) = modeldict.eval_model(database_eval)
             if modeldict.with_eval:
                 if modeldict.output_size == 1:
-                    eval_loss_1 += modeldict.pot_weight * eval_loss_0
-                    eval_loss_2 = modeldict.ene_weight * eval_loss_2 + eval_loss_3
-                    modeldict.scheduler_dict["1"].step(np.mean(eval_loss_1))
-                    modeldict.scheduler_dict["2"].step(np.mean(eval_loss_2))
+                    modeldict.scheduler_dict["1"].step(np.mean(eval_loss_pot))
+                    modeldict.scheduler_dict["2"].step(
+                        np.mean(
+                            eval_loss_ene + modeldict.ene_weight * eval_loss_ene_tot
+                        )
+                    )
                 elif modeldict.output_size == 2:
-                    eval_loss_1 += modeldict.pot_weight * eval_loss_0
-                    eval_loss_2 = modeldict.ene_weight * eval_loss_2 + eval_loss_3
                     modeldict.scheduler_dict["1"].step(
-                        np.mean(eval_loss_1 + eval_loss_2)
+                        np.mean(
+                            eval_loss_pot
+                            + eval_loss_ene
+                            + modeldict.ene_weight * eval_loss_ene_tot
+                        )
                     )
                 elif modeldict.output_size == -1:
-                    eval_loss_1 += modeldict.pot_weight * eval_loss_0
-                    eval_loss_2 = modeldict.ene_weight * eval_loss_2 + eval_loss_3
                     modeldict.scheduler_dict["1"].step(
-                        np.mean(eval_loss_1 + eval_loss_2)
+                        np.mean(
+                            eval_loss_pot
+                            + eval_loss_ene
+                            + modeldict.ene_weight * eval_loss_ene_tot
+                        )
                     )
                 elif modeldict.output_size == -2:
-                    eval_loss_2 = modeldict.ene_weight * eval_loss_2 + eval_loss_3
-                    modeldict.scheduler_dict["1"].step(np.mean(eval_loss_2))
+                    modeldict.scheduler_dict["1"].step(
+                        np.mean(
+                            eval_loss_ene + modeldict.ene_weight * eval_loss_ene_tot
+                        )
+                    )
 
             experiment_dict = {
                 "epoch": epoch,
                 "global_step": epoch,
-                "mean train0 loss": np.mean(train_loss_0),
-                "mean train1 loss": np.mean(train_loss_1),
-                "mean train2 loss": np.mean(train_loss_2),
-                "mean train3 loss": np.mean(train_loss_3),
-                "mean eval0 loss": np.mean(eval_loss_0),
-                "mean eval1 loss": np.mean(eval_loss_1),
-                "mean eval2 loss": np.mean(eval_loss_2),
-                "mean eval3 loss": np.mean(eval_loss_3),
+                "train_loss_pot": np.mean(train_loss_pot),
+                "train_loss_ene": np.mean(train_loss_ene),
+                "train_loss_ene_tot": np.mean(train_loss_ene_tot),
+                "eval_loss_pot": np.mean(eval_loss_pot),
+                "eval_loss_ene": np.mean(eval_loss_ene),
+                "eval_loss_ene_tot": np.mean(eval_loss_ene_tot),
             }
             lr1_2 = ""
             for key in modeldict.keys:
@@ -159,10 +164,9 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
             experiment.log(experiment_dict)
 
             pbar0.set_description(
-                f"t/e1 {np.mean(train_loss_0):.2e}/{np.mean(eval_loss_0):.2e}"
-                f"t/e1 {np.mean(train_loss_1):.2e}/{np.mean(eval_loss_1):.2e}"
-                f" t/e2 {np.mean(train_loss_2):.2e}/{np.mean(eval_loss_2):.2e}"
-                f" t/e3 {np.mean(train_loss_3):.2e}/{np.mean(eval_loss_3):.2e}"
+                f"t/e1 {np.mean(train_loss_pot):.2e}/{np.mean(eval_loss_pot):.2e} "
+                f"t/e2 {np.mean(train_loss_ene):.2e}/{np.mean(eval_loss_ene):.2e} "
+                f"t/e3 {np.mean(train_loss_ene_tot):.2e}/{np.mean(eval_loss_ene_tot):.2e} "
                 f"lr1/2 {lr1_2}"
             )
 
@@ -171,20 +175,18 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 database_train.name_list,
                 modeldict.dir_checkpoint / "loss" / f"train-loss-{epoch}",
                 {
-                    "loss_rho": train_loss_1,
-                    "loss_tot_rho": train_loss_0,
-                    "loss_ene": train_loss_2,
-                    "loss_tot_ene": train_loss_3,
+                    "loss_rho": train_loss_pot,
+                    "loss_tot_rho": train_loss_ene,
+                    "loss_ene": train_loss_ene_tot,
                 },
             )
             save_csv_loss(
                 database_eval.name_list,
                 modeldict.dir_checkpoint / "loss" / f"eval-loss-{epoch}",
                 {
-                    "loss_rho": eval_loss_1,
-                    "loss_tot_rho": eval_loss_0,
-                    "loss_ene": eval_loss_2,
-                    "loss_tot_ene": eval_loss_3,
+                    "loss_rho": eval_loss_pot,
+                    "loss_tot_rho": eval_loss_ene,
+                    "loss_ene": eval_loss_ene_tot,
                 },
             )
             modeldict.save_model(epoch)

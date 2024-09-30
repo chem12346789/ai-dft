@@ -17,7 +17,7 @@ from cadft.utils.DataBase import DataBase
 from cadft.utils.model.fc_net import FCNet
 from cadft.utils.model.transformer import Transformer
 from cadft.utils.Grids import Grid
-from cadft.utils.ModelDict import ModelDict
+from cadft.utils.ModelDict import ModelDictUnet
 from cadft.utils.diis import DIIS
 
 from cadft.utils.mol import Mol
@@ -47,13 +47,12 @@ def extend(
     extend_atom: str,
     extend_xyz: int,
     distance: float,
-    basis: str,
+    name: str,
 ) -> tuple:
     molecular = copy.deepcopy(Mol[name_mol])
     print(f"Generate {name_mol}_{distance:.4f}")
     print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}")
     print("original mol", molecular)
-    name = f"{name_mol}_{basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
 
     if "-" in extend_atom:
         if "." in extend_atom:
@@ -117,7 +116,7 @@ def extend(
             return None, name
         molecular[extend_atom][extend_xyz] += distance
     print("extend mol", molecular)
-    return molecular, name
+    return molecular
 
 
 def calculate_density_dipole(dm1_scf, df_dict, dft2cc):
