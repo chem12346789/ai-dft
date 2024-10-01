@@ -71,6 +71,9 @@ for (
         FACTOR = 0
         DIIS_N = 20
 
+    FACTOR = 0.9975
+    DIIS_N = 100
+
     print(f"FACTOR: {FACTOR}, diis_n: {DIIS_N}")
 
     if "openshell" in name_mol:
@@ -80,7 +83,7 @@ for (
             diis_n=DIIS_N,
             vxc_inv=None,
             cc_triple=args.cc_triple,
-            max_inv_step=25000,
+            max_inv_step=5000,
         )
     else:
         vxc_inv = dft2cc.mrks_diis(
@@ -89,7 +92,7 @@ for (
             diis_n=DIIS_N,
             vxc_inv=None,
             cc_triple=args.cc_triple,
-            max_inv_step=25000,
+            max_inv_step=5000,
         )
 
     # dft2cc.deepks()

@@ -72,32 +72,23 @@ def test_rks_pyscf(
 
         max_memory = ks.max_memory - lib.current_memory()[0]
         n, exc, vxc = ni.nr_rks(mol, ks.grids, ks.xc, dm, max_memory=max_memory)
-        scf_rho_r = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dm)
 
         if from_data:
+            scf_rho_r = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dm)
             middle_mat = data_real["vxc"]
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
             output_mat = data_real["exc1_tr_lda"]
             exc_scf = dft2cc.grids.matrix_to_vector(output_mat)
+            vxc += pyscf.dft.numint.eval_mat(
+                dft2cc.mol, dft2cc.ao_0, dft2cc.grids.weights, vxc_scf, vxc_scf
+            )
+            exc += np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
         else:
-            if modeldict.input_size == 1:
-                vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
-                exc_scf = modeldict.get_e(scf_rho_r, dft2cc.grids)
-                zero_index = np.abs(scf_rho_r) < 1e-4
-                vxc_scf[zero_index] = 0
-                exc_scf[zero_index] = 0
-            elif modeldict.input_size == 4:
-                scf_rho_r3 = ni.eval_rho(dft2cc.mol, dft2cc.ao_1, dm, xctype="GGA")
-                vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids)
-                exc_scf = modeldict.get_e(scf_rho_r3, dft2cc.grids)
-                zero_index = np.abs(scf_rho_r3[0]) < 1e-4
-                vxc_scf[zero_index] = 0
-                exc_scf[zero_index] = 0
-
-        vxc += pyscf.dft.numint.eval_mat(
-            dft2cc.mol, dft2cc.ao_0, dft2cc.grids.weights, vxc_scf, vxc_scf
-        )
-        exc += np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
+            vxc_scf = modeldict.get_v(ks, dft2cc.grids, dm)
+            vxc += pyscf.dft.numint.eval_mat(
+                dft2cc.mol, dft2cc.ao_0, dft2cc.grids.weights, vxc_scf, vxc_scf
+            )
+            exc += modeldict.get_e(ks, dft2cc.grids, dm)
 
         # rho_diff = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dm - dft2cc.dm1_cc)
         # v_p = pyscf.dft.numint.eval_mat(
@@ -172,42 +163,37 @@ def test_rks_pyscf(
     dm1_scf = mdft.make_rdm1()
     print("Done SCF", flush=True)
 
-    def get_vxc(ks_grad, dms):
-        """
-        Modification of the get_vxc function in pyscf.grad.rks.py
-        https://pyscf.org/_modules/pyscf/grad/rks.html
-        """
-        # print("Using modified get_vxc", flush=True)
-        mf = ks_grad.base
-        ni = mf._numint
-
-        scf_rho_r = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dms)
-        vexc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)
-
-        if from_data:
-            middle_mat = data_real["vxc"]
-            vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
-        else:
-            if modeldict.input_size == 1:
-                vxc_scf = modeldict.get_v(scf_rho_r, dft2cc.grids)
-                zero_index = np.abs(scf_rho_r) < 1e-5
-                vxc_scf[zero_index] = 0
-                vxc_scf += vexc_lda[1][0]
-            elif modeldict.input_size == 4:
-                scf_rho_r3 = ni.eval_rho(dft2cc.mol, dft2cc.ao_1, dms, xctype="GGA")
-                vxc_scf = modeldict.get_v(scf_rho_r3, dft2cc.grids)
-                zero_index = np.abs(scf_rho_r3[0]) < 1e-5
-                vxc_scf[zero_index] = 0
-                vxc_scf += vexc_lda[1][0]
-
-        wv = dft2cc.grids.weights * vxc_scf
-        aow = np.einsum("gi,g->gi", dft2cc.ao_1[0], wv)
-        vmat = np.array([dft2cc.ao_1[i].T @ aow for i in range(1, 4)])
-        exc = None
-        # - sign because nabla_X = -nabla_x
-        return exc, -vmat
-
     if require_grad:
+
+        def get_vxc(ks_grad, dms):
+            """
+            Modification of the get_vxc function in pyscf.grad.rks.py
+            https://pyscf.org/_modules/pyscf/grad/rks.html
+            """
+            # print("Using modified get_vxc", flush=True)
+            mf = ks_grad.base
+            ni = mf._numint
+
+            scf_rho_r = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dms)
+            vexc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r)
+
+            if from_data:
+                middle_mat = data_real["vxc"]
+                vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
+            else:
+                if modeldict.input_size == 1:
+                    vxc_scf = modeldict.get_v(ks_grad, dft2cc.grids, dms)
+                    vxc_scf += vexc_lda[1][0]
+                elif modeldict.input_size == 4:
+                    vxc_scf = modeldict.get_v(ks_grad, dft2cc.grids, dms)
+                    vxc_scf += vexc_lda[1][0]
+
+            wv = dft2cc.grids.weights * vxc_scf
+            aow = np.einsum("gi,g->gi", dft2cc.ao_1[0], wv)
+            vmat = np.array([dft2cc.ao_1[i].T @ aow for i in range(1, 4)])
+            exc = None
+            # - sign because nabla_X = -nabla_x
+            return exc, -vmat
 
         def get_veff_grad(ks_grad, mol=None, dm=None):
             """
@@ -287,33 +273,5 @@ def test_rks_pyscf(
     df.to_csv(csv_path, index=False)
 
     if generate_data:
-        if (DATA_PATH / f"data_{name}.npz").exists():
-            data_real = np.load(DATA_PATH / f"data_{name}.npz")
-        else:
-            print(f"No file: {name:>40}")
-            return
-
-        ao_value = pyscf.dft.numint.eval_ao(dft2cc.mol, dft2cc.grids.coords, deriv=1)
-        inv_r_3 = pyscf.dft.numint.eval_rho(dft2cc.mol, ao_value, dm1_scf, xctype="GGA")
-        data_grids_norm = process_input(inv_r_3, dft2cc.grids)
-
-        if "e_cc" in data_real.files:
-            if abs(data_real["e_cc"] - dft2cc.e_cc) > 1e-6:
-                print(f"e_cc: {data_real['e_cc']}, {dft2cc.e_cc}")
-                raise ValueError("e_cc is different.")
-
-        np.savez_compressed(
-            DATA_PATH / f"data_{name}.npz",
-            e_cc=dft2cc.e_cc,
-            dm_cc=data_real["dm_cc"],
-            weights=data_real["weights"],
-            vxc=data_real["vxc"],
-            exc=data_real["exc"],
-            exc_real=data_real["exc_real"],
-            rho_inv_4_norm=data_grids_norm,
-            error_ene_scf=dft2cc.e_cc - ene_scf,
-            exc1_tr=data_real["exc1_tr"],
-            vxc1_lda=data_real["vxc1_lda"],
-            exc1_tr_lda=data_real["exc1_tr_lda"],
-        )
+        raise NotImplementedError("Generate data is not implemented yet.")
     return dm1_scf

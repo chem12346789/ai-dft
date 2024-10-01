@@ -6,6 +6,10 @@ AIDFT_MAIN_PATH: the main path of the project.
 from pathlib import Path
 import os
 
+MODELTYPE = os.environ.get("AIDFT_MODELTYPE")
+if MODELTYPE is None:
+    MODELTYPE = "UNET"
+
 MAIN_PATH = os.environ.get("AIDFT_MAIN_PATH")
 if MAIN_PATH is None:
     MAIN_PATH = Path(__file__).parent.parent.parent

@@ -54,6 +54,7 @@ def mrks_diis(
     nocc = self.mol.nelec[0]
     norb = mo.shape[1]
     print(h1e.shape)
+    print("mo", mo)
 
     n_batchs = self.mol.nao // n_slices + 1
 
