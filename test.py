@@ -12,7 +12,7 @@ from cadft import add_args, extend, gen_logger
 from cadft import test_rks, test_uks, test_rks_pyscf
 from cadft.utils import DATA_PATH
 
-from cadft.utils import ModelDict
+from cadft.utils import ModelDictUnet as ModelDict
 
 # from cadft.utils.ModelDict_xy import ModelDict
 # from cadft.utils import ModelDict_xy1 as ModelDict

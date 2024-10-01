@@ -124,9 +124,6 @@ def umrks_diis(
             e_cc = np.load(self.data_save_path / "e_cc.npy")
         else:
             mycc = pyscf.cc.UCCSD(mf)
-            mycc.direct = True
-            mycc.incore_complete = True
-            mycc.async_io = False
             mycc.kernel()
 
             _, t1, t2 = mycc.kernel()
@@ -162,9 +159,6 @@ def umrks_diis(
         mf.kernel()
         mf.stability(external=True)
         mycc = pyscf.cc.UCCSD(mf)
-        mycc.direct = True
-        mycc.incore_complete = True
-        mycc.async_io = False
 
         _, t1, t2 = mycc.kernel()
         if cc_triple:
@@ -453,6 +447,14 @@ def umrks_diis(
 
         print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
 
+        for i_spin in self.spin_list:
+            print(f"i_spin: {i_spin}")
+            print(f"emax: {emax[i_spin]:>.5f}")
+            print(f"v_vxc_e_taup: {np.linalg.norm(v_vxc_e_taup[i_spin]):>.5f}")
+            print(f"exc_over_rho_grids: {np.linalg.norm(exc_over_rho_grids[i_spin]):>.5f}")
+            print(f"taup_rho_wf: {np.linalg.norm(taup_rho_wf[i_spin]):>.5f}")
+            print(f"rho_cc: {np.linalg.norm(rho_cc[i_spin]):>.5f}")
+            print(f"e_bar_r_wf: {np.linalg.norm(e_bar_r_wf[i_spin]):>.5f}")
         np.save(self.data_save_path / "emax.npy", emax)
         np.save(self.data_save_path / "taup_rho_wf.npy", taup_rho_wf)
         np.save(self.data_save_path / "tau_rho_wf.npy", tau_rho_wf)
