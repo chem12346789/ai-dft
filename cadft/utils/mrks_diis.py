@@ -119,9 +119,6 @@ def mrks_diis(
             mf = pyscf.scf.RHF(self.mol)
             mf.kernel()
             mycc = pyscf.cc.CCSD(mf)
-            mycc.direct = True
-            mycc.incore_complete = True
-            mycc.async_io = False
 
             _, t1, t2 = mycc.kernel()
             if cc_triple:
@@ -142,9 +139,6 @@ def mrks_diis(
         exc_grids = np.zeros_like(rho_cc)
     else:
         mycc = pyscf.cc.CCSD(mf)
-        mycc.direct = True
-        mycc.incore_complete = True
-        mycc.async_io = False
 
         _, t1, t2 = mycc.kernel()
         if cc_triple:
@@ -362,7 +356,7 @@ def mrks_diis(
         emax = np.max(e_bar_r_wf)
         v_vxc_e_taup = exc_over_rho_grids * 2 + taup_rho_wf / rho_cc - e_bar_r_wf
 
-        # print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
+        print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
         print(f"v_vxc_e_taup: {np.linalg.norm(v_vxc_e_taup):>.5f}")
         print(f"exc_over_rho_grids: {np.linalg.norm(exc_over_rho_grids):>.5f}")
         print(f"taup_rho_wf: {np.linalg.norm(taup_rho_wf):>.5f}")
@@ -394,7 +388,7 @@ def mrks_diis(
         taup_rho_ks = np.load(self.data_save_path / "taup_rho_ks.npy")
     else:
         eigvecs_inv = mf.mo_energy.copy()
-        mo_inv = mo.copy()
+        mo_inv = mf.mo_coeff.copy()
         dm1_inv = mf.make_rdm1(ao_repr=True)
         diis = DIIS(self.mol.nao, n=diis_n)
 

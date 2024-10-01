@@ -11,7 +11,7 @@ import opt_einsum as oe
 
 from cadft import CC_DFT_DATA
 from cadft.utils import DIIS
-from cadft.utils import MAIN_PATH
+from cadft.utils import MAIN_PATH, DATA_PATH
 from cadft.utils import calculate_density_dipole
 
 AU2KCALMOL = 627.5096080306
@@ -23,19 +23,35 @@ def test_uks(
     name,
     modeldict,
     df_dict: dict,
+    spin=0,
     dm_guess=None,
+    from_data=False,
 ):
     """
     Test the model. Restrict Khon-Sham (no spin).
     """
     # 2.0 Prepare
 
+    from_data = getattr(args, "from_data", False)
+    generate_data = getattr(args, "generate_data", False)
+    require_grad = getattr(args, "require_grad", False)
+
+    if from_data:
+        if (DATA_PATH / f"data_{name}_{0}.npz").exists() and (
+            DATA_PATH / f"data_{name}_{1}.npz"
+        ).exists():
+            data_real0 = np.load(DATA_PATH / f"data_{name}_{0}.npz")
+            data_real1 = np.load(DATA_PATH / f"data_{name}_{1}.npz")
+        else:
+            print(f"No file: {name:>40}")
+            return
+
     dft2cc = CC_DFT_DATA(
         molecular,
         name=name,
         basis=args.basis,
         if_basis_str=args.if_basis_str,
-        spin=1,
+        spin=spin,
     )
     dft2cc.utest_mol(level=args.level)
     nocc = dft2cc.mol.nelec
@@ -46,8 +62,16 @@ def test_uks(
 
     # dm1_scf = dft2cc.dm1_dft
     if dm_guess is None:
-        dm1_scf = init_guess_by_minao(dft2cc.mol)
-        dm1_scf = np.array([dm1_scf / 2, dm1_scf / 2])
+        if from_data:
+            dm1_scf = np.array(
+                [
+                    data_real0["dm_inv"],
+                    data_real1["dm_inv"],
+                ]
+            )
+        else:
+            dm1_scf = init_guess_by_minao(dft2cc.mol)
+            dm1_scf = np.array([dm1_scf / 2, dm1_scf / 2])
     else:
         dm1_scf = dm_guess.copy()
 
@@ -80,32 +104,23 @@ def test_uks(
                     for i_spin in range(2)
                 ]
             )
-            vxc_scf = np.array(
-                [
-                    modeldict.get_v(scf_rho_r[i_spin], dft2cc.grids)
-                    + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[1][0]
-                    for i_spin in range(2)
-                ]
-            )
-        elif modeldict.input_size == 4:
-            scf_rho_r3 = np.array(
-                [
-                    pyscf.dft.numint.eval_rho(
-                        dft2cc.mol,
-                        dft2cc.ao_1,
-                        2 * dm1_scf[i_spin],
-                        xctype="GGA",
-                    )
-                    for i_spin in range(2)
-                ]
-            )
-            vxc_scf = np.array(
-                [
-                    modeldict.get_v(scf_rho_r3[i_spin], dft2cc.grids)
-                    + pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3[i_spin])[0]
-                    for i_spin in range(2)
-                ]
-            )
+
+            if from_data:
+                middle_mat = [data_real0["vxc"], data_real1["vxc"]]
+                vxc_scf = np.array(
+                    [
+                        dft2cc.grids.matrix_to_vector(middle_mat[i_spin])
+                        for i_spin in range(2)
+                    ]
+                )
+            else:
+                vxc_scf = np.array(
+                    [
+                        modeldict.get_v(scf_rho_r[i_spin], dft2cc.grids)
+                        + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[1][0]
+                        for i_spin in range(2)
+                    ]
+                )
 
         vxc_mat = np.array(
             [oe_fock(vxc_scf[i_spin], dft2cc.grids.weights) for i_spin in range(2)]
@@ -162,32 +177,22 @@ def test_uks(
     df_dict = calculate_density_dipole(dm1_scf, df_dict, dft2cc)
 
     if modeldict.input_size == 1:
-        exc_scf = np.array(
-            [
-                modeldict.get_e(scf_rho_r[i_spin], dft2cc.grids)
-                + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[0]
-                for i_spin in range(2)
-            ]
-        )
-    elif modeldict.input_size == 4:
-        scf_rho_r3 = np.array(
-            [
-                pyscf.dft.numint.eval_rho(
-                    dft2cc.mol,
-                    dft2cc.ao_1,
-                    2 * dm1_scf[i_spin],
-                    xctype="GGA",
-                )
-                for i_spin in range(2)
-            ]
-        )
-        exc_scf = np.array(
-            [
-                modeldict.get_e(scf_rho_r3[i_spin], dft2cc.grids)
-                + pyscf.dft.libxc.eval_xc("b3lyp", scf_rho_r3[i_spin])[0]
-                for i_spin in range(2)
-            ]
-        )
+        if from_data:
+            middle_mat = [data_real0["exc1_tr"], data_real1["exc1_tr"]]
+            exc_scf = np.array(
+                [
+                    dft2cc.grids.matrix_to_vector(middle_mat[i_spin])
+                    for i_spin in range(2)
+                ]
+            )
+        else:
+            exc_scf = np.array(
+                [
+                    modeldict.get_e(scf_rho_r[i_spin], dft2cc.grids)
+                    + pyscf.dft.libxc.eval_xc("lda,vwn", scf_rho_r[i_spin])[0]
+                    for i_spin in range(2)
+                ]
+            )
 
     scf_rho_r = np.array(
         [

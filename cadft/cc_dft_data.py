@@ -5,6 +5,7 @@ import pyscf
 from pyscf.grad import ccsd as ccsd_grad
 import numpy as np
 from scipy import linalg as LA
+from sympy import false
 
 from cadft.utils import gen_basis
 from cadft.utils import rotate
@@ -270,7 +271,8 @@ class CC_DFT_DATA:
         self.ao_1 = pyscf.dft.numint.eval_ao(self.mol, self.grids.coords, deriv=1)
         self.ao_0_test = pyscf.dft.numint.eval_ao(self.mol, self.grids_test.coords)
 
-        if (DATA_CC_PATH / f"data_{self.name}.npz").exists():
+        # if (DATA_CC_PATH / f"data_{self.name}.npz").exists():
+        if false:
             print(f"Load data from {DATA_CC_PATH}/data_{self.name}.npz")
             data_saved = np.load(f"{DATA_CC_PATH}/data_{self.name}.npz")
             self.dm1_cc = data_saved["dm1_cc"]
@@ -289,9 +291,6 @@ class CC_DFT_DATA:
             mf = pyscf.scf.UHF(self.mol)
             mf.kernel()
             mycc = pyscf.cc.UCCSD(mf)
-            mycc.direct = True
-            mycc.incore_complete = True
-            mycc.async_io = False
             mycc.kernel()
             self.dm1_cc = mycc.make_rdm1(ao_repr=True)
             self.e_cc = mycc.e_tot

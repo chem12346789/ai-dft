@@ -170,6 +170,18 @@ def calculate_density_dipole(dm1_scf, df_dict, dft2cc):
                 for i_spin in range(2)
             ]
         )
+        print(
+            np.sum(scf_rho_r[0] * dft2cc.grids_test.weights),
+            np.sum(scf_rho_r[1] * dft2cc.grids_test.weights),
+        )
+        print(
+            np.sum(dft_rho_r[0] * dft2cc.grids_test.weights),
+            np.sum(dft_rho_r[1] * dft2cc.grids_test.weights),
+        )
+        print(
+            np.sum(cc_rho_r[0] * dft2cc.grids_test.weights),
+            np.sum(cc_rho_r[1] * dft2cc.grids_test.weights),
+        )
     else:
         raise ValueError("dm1_scf shape error")
 

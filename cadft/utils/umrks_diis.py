@@ -49,17 +49,16 @@ def umrks_diis(
     mdft = pyscf.scf.UKS(self.mol)
     mdft.xc = "b3lyp"
     mdft.kernel()
-    mdft.stability(external=True)
     dm1_dft = mdft.make_rdm1(ao_repr=True)
 
     mf = pyscf.scf.UHF(self.mol)
     mf.kernel()
-    mf.stability(external=True)
 
     h1e = self.mol.intor("int1e_kin") + self.mol.intor("int1e_nuc")
     mo = mf.mo_coeff
     nocc = self.mol.nelec
     nao = self.mol.nao
+    print("mo", mo)
     print(f"nocc: {nocc}")
 
     n_batchs = self.mol.nao // n_slices + 1
@@ -124,9 +123,6 @@ def umrks_diis(
             e_cc = np.load(self.data_save_path / "e_cc.npy")
         else:
             mycc = pyscf.cc.UCCSD(mf)
-            mycc.direct = True
-            mycc.incore_complete = True
-            mycc.async_io = False
             mycc.kernel()
 
             _, t1, t2 = mycc.kernel()
@@ -158,13 +154,7 @@ def umrks_diis(
         else:
             self.spin_list = [0, 1]
     else:
-        mf = pyscf.scf.UHF(self.mol)
-        mf.kernel()
-        mf.stability(external=True)
         mycc = pyscf.cc.UCCSD(mf)
-        mycc.direct = True
-        mycc.incore_complete = True
-        mycc.async_io = False
 
         _, t1, t2 = mycc.kernel()
         if cc_triple:
@@ -274,11 +264,11 @@ def umrks_diis(
                 gc.collect()
                 torch.cuda.empty_cache()
 
-            # print(f"After 2Rdm,\n {torch.cuda.memory_summary()}.\n")
-            # eri = self.mol.intor("int2e")
-            # ene_vc = np.sum(exc_grids[i_spin] * weights)
-            # ene_cc_ele = 0.5 * np.einsum("pqrs,pqrs", eri, dm12)
-            # print(f"Error: {(1e3 * (ene_vc - ene_cc_ele)):.5f} mHa")
+            print(f"After 2Rdm,\n {torch.cuda.memory_summary()}.\n")
+            eri = self.mol.intor("int2e")
+            ene_vc = np.sum(exc_grids[i_spin] * weights)
+            ene_cc_ele = 0.5 * np.einsum("pqrs,pqrs", eri, dm12)
+            print(f"Error: {(1e3 * (ene_vc - ene_cc_ele)):.5f} mHa")
             del dm12
             gc.collect()
 
@@ -452,6 +442,15 @@ def umrks_diis(
             )
 
         print(f"After prepare,\n {torch.cuda.memory_summary()}.\n")
+        for i_spin in self.spin_list:
+            print(f"e_bar_r_wf: {np.linalg.norm(e_bar_r_wf[i_spin]):>.5f}")
+            print(f"emax: {np.linalg.norm(emax[i_spin]):>.5f}")
+            print(f"v_vxc_e_taup: {np.linalg.norm(v_vxc_e_taup[i_spin]):>.5f}")
+            print(
+                f"exc_over_rho_grids: {np.linalg.norm(exc_over_rho_grids[i_spin]):>.5f}"
+            )
+            print(f"taup_rho_wf: {np.linalg.norm(taup_rho_wf[i_spin]):>.5f}")
+            print(f"rho_cc: {np.linalg.norm(rho_cc[i_spin]):>.5f}")
 
         np.save(self.data_save_path / "emax.npy", emax)
         np.save(self.data_save_path / "taup_rho_wf.npy", taup_rho_wf)
@@ -473,7 +472,8 @@ def umrks_diis(
     else:
         eigvecs_inv = mf.mo_energy.copy()
         mo_inv = mf.mo_coeff.copy()
-        dm1_inv = mf.make_rdm1(ao_repr=True)
+        dm1_inv = mf.make_rdm1(ao_repr=True).copy()
+        diis = (DIIS(self.mol.nao, n=diis_n), DIIS(self.mol.nao, n=diis_n))
 
         if vxc_inv is None:
             vxc_inv = np.zeros_like(rho_cc)
@@ -510,8 +510,6 @@ def umrks_diis(
             constants=[2, 3],
             optimize="optimal",
         )
-
-        diis = (DIIS(self.mol.nao, n=diis_n), DIIS(self.mol.nao, n=diis_n))
 
         for i in range(max_inv_step):
             dm1_inv_r = np.array(

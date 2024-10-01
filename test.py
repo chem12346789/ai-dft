@@ -12,7 +12,7 @@ from cadft import add_args, extend, gen_logger
 from cadft import test_rks, test_uks, test_rks_pyscf
 from cadft.utils import DATA_PATH
 
-from cadft.utils import ModelDict
+from cadft.utils import ModelDictUnet as ModelDict
 
 # from cadft.utils.ModelDict_xy import ModelDict
 # from cadft.utils import ModelDict_xy1 as ModelDict
@@ -100,6 +100,13 @@ if __name__ == "__main__":
             print(f"Skip: {name:>40}")
             continue
 
+        if "openshell" in name_mol:
+            if "_" in name_mol:
+                SPIN = int(name_mol.split("_")[-1])
+                name_mol = name_mol.split("_")[0]
+            else:
+                SPIN = 1
+
         if abs(distance) > 3.5:
             N_DIIS = 100
         elif abs(distance) > 3:
@@ -110,7 +117,7 @@ if __name__ == "__main__":
             N_DIIS = 20
 
         if "openshell" in name_mol:
-            test_uks(args, molecular, name, modeldict, df_dict)
+            test_uks(args, molecular, name, modeldict, df_dict, spin=SPIN)
         else:
             # dm_guess = test_rks(
             dm_guess = test_rks_pyscf(

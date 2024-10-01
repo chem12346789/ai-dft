@@ -35,7 +35,7 @@ for (
     SPIN = 0
     if "openshell" in name_mol:
         if "_" in name_mol:
-            SPIN = name_mol.split("_")[-1]
+            SPIN = int(name_mol.split("_")[-1])
             name_mol = name_mol.split("_")[0]
         else:
             SPIN = 1
@@ -71,9 +71,6 @@ for (
         FACTOR = 0
         DIIS_N = 20
 
-    FACTOR = 0.99995
-    DIIS_N = 50
-
     print(f"FACTOR: {FACTOR}, diis_n: {DIIS_N}")
 
     if "openshell" in name_mol:
@@ -83,7 +80,7 @@ for (
             diis_n=DIIS_N,
             vxc_inv=None,
             cc_triple=args.cc_triple,
-            max_inv_step=5000,
+            max_inv_step=25000,
         )
     else:
         vxc_inv = dft2cc.mrks_diis(
@@ -92,7 +89,7 @@ for (
             diis_n=DIIS_N,
             vxc_inv=None,
             cc_triple=args.cc_triple,
-            max_inv_step=5000,
+            max_inv_step=25000,
         )
 
     # dft2cc.deepks()
