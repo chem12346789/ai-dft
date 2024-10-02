@@ -71,9 +71,6 @@ for (
         FACTOR = 0
         DIIS_N = 20
 
-    FACTOR = 0.9975
-    DIIS_N = 100
-
     print(f"FACTOR: {FACTOR}, diis_n: {DIIS_N}")
 
     if "openshell" in name_mol:
