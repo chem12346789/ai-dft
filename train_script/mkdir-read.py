@@ -66,10 +66,10 @@ for (
     [64],  # hidden_size
     [1],  # output_size
     [4],  # num_layer
-    ["0.-1"],  # residual
+    [-1],  # residual
     ["New"],  # load_model
     [
-        (1, 1),
+        (0, 0),
     ],
     [
         "True",

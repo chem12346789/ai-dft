@@ -45,7 +45,7 @@ LIST_OF_GPU = itertools.cycle([0, 1])
 
 for mol, basis_set, (range_list, extend_atom) in itertools.product(
     [
-        # "methane",
+        "methane",
         "ethane",
         # "ethylene",
         # "acetylene",
