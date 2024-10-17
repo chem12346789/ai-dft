@@ -45,8 +45,8 @@ LIST_OF_GPU = itertools.cycle([0, 1])
 
 for mol, basis_set, (range_list, extend_atom) in itertools.product(
     [
-        # "methane",
-        # "ethane",
+        "methane",
+        "ethane",
         # "ethylene",
         # "acetylene",
         # "cyclopropane",
@@ -62,7 +62,7 @@ for mol, basis_set, (range_list, extend_atom) in itertools.product(
         # "Li-openshell",
         # "Be",
         # "B-openshell",
-        "C",
+        # "C",
         # "C-openshell_0",
         # "C-openshell_2",
         # "C-openshell_0",
@@ -77,10 +77,10 @@ for mol, basis_set, (range_list, extend_atom) in itertools.product(
     ],
     ["cc-pCVTZ"],
     [
-        ((0, 0, 1), "0"),
+        # ((0, 0, 1), "1-2"),
         # (-0.9, -0.9, 1)
         # ((-1.0, 1.0, 21), "0"),
-        # ((-0.5, 2.0, 26), "0-1"),
+        ((-0.5, 2.0, 26), "1-2"),
     ],
 ):
     number_of_gpu = next(LIST_OF_GPU)
