@@ -44,6 +44,7 @@ work_bash = work_dir / "train-template.bash"
 LIST_OF_GPU = itertools.cycle([0, 1])
 GPU_NODE_POOL = itertools.cycle(
     [
+        "gpu06",
         "gpu07",
     ]
 )
@@ -59,6 +60,7 @@ for (
     load_model,
     (pot_weight, ene_weight),
     with_eval,
+    precision,
 ) in itertools.product(
     [32],
     [10],
@@ -68,12 +70,9 @@ for (
     [4],  # num_layer
     [-1],  # residual
     ["New"],  # load_model
-    [
-        (0, 0),
-    ],
-    [
-        "True",
-    ],
+    [(0, 0)],
+    ["True"],
+    ["float32", "float64"],
 ):
     number_of_gpu = next(LIST_OF_GPU)
     cmd = f"""cp {template_bash} {work_bash}"""
@@ -91,9 +90,10 @@ for (
     cmd += "&&" + f"""sed -i "s/WITH_EVAL/{with_eval}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/LOAD_MODEL/{load_model}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/NUMBER_OF_GPU/{number_of_gpu}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/PRECISION/{precision}/g" {work_bash}"""
     cmd += (
         "&&"
-        + f"""mv {work_bash} {work_dir / f"train_{input_size}_{hidden_size}_{output_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}_{pot_weight}_{with_eval}_{load_model}.bash"}"""
+        + f"""mv {work_bash} {work_dir / f"train_{input_size}_{hidden_size}_{output_size}_{eval_step}_{batch_size}_{num_layer}_{residual}_{ene_weight}_{pot_weight}_{with_eval}_{load_model}_{precision}.bash"}"""
     )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
