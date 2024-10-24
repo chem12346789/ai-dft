@@ -29,7 +29,6 @@ for (
     molecular = extend(name_mol, extend_atom, extend_xyz, distance, name)
 
     if molecular is None:
-        print(f"Skip: {name:>40}")
         continue
 
     SPIN = 0
