@@ -120,9 +120,6 @@ class ModelDict:
         self.scheduler_dict = {}
 
         self.loss_multiplier = 1.0
-        # self.loss_fn1 = torch.nn.MSELoss()
-        # self.loss_fn2 = torch.nn.MSELoss()
-        # self.loss_fn3 = torch.nn.MSELoss(reduction="sum")
 
         self.loss_fn1 = torch.nn.L1Loss()
         self.loss_fn2 = torch.nn.L1Loss()
@@ -241,7 +238,7 @@ class ModelDictUnet(ModelDict):
                 self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
                     self.optimizer_dict[key],
                     mode="min",
-                    factor=0.5,
+                    factor=0.75,
                     patience=10,
                 )
             else:
@@ -477,17 +474,7 @@ class ModelDict3DCNN(ModelDict):
             self.keys = ["1"]
 
         for i_key, key in enumerate(self.keys):
-            self.model_dict[key] = CNN3D(
-                self.input_size,
-                self.hidden_size,
-                self.output_size if self.output_size > 0 else 1,
-                (
-                    int(self.residual)
-                    if "." not in self.residual
-                    else int(self.residual.split(".")[i_key])
-                ),
-                self.num_layers,
-            ).to(self.device)
+            self.model_dict[key] = CNN3D().to(self.device)
 
         for key in self.keys:
             if self.dtype is torch.float64:
