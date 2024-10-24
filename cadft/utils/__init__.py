@@ -48,7 +48,7 @@ def extend(
     extend_xyz: int,
     distance: float,
     name: str,
-) -> tuple:
+) -> list:
     molecular = copy.deepcopy(Mol[name_mol])
     print(f"Generate {name_mol}_{distance:.4f}")
     print(f"Extend {extend_atom} {extend_xyz} {distance:.4f}")
@@ -66,13 +66,13 @@ def extend(
             for extend_i in extend_atom_1_l:
                 if extend_i >= len(Mol[name_mol]):
                     print(f"Skip: {name:>40}")
-                    return None, name
+                    return None
             for extend_i in extend_atom_2_l:
                 if extend_i >= len(Mol[name_mol]):
                     print(f"Skip: {name:>40}")
-                    return None, name
+                    return None
             if abs(distance) < 1e-3:
-                return None, name
+                return None
             distance_1_2_array = [
                 molecular[extend_atom_2_l[0]][1] - molecular[extend_atom_1_l[0]][1],
                 molecular[extend_atom_2_l[0]][2] - molecular[extend_atom_1_l[0]][2],
@@ -90,11 +90,11 @@ def extend(
                 Mol[name_mol]
             ):
                 print(f"Skip: {name:>40}")
-                return None, name
+                return None
             if abs(distance) < 1e-3:
                 if (extend_atom_1 != 0) and (extend_atom_2 != 1):
                     print(f"Skip: {name:>40}")
-                    return None, name
+                    return None
             distance_1_2_array = [
                 molecular[extend_atom_2][1] - molecular[extend_atom_1][1],
                 molecular[extend_atom_2][2] - molecular[extend_atom_1][2],
@@ -110,10 +110,10 @@ def extend(
         if abs(distance) < 1e-3:
             if (extend_atom != 0) or extend_xyz != 1:
                 print(f"Skip: {name:>40}")
-                return None, name
+                return None
         if extend_atom >= len(Mol[name_mol]):
             print(f"Skip: {name:>40}")
-            return None, name
+            return None
         molecular[extend_atom][extend_xyz] += distance
     print("extend mol", molecular)
     return molecular
