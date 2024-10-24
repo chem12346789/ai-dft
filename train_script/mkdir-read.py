@@ -72,11 +72,11 @@ for (
     ["New"],  # load_model
     [(0, 0)],
     ["True"],
-    ["float32", "float64"],
+    ["float32"],
 ):
     number_of_gpu = next(LIST_OF_GPU)
-    cmd = f"""cp {template_bash} {work_bash}"""
     gpu_node = next(GPU_NODE_POOL)
+    cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BASH_GPU_NODE/{gpu_node}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/INPUT_SIZE/{input_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
