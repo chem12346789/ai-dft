@@ -22,26 +22,26 @@ number_of_gpu = sys.argv[1] if len(sys.argv) > 1 else 0
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
-        # "methane",
+        "methane",
         # "ethane",
         # "ethylene",
         # "acetylene",
         # "cyclopropane",
         # "cyclopropene",
         # "propane",
-        "propylene",
-        "propyne",
-        "allene",
+        # "propylene",
+        # "propyne",
+        # "allene",
         # "methyl-openshell",
         # "ethyl-openshell",
     ],
     ["cc-pCVTZ"],
     [
-        (-0.5, 2.5, 31),
+        (-0.45, 2.45, 30),
         # (2.4, 2.5, 2),
         # (1.5, 2.0, 6),
     ],
-    ["0-3"],
+    ["0-1"],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/MOL/{mol}/g" {work_bash}"""
@@ -56,7 +56,7 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
         cmd += "&&" + f"""sed -i "s/STEP//g" {work_bash}"""
         cmd += (
             "&&"
-            + f"""mv {work_bash} {work_dir / f"gen_data_{mol}_{basis_set}_{start}.bash"}"""
+            + f"""mv {work_bash} {work_dir / f"gen_data_{mol}_{basis_set}_{start}_{extend_atom}.bash"}"""
         )
     elif isinstance(range_list, tuple):
         start = range_list[0]
@@ -67,7 +67,7 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
         cmd += "&&" + f"""sed -i "s/STEP/{step}/g" {work_bash}"""
         cmd += (
             "&&"
-            + f"""mv {work_bash} {work_dir / f"gen_data_{mol}_{basis_set}_{start}_{end}_{step}.bash"}"""
+            + f"""mv {work_bash} {work_dir / f"gen_data_{mol}_{basis_set}_{start}_{end}_{step}_{extend_atom}.bash"}"""
         )
     with open(main_dir / "out_mkdir", "w", encoding="utf-8") as f:
         subprocess.call(cmd, shell=True, stdout=f)
