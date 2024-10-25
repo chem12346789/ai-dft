@@ -41,7 +41,7 @@ for item in Path(main_dir).glob("*"):
             clean_dir(item)
             item.rmdir()
 
-LIST_OF_GPU = itertools.cycle([0, 1])
+LIST_OF_GPU = itertools.cycle([1])
 GPU_NODE_POOL = itertools.cycle(
     [
         "gpu05",
@@ -52,10 +52,10 @@ GPU_NODE_POOL = itertools.cycle(
 
 for mol, basis_set, (range_list, extend_atom) in itertools.product(
     [
-        "methane",
-        "ethane",
-        "ethylene",
-        "acetylene",
+        # "methane",
+        # "ethane",
+        # "ethylene",
+        # "acetylene",
         "cyclopropane",
         "cyclopropene",
         # "allene",
@@ -86,8 +86,8 @@ for mol, basis_set, (range_list, extend_atom) in itertools.product(
     [
         # ((0, 0, 1), "1-2"),
         # (-0.9, -0.9, 1)
-        ((0, 1.0, 11), "1"),
-        # ((-0.5, 2.0, 26), "1-2"),
+        # ((0, 1.0, 11), "1"),
+        ((-0.5, 2.0, 26), "1-3"),
     ],
 ):
     number_of_gpu = next(LIST_OF_GPU)
