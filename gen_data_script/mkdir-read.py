@@ -41,16 +41,23 @@ for item in Path(main_dir).glob("*"):
             clean_dir(item)
             item.rmdir()
 
-LIST_OF_GPU = itertools.cycle([0, 1])
+LIST_OF_GPU = itertools.cycle([1])
+GPU_NODE_POOL = itertools.cycle(
+    [
+        "gpu05",
+        "gpu06",
+        "gpu07",
+    ]
+)
 
 for mol, basis_set, (range_list, extend_atom) in itertools.product(
     [
         # "methane",
-        "ethane",
+        # "ethane",
         # "ethylene",
         # "acetylene",
-        # "cyclopropane",
-        # "cyclopropene",
+        "cyclopropane",
+        "cyclopropene",
         # "allene",
         # "propane",
         # "propylene",
@@ -79,14 +86,16 @@ for mol, basis_set, (range_list, extend_atom) in itertools.product(
     [
         # ((0, 0, 1), "1-2"),
         # (-0.9, -0.9, 1)
-        # ((-1.0, 1.0, 21), "0"),
-        ((-0.5, 2.0, 26), "1-2"),
+        # ((0, 1.0, 11), "1"),
+        ((-0.5, 2.0, 26), "1-3"),
     ],
 ):
     number_of_gpu = next(LIST_OF_GPU)
+    gpu_node = next(GPU_NODE_POOL)
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/MOL/{mol}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BASIS/{basis_set}/g" {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/BASH_GPU_NODE/{gpu_node}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/NUMBER_OF_GPU/{number_of_gpu}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/EXTEND_ATOM/{extend_atom}/g" {work_bash}"""
 
