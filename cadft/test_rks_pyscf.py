@@ -152,7 +152,7 @@ def test_rks_pyscf(
     elif args.precision == "float64":
         mdft.conv_tol = 1e-8
     mdft.diis_space = n_diis
-    mdft.DIIS = pyscf.scf.EDIIS
+    mdft.DIIS = pyscf.scf.ADIIS
     mdft.max_cycle = 250
     mdft.level_shift = 0
     if dm_guess is not None:

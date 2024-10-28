@@ -43,20 +43,20 @@ class UNet(nn.Module):
     Documentation for a class.
     """
 
-    def __init__(self, input_size, hidden_size, output_size, residual, num_layers):
+    def __init__(self, input_channels, hidden_channels, output_channels, residual, num_layers,):
         super().__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
+        self.input_channels = input_channels
+        self.hidden_channels = hidden_channels
+        self.output_channels = output_channels
         self.residual = residual
         self.num_layers = num_layers
 
         print(
             f"Model: UNet, residual: {self.residual}"
             f"num_layers: {self.num_layers}"
-            f"hidden_size: {self.hidden_size}"
-            f"input_size: {self.input_size}"
-            f"output_size: {self.output_size}"
+            f"hidden_channels: {self.hidden_channels}"
+            f"input_channels: {self.input_channels}"
+            f"output_channels: {self.output_channels}"
         )
 
         if self.residual < 81:
@@ -110,15 +110,15 @@ class UNet(nn.Module):
 
             if "GroupNorm" in norm_layer:
                 self.inc = DoubleConv(
-                    self.input_size,
-                    hidden_size,
+                    self.input_channels,
+                    self.hidden_channels,
                     norm_layer="NoNorm2d",
                     affine=True,
                 )
             else:
                 self.inc = DoubleConv(
-                    self.input_size,
-                    hidden_size,
+                    self.input_channels,
+                    self.hidden_channels,
                     norm_layer=norm_layer,
                     affine=affine,
                 )
@@ -126,8 +126,8 @@ class UNet(nn.Module):
             self.down_layers = nn.ModuleList(
                 [
                     Down(
-                        hidden_size * 2 ** (i),
-                        hidden_size * 2 ** (i + 1),
+                        self.hidden_channels * 2 ** (i),
+                        self.hidden_channels * 2 ** (i + 1),
                         norm_layer=norm_layer,
                         affine=affine,
                     )
@@ -137,27 +137,27 @@ class UNet(nn.Module):
             self.up_layers = nn.ModuleList(
                 [
                     Up(
-                        hidden_size * 2 ** (i + 1),
-                        hidden_size * 2**i,
+                        self.hidden_channels * 2 ** (i + 1),
+                        self.hidden_channels * 2**i,
                         norm_layer=norm_layer,
                         affine=affine,
                     )
                     for i in range(self.num_layers)[::-1]
                 ]
             )
-            self.outc = OutConv(hidden_size, self.output_size)
+            self.outc = OutConv(self.hidden_channels, self.output_channels)
         else:
             decoder_channels = []
             for i in range(self.num_layers):
-                decoder_channels.append(hidden_size * 2 ** (self.num_layers - i))
+                decoder_channels.append(self.hidden_channels * 2 ** (self.num_layers - i))
 
             if self.residual == 81:
                 self.model = smp.UnetPlusPlus(
                     encoder_name="resnet18",
                     encoder_depth=self.num_layers,
                     decoder_channels=decoder_channels,
-                    in_channels=self.input_size,
-                    classes=self.output_size,
+                    in_channels=self.input_channels,
+                    classes=self.output_channels,
                     encoder_weights=None,
                 )
                 self.model = bn_no_track(self.model)
@@ -166,11 +166,20 @@ class UNet(nn.Module):
                     encoder_name="timm-mobilenetv3_small_100",
                     encoder_depth=self.num_layers,
                     decoder_channels=decoder_channels,
-                    in_channels=self.input_size,
-                    classes=self.output_size,
+                    in_channels=self.input_channels,
+                    classes=self.output_channels,
                     encoder_weights=None,
                 )
                 self.model = bn_no_track(self.model)
+            if self.residual == 101:
+                self.model = smp.UnetPlusPlus(
+                    depth=self.num_layers,
+                    hidden_channels=self.hidden_channels,
+                    in_channels=self.input_channels,
+                    classes=self.output_channels,
+                    encoder_weights=None,
+                )
+                
 
     def forward(self, x):
         """
@@ -186,8 +195,10 @@ class UNet(nn.Module):
                 x = up(x, x_down[-i - 1])
             logits = self.outc(x)
             return logits
-        else:
+        elif self.residual < 101:
             x = F.pad(x, (9, 9, 10, 11), "reflect")
             x = self.model(x)
             x = x[:, :, 10:-11, 9:-9]
             return x
+        else:
+            

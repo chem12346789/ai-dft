@@ -238,7 +238,7 @@ class ModelDictUnet(ModelDict):
                 self.scheduler_dict[key] = optim.lr_scheduler.ReduceLROnPlateau(
                     self.optimizer_dict[key],
                     mode="min",
-                    factor=0.75,
+                    factor=0.3,
                     patience=10,
                 )
             else:
