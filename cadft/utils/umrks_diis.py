@@ -123,7 +123,7 @@ def umrks_diis(
             e_cc = np.load(self.data_save_path / "e_cc.npy")
         else:
             mycc = pyscf.cc.UCCSD(mf)
-            mycc.kernel()
+            mycc.direct = True
 
             _, t1, t2 = mycc.kernel()
             if cc_triple:
@@ -155,6 +155,7 @@ def umrks_diis(
             self.spin_list = [0, 1]
     else:
         mycc = pyscf.cc.UCCSD(mf)
+        mycc.direct = True
 
         _, t1, t2 = mycc.kernel()
         if cc_triple:

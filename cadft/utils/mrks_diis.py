@@ -120,6 +120,7 @@ def mrks_diis(
             mf = pyscf.scf.RHF(self.mol)
             mf.kernel()
             mycc = pyscf.cc.CCSD(mf)
+            mycc.direct = True
 
             _, t1, t2 = mycc.kernel()
             if cc_triple:
@@ -140,6 +141,7 @@ def mrks_diis(
         exc_grids = np.zeros_like(rho_cc)
     else:
         mycc = pyscf.cc.CCSD(mf)
+        mycc.direct = True
 
         _, t1, t2 = mycc.kernel()
         if cc_triple:
