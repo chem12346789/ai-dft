@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from cadft.utils.model.unet_parts import DoubleConv, Down, Up, OutConv
+from cadft.utils.model.transformer import PredictorSmall
 
 
 def bn_no_track(module):
@@ -43,7 +44,14 @@ class UNet(nn.Module):
     Documentation for a class.
     """
 
-    def __init__(self, input_channels, hidden_channels, output_channels, residual, num_layers,):
+    def __init__(
+        self,
+        input_channels,
+        hidden_channels,
+        output_channels,
+        residual,
+        num_layers,
+    ):
         super().__init__()
         self.input_channels = input_channels
         self.hidden_channels = hidden_channels
@@ -149,7 +157,9 @@ class UNet(nn.Module):
         else:
             decoder_channels = []
             for i in range(self.num_layers):
-                decoder_channels.append(self.hidden_channels * 2 ** (self.num_layers - i))
+                decoder_channels.append(
+                    self.hidden_channels * 2 ** (self.num_layers - i)
+                )
 
             if self.residual == 81:
                 self.model = smp.UnetPlusPlus(
@@ -172,14 +182,13 @@ class UNet(nn.Module):
                 )
                 self.model = bn_no_track(self.model)
             if self.residual == 101:
-                self.model = smp.UnetPlusPlus(
+                self.model = PredictorSmall(
                     depth=self.num_layers,
                     hidden_channels=self.hidden_channels,
                     in_channels=self.input_channels,
                     classes=self.output_channels,
                     encoder_weights=None,
                 )
-                
 
     def forward(self, x):
         """
@@ -201,4 +210,4 @@ class UNet(nn.Module):
             x = x[:, :, 10:-11, 9:-9]
             return x
         else:
-            
+            x = self.model(x)
