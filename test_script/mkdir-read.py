@@ -43,7 +43,7 @@ work_bash = work_dir / "validate-template.bash"
 
 for (checkpoint_hidden_size,) in itertools.product(
     [
-        "checkpoint-ccdft_2024-10-25-17-29-05_1_64_1_4_-1",
+        "checkpoint-ccdft_2024-10-27-23-53-26_1_64_1_5_-1",
     ],
 ):
     (
