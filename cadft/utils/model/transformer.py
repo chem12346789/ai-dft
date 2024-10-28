@@ -10,7 +10,6 @@ import torch
 import torch.optim as optim
 from torch import nn
 
-from cadft.utils.model.unet import UNet as Model
 from cadft.utils.env_var import CHECKPOINTS_PATH
 from cadft.utils.DataBase import process_input
 
