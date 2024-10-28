@@ -13,11 +13,11 @@ export OMP_NUM_THREADS=24
 export MKL_NUM_THREADS=24
 export OPENBLAS_NUM_THREADS=24
 
-export PYSCF_TMPDIR=~/workdir/tmp
-export PYSCF_MAX_MEMORY=40000
+export PYSCF_TMPDIR=/raid/data/chenzihao/tmp
+export PYSCF_MAX_MEMORY=400000
 export PYTHONPATH=~/python:$PYTHONPATH
 export LD_LIBRARY_PATH=~/anaconda3/lib:$LD_LIBRARY_PATH
-export DATA_PATH=~/workdir/cadft/data/grids_mrks_ccsd_1
+export DATA_PATH=/raid/data/chenzihao/data/grids_mrks_ccsd_1
 
 export NVIDIA_VISIBLE_DEVICES=1
 # export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=power.draw,index --format=csv,nounits,noheader | sort -n | head -1 | awk '{ print $NF }')
