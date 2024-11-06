@@ -64,9 +64,9 @@ for (
     [32],
     [10],
     [1],  # input_size
-    [64],  # hidden_size
+    [128],  # hidden_size
     [1],  # output_size
-    [5],  # num_layer
+    [4],  # num_layer
     [-1],  # residual
     ["New"],  # load_model
     [(0, 0)],

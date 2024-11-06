@@ -5,16 +5,16 @@ TRAIN_STR_DICT = [
     "ethane",
     "ethylene",
     "acetylene",
+    "propane",
+    "propylene",
+    "propyne",
+    "allene",
     "cyclopropene",
     "cyclopropane",
-    "methyl-openshell",
+    # "methyl-openshell",
 ]
 EVAL_STR_DICT = [
-    "propane",
-    # "allene",
-    # "propyne",
-    # "propylene",
-    # "butane",
+    "butane",
     # "butyne",
     # "isobutane",
     # "butadiene",
@@ -31,4 +31,3 @@ EVAL_STR_DICT = [
 
 if __name__ == "__main__":
     train_model(TRAIN_STR_DICT, EVAL_STR_DICT)
-

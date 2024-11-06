@@ -24,16 +24,15 @@ def mrks_append(self):
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
-        # e_cc=data["e_cc"],
+        e_cc=data["e_cc"],
         dm_cc=data["dm_cc"],
         dm_inv=data["dm_inv"],
-        rho_inv=data["rho_inv"],
         weights=data["weights"],
         vxc=data["vxc"],
         exc=data["exc"],
         exc_real=data["exc_real"],
-        exc1_tr=data["exc1_tr"],
         rho_inv_4_norm=data["rho_inv_4_norm"],
-        exc1_tr_lda=data["exc1_tr"] - grids.vector_to_matrix(evxc_lda[0]),
-        vxc1_lda=data["vxc"] - grids.vector_to_matrix(evxc_lda[1][0]),
+        exc1_tr=data["exc1_tr"],
+        vxc1_lda=data["vxc1_lda"],
+        exc1_tr_lda=data["exc1_tr_lda"],
     )
