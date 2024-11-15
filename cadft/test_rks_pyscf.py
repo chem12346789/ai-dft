@@ -181,12 +181,8 @@ def test_rks_pyscf(
                 middle_mat = data_real["vxc"]
                 vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
             else:
-                if modeldict.input_size == 1:
-                    vxc_scf = modeldict.get_v(ks_grad, dft2cc.grids, dms)
-                    vxc_scf += vexc_lda[1][0]
-                elif modeldict.input_size == 4:
-                    vxc_scf = modeldict.get_v(ks_grad, dft2cc.grids, dms)
-                    vxc_scf += vexc_lda[1][0]
+                vxc_scf = modeldict.get_v(ks_grad, dft2cc.grids, dms)
+                vxc_scf += vexc_lda[1][0]
 
             wv = dft2cc.grids.weights * vxc_scf
             aow = np.einsum("gi,g->gi", dft2cc.ao_1[0], wv)

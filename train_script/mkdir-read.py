@@ -63,7 +63,7 @@ for (
 ) in itertools.product(
     [32],
     [10],
-    [1],  # input_size
+    [2],  # input_size
     [64],  # hidden_size
     [1],  # output_size
     [5],  # num_layer
