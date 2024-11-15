@@ -6,5 +6,6 @@
             "language": "python",
             "scheme": "file"
         }
-    ]
+    ],
+    "CodeGPT.apiKey": "Ollama"
 }
