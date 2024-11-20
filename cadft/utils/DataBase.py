@@ -210,11 +210,11 @@ class DataBase:
             elif self.input_size == 2:
                 input_[i_atom] = np.zeros((2, input_mat.shape[2], input_mat.shape[3]))
                 input_[i_atom][0, :, :] = input_mat[0, i_atom, :, :]
-                input_[i_atom][1, :, :] = np.sqrt(
+                input_[i_atom][1, :, :] = (
                     input_mat[1, i_atom, :, :] ** 2
                     + input_mat[2, i_atom, :, :] ** 2
                     + input_mat[3, i_atom, :, :] ** 2
-                )
+                ) ** (1 / 4)
             else:
                 raise ValueError("input_size should be 1 or 2.")
 
