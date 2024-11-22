@@ -189,6 +189,7 @@ class UNet(nn.Module):
                     classes=self.output_channels,
                     encoder_weights=None,
                 )
+            
 
     def forward(self, x):
         """
