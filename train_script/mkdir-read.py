@@ -65,7 +65,7 @@ for (
     [32],
     [10],
     [1],  # input_size
-    [16],  # hidden_size
+    [32],  # hidden_size
     [1],  # output_size
     [3],  # num_layer
     ["-1"],  # residual
