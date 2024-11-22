@@ -50,6 +50,15 @@ def get_input_mat(
                 ks.mol, ks.ao_value, dms, xctype="GGA"
             )
             input_mat = process_input(scf_rho_r_3, grids)
+            input_ = np.zeros(
+                (input_mat.shape[1], 2, input_mat.shape[2], input_mat.shape[3])
+            )
+            input_[:, 0, :, :] = input_mat[0, :, :, :]
+            input_[:, 1, :, :] = np.sqrt(
+                input_mat[1, :, :, :] ** 2
+                + input_mat[2, :, :, :] ** 2
+                + input_mat[3, :, :, :] ** 2
+            )
             input_mat = np.transpose(input_mat, (1, 0, 2, 3))
             return scf_rho_r_3[0, :], input_mat
 
@@ -398,11 +407,11 @@ class ModelDictUnet(ModelDict):
         if self.input_size == 1:
             _, input_mat = get_input_mat(ks, grids, dms, "lda")
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
-        elif self.input_size == 4:
+        elif self.input_size == 2:
             _, input_mat = get_input_mat(ks, grids, dms, "gga")
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
         else:
-            raise ValueError("input_size must be 1 or 4")
+            raise ValueError("input_size must be 1 or 2")
 
         if self.output_size == 1 or self.output_size == 2:
             with torch.no_grad():
@@ -438,11 +447,11 @@ class ModelDictUnet(ModelDict):
         if self.input_size == 1:
             scf_rho_r, input_mat = get_input_mat(ks, grids, dms, "lda")
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
-        elif self.input_size == 4:
+        elif self.input_size == 2:
             scf_rho_r, input_mat = get_input_mat(ks, grids, dms, "gga")
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
         else:
-            raise ValueError("input_size must be 1 or 4")
+            raise ValueError("input_size must be 1 or 2")
 
         if self.output_size == 1:
             with torch.no_grad():
@@ -611,11 +620,11 @@ class ModelDict3DCNN(ModelDict):
         if self.input_size == 1:
             _, input_mat = get_input_mat(ks, grids, dms, "LDA")
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
-        elif self.input_size == 4:
+        elif self.input_size == 2:
             _, input_mat = get_input_mat(ks, grids, dms, "GGA")
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
         else:
-            raise ValueError("input_size must be 1 or 4")
+            raise ValueError("input_size must be 1 or 2")
 
         if self.output_size == -1:
             input_mat = input_mat.requires_grad_(True)
@@ -650,11 +659,11 @@ class ModelDict3DCNN(ModelDict):
         if self.input_size == 1:
             _, input_mat = get_input_mat(ks, grids, dms, "LDA")
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
-        elif self.input_size == 4:
+        elif self.input_size == 2:
             _, input_mat = get_input_mat(ks, grids, dms, "GGA")
             input_mat = torch.tensor(input_mat, dtype=self.dtype).to("cuda")
         else:
-            raise ValueError("input_size must be 1 or 4")
+            raise ValueError("input_size must be 1 or 2")
 
         if self.output_size == 1:
             with torch.no_grad():

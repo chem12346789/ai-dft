@@ -44,7 +44,8 @@ work_bash = work_dir / "train-template.bash"
 LIST_OF_GPU = itertools.cycle([0, 1])
 GPU_NODE_POOL = itertools.cycle(
     [
-        "gpu05",
+        "gpu06",
+        "gpu07",
     ]
 )
 
@@ -64,18 +65,19 @@ for (
     [32],
     [10],
     [1],  # input_size
-    [64],  # hidden_size
+    [32],  # hidden_size
     [1],  # output_size
-    [5],  # num_layer
-    [-1],  # residual
+    [3],  # num_layer
+    ["-1"],  # residual
     ["New"],  # load_model
     [(0, 0)],
     ["True"],
-    ["float64"],
+    ["float32"],
 ):
     number_of_gpu = next(LIST_OF_GPU)
     gpu_node = next(GPU_NODE_POOL)
     cmd = f"""cp {template_bash} {work_bash}"""
+    cmd += "&&" + f"""sed -i "s/NUMBER_OF_GPU/{number_of_gpu}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/BASH_GPU_NODE/{gpu_node}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/INPUT_SIZE/{input_size}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/HIDDEN_SIZE/{hidden_size}/g" {work_bash}"""
@@ -88,7 +90,6 @@ for (
     cmd += "&&" + f"""sed -i "s/POT_WEIGHT/{pot_weight}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/WITH_EVAL/{with_eval}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/LOAD_MODEL/{load_model}/g" {work_bash}"""
-    cmd += "&&" + f"""sed -i "s/NUMBER_OF_GPU/{number_of_gpu}/g" {work_bash}"""
     cmd += "&&" + f"""sed -i "s/PRECISION/{precision}/g" {work_bash}"""
     cmd += (
         "&&"
