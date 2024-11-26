@@ -68,7 +68,7 @@ for (
     [32],  # hidden_size
     [1],  # output_size
     [3],  # num_layer
-    ["-1"],  # residual
+    ["0.-1"],  # residual
     ["New"],  # load_model
     [(0, 0)],
     ["True"],
