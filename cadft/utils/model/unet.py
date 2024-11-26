@@ -68,76 +68,13 @@ class UNet(nn.Module):
         )
 
         if self.residual < 81:
-            if self.residual == -1:
-                norm_layer = "NoNorm2d"
-                affine = True
-            if self.residual == 0:
-                norm_layer = "BatchNorm2d"
-                affine = True
-            if self.residual == 1:
-                norm_layer = "BatchNorm2d"
-                affine = False
-            if self.residual == 2:
-                norm_layer = "InstanceNorm2d"
-                affine = True
-            if self.residual == 3:
-                norm_layer = "InstanceNorm2d"
-                affine = False
-            if self.residual == 4:
-                norm_layer = "GroupNorm1"
-                affine = True
-            if self.residual == 5:
-                norm_layer = "GroupNorm1"
-                affine = False
-            if self.residual == 6:
-                norm_layer = "GroupNorm2"
-                affine = True
-            if self.residual == 7:
-                norm_layer = "GroupNorm2"
-                affine = False
-            if self.residual == 8:
-                norm_layer = "GroupNorm4"
-                affine = True
-            if self.residual == 9:
-                norm_layer = "GroupNorm4"
-                affine = False
-            if self.residual == 10:
-                norm_layer = "GroupNorm8"
-                affine = True
-            if self.residual == 11:
-                norm_layer = "GroupNorm8"
-                affine = False
-            if self.residual == 12:
-                norm_layer = "GroupNorm16"
-                affine = True
-            if self.residual == 13:
-                norm_layer = "GroupNorm16"
-                affine = False
-
-            print(f"norm_layer: {norm_layer}" f"affine: {affine}")
-
-            if "GroupNorm" in norm_layer:
-                self.inc = DoubleConv(
-                    self.input_channels,
-                    self.hidden_channels,
-                    norm_layer="NoNorm2d",
-                    affine=True,
-                )
-            else:
-                self.inc = DoubleConv(
-                    self.input_channels,
-                    self.hidden_channels,
-                    norm_layer=norm_layer,
-                    affine=affine,
-                )
+            self.inc = DoubleConv(self.input_channels, self.hidden_channels)
 
             self.down_layers = nn.ModuleList(
                 [
                     Down(
                         self.hidden_channels * 2 ** (i),
                         self.hidden_channels * 2 ** (i + 1),
-                        norm_layer=norm_layer,
-                        affine=affine,
                     )
                     for i in range(self.num_layers)
                 ]
@@ -147,8 +84,6 @@ class UNet(nn.Module):
                     Up(
                         self.hidden_channels * 2 ** (i + 1),
                         self.hidden_channels * 2**i,
-                        norm_layer=norm_layer,
-                        affine=affine,
                     )
                     for i in range(self.num_layers)[::-1]
                 ]
@@ -189,11 +124,13 @@ class UNet(nn.Module):
                     classes=self.output_channels,
                     encoder_weights=None,
                 )
+            
 
     def forward(self, x):
         """
         Standard forward function, required for all nn.Module classes
         """
+        x = x ** (1 / 3)
         if self.residual < 81:
             x = self.inc(x)
             x_down = []

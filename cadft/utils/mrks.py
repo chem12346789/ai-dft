@@ -18,9 +18,6 @@ def mrks_append(self):
     data = np.load(DATA_PATH / f"data_{self.name}.npz")
 
     grids = Grid(self.mol, level=1)
-    ao_value = pyscf.dft.numint.eval_ao(self.mol, grids.coords)
-    inv_r = pyscf.dft.numint.eval_rho(self.mol, ao_value, data["dm_inv"])
-    evxc_lda = pyscf.dft.libxc.eval_xc("lda,vwn", inv_r)
 
     np.savez_compressed(
         DATA_PATH / f"data_{self.name}.npz",
@@ -33,6 +30,7 @@ def mrks_append(self):
         exc_real=data["exc_real"],
         rho_inv_4_norm=data["rho_inv_4_norm"],
         exc1_tr=data["exc1_tr"],
-        exc1_tr_lda=data["exc1_tr"] - grids.vector_to_matrix(evxc_lda[0]),
-        vxc1_lda=data["vxc"] - grids.vector_to_matrix(evxc_lda[1][0]),
+        vxc1_lda=data["vxc1_lda"],
+        exc1_tr_lda=data["exc1_tr_lda"],
+        coor_grids=grids.coords,
     )

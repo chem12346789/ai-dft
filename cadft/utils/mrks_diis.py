@@ -669,8 +669,8 @@ def mrks_diis(
         dm_inv=dm1_inv,
         weights=grids.vector_to_matrix(weights),
         vxc=grids.vector_to_matrix(vxc_inv),
-        exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         exc_real=grids.vector_to_matrix(exc_over_rho_grids),
+        exc=grids.vector_to_matrix(exc_over_rho_grids_fake),
         rho_inv_4_norm=data_grids_norm,
         exc1_tr=grids.vector_to_matrix(
             exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / rho_inv

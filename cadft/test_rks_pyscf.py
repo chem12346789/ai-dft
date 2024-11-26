@@ -150,9 +150,9 @@ def test_rks_pyscf(
     if args.precision == "float32":
         mdft.conv_tol = 1e-4
     elif args.precision == "float64":
-        mdft.conv_tol = 1e-8
+        mdft.conv_tol = 1e-6
     mdft.diis_space = n_diis
-    mdft.DIIS = pyscf.scf.ADIIS
+    mdft.DIIS = pyscf.scf.CDIIS
     mdft.max_cycle = 250
     mdft.level_shift = 0
     if dm_guess is not None:
@@ -181,12 +181,8 @@ def test_rks_pyscf(
                 middle_mat = data_real["vxc"]
                 vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
             else:
-                if modeldict.input_size == 1:
-                    vxc_scf = modeldict.get_v(ks_grad, dft2cc.grids, dms)
-                    vxc_scf += vexc_lda[1][0]
-                elif modeldict.input_size == 4:
-                    vxc_scf = modeldict.get_v(ks_grad, dft2cc.grids, dms)
-                    vxc_scf += vexc_lda[1][0]
+                vxc_scf = modeldict.get_v(ks_grad, dft2cc.grids, dms)
+                vxc_scf += vexc_lda[1][0]
 
             wv = dft2cc.grids.weights * vxc_scf
             aow = np.einsum("gi,g->gi", dft2cc.ao_1[0], wv)
