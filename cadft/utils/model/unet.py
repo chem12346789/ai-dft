@@ -1,5 +1,3 @@
-import segmentation_models_pytorch as smp
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -122,26 +120,6 @@ class UNet(nn.Module):
                     self.hidden_channels * 2 ** (self.num_layers - i)
                 )
 
-            if self.residual == 81:
-                self.model = smp.UnetPlusPlus(
-                    encoder_name="resnet18",
-                    encoder_depth=self.num_layers,
-                    decoder_channels=decoder_channels,
-                    in_channels=self.input_channels,
-                    classes=self.output_channels,
-                    encoder_weights=None,
-                )
-                self.model = bn_no_track(self.model)
-            if self.residual == 82:
-                self.model = smp.UnetPlusPlus(
-                    encoder_name="timm-mobilenetv3_small_100",
-                    encoder_depth=self.num_layers,
-                    decoder_channels=decoder_channels,
-                    in_channels=self.input_channels,
-                    classes=self.output_channels,
-                    encoder_weights=None,
-                )
-                self.model = bn_no_track(self.model)
             if self.residual == 101:
                 self.model = PredictorSmall(
                     depth=self.num_layers,
