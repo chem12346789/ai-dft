@@ -22,10 +22,10 @@ number_of_gpu = sys.argv[1] if len(sys.argv) > 1 else 0
 
 for mol, basis_set, range_list, extend_atom in itertools.product(
     [
-        "methane",
-        # "ethane",
-        # "ethylene",
-        # "acetylene",
+        # "methane",
+        "ethane",
+        "ethylene",
+        "acetylene",
         # "cyclopropane",
         # "cyclopropene",
         # "propane",

@@ -38,12 +38,12 @@ for mol, basis_set, range_list, extend_atom in itertools.product(
     ],
     ["cc-pCVTZ"],
     [
-        # (-0.5, 2.5, 31),
-        (-1.0, 1.0, 21),
+        (-0.5, 2.5, 31),
+        # (-1.0, 1.0, 21),
         # (2.4, 2.5, 2),
         # (1.5, 2.0, 6),
     ],
-    ["0"],
+    ["0-1"],
 ):
     cmd = f"""cp {template_bash} {work_bash}"""
     cmd += "&&" + f"""sed -i "s/MOL/{mol}/g" {work_bash}"""

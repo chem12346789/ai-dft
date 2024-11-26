@@ -679,6 +679,11 @@ def mrks_diis(
         exc1_tr_lda=grids.vector_to_matrix(
             exc_over_rho_grids_fake1 + (tau_rho_wf - tau_rho_ks) / rho_inv - evxc_lda[0]
         ),
+        coords=coords,
+        coords_x_matrix=grids.vector_to_matrix(coords[:, 0]),
+        coords_y_matrix=grids.vector_to_matrix(coords[:, 1]),
+        coords_z_matrix=grids.vector_to_matrix(coords[:, 2]),
+        mol_atom=self.mol.atom,
     )
 
     return vxc_inv
