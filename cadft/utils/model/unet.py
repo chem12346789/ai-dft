@@ -1,5 +1,3 @@
-import segmentation_models_pytorch as smp
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -68,13 +66,37 @@ class UNet(nn.Module):
         )
 
         if self.residual < 81:
-            self.inc = DoubleConv(self.input_channels, self.hidden_channels)
+            if self.residual == 0:
+                norm_layer = "BatchNorm2d"
+                affine = True
+            else:
+                norm_layer = "NoNorm2d"
+                affine = True
+
+            print(f"norm_layer: {norm_layer}" f"affine: {affine}")
+
+            if "GroupNorm" in norm_layer:
+                self.inc = DoubleConv(
+                    self.input_channels,
+                    self.hidden_channels,
+                    norm_layer="NoNorm2d",
+                    affine=True,
+                )
+            else:
+                self.inc = DoubleConv(
+                    self.input_channels,
+                    self.hidden_channels,
+                    norm_layer=norm_layer,
+                    affine=affine,
+                )
 
             self.down_layers = nn.ModuleList(
                 [
                     Down(
                         self.hidden_channels * 2 ** (i),
                         self.hidden_channels * 2 ** (i + 1),
+                        norm_layer=norm_layer,
+                        affine=affine,
                     )
                     for i in range(self.num_layers)
                 ]
@@ -84,6 +106,8 @@ class UNet(nn.Module):
                     Up(
                         self.hidden_channels * 2 ** (i + 1),
                         self.hidden_channels * 2**i,
+                        norm_layer=norm_layer,
+                        affine=affine,
                     )
                     for i in range(self.num_layers)[::-1]
                 ]
@@ -96,26 +120,6 @@ class UNet(nn.Module):
                     self.hidden_channels * 2 ** (self.num_layers - i)
                 )
 
-            if self.residual == 81:
-                self.model = smp.UnetPlusPlus(
-                    encoder_name="resnet18",
-                    encoder_depth=self.num_layers,
-                    decoder_channels=decoder_channels,
-                    in_channels=self.input_channels,
-                    classes=self.output_channels,
-                    encoder_weights=None,
-                )
-                self.model = bn_no_track(self.model)
-            if self.residual == 82:
-                self.model = smp.UnetPlusPlus(
-                    encoder_name="timm-mobilenetv3_small_100",
-                    encoder_depth=self.num_layers,
-                    decoder_channels=decoder_channels,
-                    in_channels=self.input_channels,
-                    classes=self.output_channels,
-                    encoder_weights=None,
-                )
-                self.model = bn_no_track(self.model)
             if self.residual == 101:
                 self.model = PredictorSmall(
                     depth=self.num_layers,
@@ -124,13 +128,11 @@ class UNet(nn.Module):
                     classes=self.output_channels,
                     encoder_weights=None,
                 )
-            
 
     def forward(self, x):
         """
         Standard forward function, required for all nn.Module classes
         """
-        x = x ** (1 / 3)
         if self.residual < 81:
             x = self.inc(x)
             x_down = []
