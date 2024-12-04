@@ -179,21 +179,16 @@ class Grid(dft.gen_grid.Grids):
         """
         Documentation for a method.
         """
-        matrix = np.zeros((self.natm, self.n_rad, self.n_ang))
-        index_range = np.ndindex(self.natm, self.n_rad, self.n_ang)
-        for i, j, k in index_range:
-            matrix[i, j, k] = vector[self.index_2d[i, j, k]]
-        return matrix
+        return np.transpose(
+            vector.reshape(self.natm, self.n_ang, self.n_rad),
+            axes=[0, 2, 1],
+        )
 
     def matrix_to_vector(self, matrix: np.ndarray):
         """
         Documentation for a method.
         """
-        vector = np.zeros(self.natm * self.n_rad * self.n_ang)
-        index_range = np.ndindex(self.natm, self.n_rad, self.n_ang)
-        for i, j, k in index_range:
-            vector[self.index_2d[i, j, k]] = matrix[i, j, k]
-        return vector
+        return np.transpose(matrix, (0, 2, 1)).flatten()
 
     def matrix_to_vector_atom(self, matrix: np.ndarray, atom_number: int):
         """
