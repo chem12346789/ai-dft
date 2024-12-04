@@ -251,9 +251,10 @@ class ModelDictUnet(ModelDict):
                     patience=10,
                 )
             else:
-                self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
-                    self.optimizer_dict[key],
-                    gamma=1.0,
+                self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                    self.optimizer,
+                    T_max=1000,
+                    eta_min=1e-6,
                 )
 
     def loss(self, batch):
