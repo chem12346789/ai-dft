@@ -24,12 +24,6 @@ for (
     args.extend_xyz,
     distance_l,
 ):
-    name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
-    molecular = extend(name_mol, extend_atom, extend_xyz, distance, name)
-
-    if molecular is None:
-        continue
-
     SPIN = 0
     if "openshell" in name_mol:
         if "_" in name_mol:
@@ -37,6 +31,12 @@ for (
             name_mol = name_mol.split("_")[0]
         else:
             SPIN = 1
+
+    name = f"{name_mol}_{args.basis}_{extend_atom}_{extend_xyz}_{distance:.4f}"
+    molecular = extend(name_mol, extend_atom, extend_xyz, distance, name)
+
+    if molecular is None:
+        continue
 
     dft2cc = CC_DFT_DATA(
         molecular,
@@ -58,17 +58,17 @@ for (
 
     print(f"FACTOR: {FACTOR}, diis_n: {DIIS_N}")
 
-    if "openshell" in name_mol:
-        vxc_inv = dft2cc.umrks_diis(
+    if SPIN == 0:
+        vxc_inv = dft2cc.mrks_diis(
             FACTOR,
             args.load_inv,
             diis_n=DIIS_N,
             vxc_inv=None,
             cc_triple=args.cc_triple,
-            max_inv_step=2500,
+            max_inv_step=250,
         )
     else:
-        vxc_inv = dft2cc.mrks_diis(
+        vxc_inv = dft2cc.umrks_diis(
             FACTOR,
             args.load_inv,
             diis_n=DIIS_N,
