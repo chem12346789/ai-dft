@@ -251,9 +251,10 @@ class ModelDictUnet(ModelDict):
                     patience=10,
                 )
             else:
-                self.scheduler_dict[key] = optim.lr_scheduler.ExponentialLR(
-                    self.optimizer_dict[key],
-                    gamma=1.0,
+                self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
+                    self.optimizer,
+                    T_max=1000,
+                    eta_min=1e-6,
                 )
 
     def loss(self, batch):
@@ -328,6 +329,12 @@ class ModelDictUnet(ModelDict):
             loss_ene_tot_i = self.loss_multiplier * self.loss_fn3(
                 tot_correct_energy,
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
+            )
+        else:
+            loss_pot_i, loss_ene_i, loss_ene_tot_i = (
+                torch.tensor([0.0], device=self.device),
+                torch.tensor([0.0], device=self.device),
+                torch.tensor([0.0], device=self.device),
             )
         return loss_pot_i, loss_ene_i, loss_ene_tot_i
 
