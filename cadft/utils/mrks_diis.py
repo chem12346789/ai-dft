@@ -2,14 +2,14 @@ import json
 import gc
 from pathlib import Path
 from itertools import product
+from tqdm import tqdm
 
 import numpy as np
-from tqdm import tqdm
 import torch
-import pyscf
 import scipy.linalg as LA
 import opt_einsum as oe
 
+import pyscf
 from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda
 from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm
 from pyscf.cc import ccsd_t_slow as ccsd_t
@@ -212,7 +212,7 @@ def mrks_diis(
                 optimize="optimal",
             )
 
-            for i, coord in enumerate(tqdm(coords)):
+            for i, coord in enumerate(tqdm(coords, mininterval=2, maxinterval=20)):
                 ao_0_i = ao_value[0][i]
                 with self.mol.with_rinv_origin(coord):
                     rinv = self.mol.intor("int1e_rinv")
@@ -544,7 +544,7 @@ def mrks_diis(
             rho_cc[i_slice_grids] - rho_inv[i_slice_grids]
         )
 
-    for i, coord in enumerate(tqdm(coords)):
+    for i, coord in enumerate(tqdm(coords, mininterval=2, maxinterval=20)):
         for i_atom in range(self.mol.natm):
             distance = np.linalg.norm(self.mol.atom_coords()[i_atom] - coord)
             if distance > 1e-3:
