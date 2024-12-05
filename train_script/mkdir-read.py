@@ -44,8 +44,7 @@ work_bash = work_dir / "train-template.bash"
 LIST_OF_GPU = itertools.cycle([0, 1])
 GPU_NODE_POOL = itertools.cycle(
     [
-        "gpu06",
-        "gpu07",
+        "gpu05",
     ]
 )
 
@@ -69,11 +68,14 @@ for (
     [1],  # output_size
     [5],  # num_layer
     ["0.-1"],  # residual
-    ["2024-12-05-00-15-54"],  # load_model
+    [
+        # "2024-12-05-00-15-54",
+        "NEW"
+    ],  # load_model
     [(0, 0)],
     [
-        "False",
-        # "True",
+        # "False",
+        "True",
     ],
     ["float32"],
 ):
