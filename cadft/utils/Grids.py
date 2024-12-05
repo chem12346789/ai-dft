@@ -149,12 +149,13 @@ class Grid(dft.gen_grid.Grids):
     This class is modified from pyscf.dft.gen_grid.Grids. Some default parameters are changed.
     """
 
-    def __init__(self, mol, level=1, period=2):
+    def __init__(self, mol, level=3, period=2):
         super().__init__(mol)
-        self.n_rad, self.n_ang = (
-            RAD_GRIDS[level, period],
-            LEBEDEV_ORDER[ANG_ORDER[level, period]],
-        )
+        # self.n_rad, self.n_ang = (
+        #     RAD_GRIDS[level, period],
+        #     LEBEDEV_ORDER[ANG_ORDER[level, period]],
+        # )
+        self.n_rad, self.n_ang = 128, 194
         self.natm = mol.natm
         self.coord_list = []
         self.atom_grid = {}
