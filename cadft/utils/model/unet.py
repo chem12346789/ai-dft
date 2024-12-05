@@ -69,26 +69,21 @@ class UNet(nn.Module):
             if self.residual == 0:
                 norm_layer = "BatchNorm2d"
                 affine = True
+            elif self.residual == 1:
+                norm_layer = "BatchNorm2d"
+                affine = False
             else:
                 norm_layer = "NoNorm2d"
                 affine = True
 
             print(f"norm_layer: {norm_layer}" f"affine: {affine}")
 
-            if "GroupNorm" in norm_layer:
-                self.inc = DoubleConv(
-                    self.input_channels,
-                    self.hidden_channels,
-                    norm_layer="NoNorm2d",
-                    affine=True,
-                )
-            else:
-                self.inc = DoubleConv(
-                    self.input_channels,
-                    self.hidden_channels,
-                    norm_layer=norm_layer,
-                    affine=affine,
-                )
+            self.inc = DoubleConv(
+                self.input_channels,
+                self.hidden_channels,
+                norm_layer=norm_layer,
+                affine=affine,
+            )
 
             self.down_layers = nn.ModuleList(
                 [
