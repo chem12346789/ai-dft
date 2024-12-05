@@ -65,13 +65,16 @@ for (
     [32],
     [10],
     [1],  # input_size
-    [32],  # hidden_size
+    [64],  # hidden_size
     [1],  # output_size
-    [3],  # num_layer
+    [5],  # num_layer
     ["0.-1"],  # residual
     ["New"],  # load_model
     [(0, 0)],
-    ["True"],
+    [
+        # "False",
+        "True",
+    ],
     ["float32"],
 ):
     number_of_gpu = next(LIST_OF_GPU)

@@ -330,6 +330,12 @@ class ModelDictUnet(ModelDict):
                 tot_correct_energy,
                 torch.sum(output_mat * input_mat[:, [0], :, :] * weight),
             )
+        else:
+            loss_pot_i, loss_ene_i, loss_ene_tot_i = (
+                torch.tensor([0.0], device=self.device),
+                torch.tensor([0.0], device=self.device),
+                torch.tensor([0.0], device=self.device),
+            )
         return loss_pot_i, loss_ene_i, loss_ene_tot_i
 
     def train_model(self, database_train):
