@@ -155,7 +155,7 @@ class Grid(dft.gen_grid.Grids):
         #     RAD_GRIDS[level, period],
         #     LEBEDEV_ORDER[ANG_ORDER[level, period]],
         # )
-        self.n_rad, self.n_ang = 128, 194
+        self.n_rad, self.n_ang = 194, 194
         self.natm = mol.natm
         self.coord_list = []
         self.atom_grid = {}
