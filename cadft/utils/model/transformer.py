@@ -30,7 +30,7 @@ class Attention(nn.Module):
     def forward(self, inputs):
         # inputs.shape = (batch, seq_len, channel)
         results = self.dense1(inputs)
-        # results.shape = (batch, 302, 3 * channel)
+        # results.shape = (batch, 194, 3 * channel)
         b, s, _ = results.shape
         results = torch.reshape(
             results, (b, s, 3, self.num_heads, self.channel // self.num_heads)
@@ -88,7 +88,7 @@ class ABlock(nn.Module):
 class Extractor(nn.Module):
     def __init__(self, **kwargs):
         super(Extractor, self).__init__()
-        self.in_channel = kwargs.get("in_channel", 1)
+        self.in_channel = kwargs.get("in_channel", 40)
         self.hidden_channels = kwargs.get("hidden_channels", 512)
         self.depth = kwargs.get("depth", 12)
         self.mlp_ratio = kwargs.get("mlp_ratio", 4.0)
@@ -105,56 +105,38 @@ class Extractor(nn.Module):
                     channel=self.hidden_channels,
                     qkv_bias=self.qkv_bias,
                     num_heads=self.num_heads,
-                    length=75,
+                    length=194,
                     **kwargs,
                 )
                 for _ in range(self.depth)
             ]
         )
-        self.spatial_blocks = nn.ModuleList(
-            [
-                ABlock(
-                    channel=self.hidden_channels,
-                    qkv_bias=self.qkv_bias,
-                    num_heads=self.num_heads,
-                    length=302,
-                    **kwargs,
-                )
-                for _ in range(self.depth)
-            ]
-        )
-        self.head = nn.Linear(self.hidden_channels, 1, bias=False)
+        self.head = nn.Linear(self.hidden_channels, 40, bias=False)
 
     def forward(self, inputs):
-        batch = inputs.shape[0]
-        # inputs.shape = (batch, 75, 302, 1)
+        # batch = inputs.shape[0]
+        # # inputs.shape = (batch, 1, 40, 194)
+        inputs = inputs[:, 0, :, :]
+        # inputs.shape = (batch, 40, 194)
+        inputs = torch.permute(inputs, (0, 2, 1))
+        # inputs.shape = (batch, 194, 40)
         results = inputs
         results = self.dense1(inputs)
-        # results.shape = (batch, 75, 302, hidden_channels)
+        # results.shape = (batch, 194, hidden_channels)
         results = self.gelu(results)
         # do attention only when the feature shape is small enough
         for i in range(self.depth):
-            # results.shape = (batch, 75, 302, hidden_channels)
-            results = torch.reshape(results, (batch * 75, 302, self.hidden_channels))
-            # results.shape = (batch * 75, 302, hidden_channels)
-            results = self.spatial_blocks[i](results)
-            # results.shape = (batch * 75, 302, hidden_channels)
-            results = torch.reshape(results, (batch, 75, 302, self.hidden_channels))
-            # results.shape = (batch, 75, 302, hidden_channels)
-            results = torch.permute(results, (0, 2, 1, 3))
-            # result.shape = (batch, 302, 75, hidden_channels)
-            results = torch.reshape(results, (batch * 302, 75, self.hidden_channels))
-            # results.shape = (batch * 302, 75, hidden_channels)
+            # result.shape = (batch, 194, hidden_channels)
             results = self.layer_blocks[i](results)
-            # results.shape = (batch * 302, 75, hidden_channels)
-            results = torch.reshape(results, (batch, 302, 75, self.hidden_channels))
-            # results.shape = (batch, 302, 75, hidden_channels)
-            results = torch.permute(results, (0, 2, 1, 3))
-            # results.shape = (batch, 75, 302, hidden_channel)
+            # results.shape = (batch, 194, hidden_channels)
         results = self.dense2(results)
-        # results.shape = (batch, 75, 302, hidden_channels)
+        # results.shape = (batch, 194, hidden_channels)
         results = self.head(results)
-        # results.shape = (batch, 75, 302, 1)
+        # results.shape = (batch, 194, 40)
+        results = torch.permute(results, (0, 2, 1))
+        # inputs.shape = (batch, 40, 194)
+        results = results.unsqueeze(1)
+        # results.shape = (batch, 1, 40, 194)
         return results
 
 

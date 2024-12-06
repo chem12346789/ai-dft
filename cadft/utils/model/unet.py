@@ -35,7 +35,7 @@ class UNet(nn.Module):
             f"output_channels: {self.output_channels}"
         )
 
-        if self.residual < 81:
+        if self.residual < 10:
             if self.residual == 0:
                 norm_layer = "BatchNorm2d"
                 affine = True
@@ -80,13 +80,7 @@ class UNet(nn.Module):
             self.outc = OutConv(self.hidden_channels, self.output_channels)
         else:
             if self.residual == 10:
-                self.model = PredictorSmall(
-                    depth=self.num_layers,
-                    hidden_channels=self.hidden_channels,
-                    in_channels=self.input_channels,
-                    classes=self.output_channels,
-                    encoder_weights=None,
-                )
+                self.model = PredictorSmall()
 
     def forward(self, x):
         """
@@ -103,4 +97,4 @@ class UNet(nn.Module):
             logits = self.outc(x)
             return logits
         else:
-            x = self.model(x)
+            return self.model(x)

@@ -28,7 +28,7 @@ if DATA_SAVE_PATH is None:
 else:
     DATA_SAVE_PATH = Path(DATA_SAVE_PATH)
 
-DATA_CC_PATH = os.environ.get("DATA_SAVE_PATH")
+DATA_CC_PATH = os.environ.get("DATA_CC_PATH")
 if DATA_CC_PATH is None:
     DATA_CC_PATH = MAIN_PATH / "data" / "test"
 else:

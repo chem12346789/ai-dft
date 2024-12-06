@@ -241,15 +241,18 @@ class DataBase:
 
             print(
                 f"Load {name:>30}, key_: {i_atom:>3}\n"
-                f"mean input: {np.mean(input_[i_atom]):>7.4e}, "
-                f"max input: {np.max(input_[i_atom]):>7.4e}, "
-                f"var input: {np.var(input_[i_atom]):>7.4e}\n"
-                f"mean middle: {np.mean(middle_[i_atom]):>7.4e}, "
-                f"max middle: {np.max(np.abs(middle_[i_atom])):>7.4e}, "
-                f"var middle: {np.var(middle_[i_atom]):>7.4e}\n"
-                f"mean output: {np.mean(output_[i_atom]):>7.4e}, "
-                f"max output: {np.max(np.abs(output_[i_atom])):>7.4e} "
-                f"var output: {np.var(output_[i_atom]):>7.4e}\n"
+                f"input max: {np.min(input_[i_atom]):>7.4e}, "
+                f"max: {np.max(input_[i_atom]):>7.4e}, "
+                f"mean: {np.mean(input_[i_atom]):>7.4e}, "
+                f"var: {np.var(input_[i_atom]):>7.4e}\n"
+                f"middle max: {np.min(np.abs(middle_[i_atom])):>7.4e}, "
+                f"max: {np.max(np.abs(middle_[i_atom])):>7.4e}, "
+                f"mean: {np.mean(middle_[i_atom]):>7.4e}, "
+                f"var: {np.var(middle_[i_atom]):>7.4e}\n"
+                f"output max: {np.min(np.abs(output_[i_atom])):>7.4e} "
+                f"max: {np.max(np.abs(output_[i_atom])):>7.4e} "
+                f"mean: {np.mean(output_[i_atom]):>7.4e}, "
+                f"var: {np.var(output_[i_atom]):>7.4e}\n"
             )
 
         for key, val in input_.items():
