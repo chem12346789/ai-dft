@@ -6,36 +6,6 @@ from cadft.utils.model.unet_parts import DoubleConv, Down, Up, OutConv
 from cadft.utils.model.transformer import PredictorSmall
 
 
-def bn_no_track(module):
-    """
-    Set BatchNorm layers to not track running statistics
-    """
-    module_output = module
-    if isinstance(module, nn.modules.batchnorm._BatchNorm):
-        module_output = nn.BatchNorm2d(
-            module.num_features,
-            module.eps,
-            module.momentum,
-            module.affine,
-            track_running_stats=False,
-        )
-        if module.affine:
-            with torch.no_grad():
-                module_output.weight = module.weight
-                module_output.bias = module.bias
-        module_output.running_mean = None
-        module_output.running_var = None
-        module_output.num_batches_tracked = None
-        if hasattr(module, "qconfig"):
-            module_output.qconfig = module.qconfig
-
-    for name, child in module.named_children():
-        module_output.add_module(name, bn_no_track(child))
-
-    del module
-    return module_output
-
-
 class UNet(nn.Module):
     """
     TODO
@@ -109,13 +79,7 @@ class UNet(nn.Module):
             )
             self.outc = OutConv(self.hidden_channels, self.output_channels)
         else:
-            decoder_channels = []
-            for i in range(self.num_layers):
-                decoder_channels.append(
-                    self.hidden_channels * 2 ** (self.num_layers - i)
-                )
-
-            if self.residual == 101:
+            if self.residual == 10:
                 self.model = PredictorSmall(
                     depth=self.num_layers,
                     hidden_channels=self.hidden_channels,
@@ -128,7 +92,7 @@ class UNet(nn.Module):
         """
         Standard forward function, required for all nn.Module classes
         """
-        if self.residual < 81:
+        if self.residual < 10:
             x = self.inc(x)
             x_down = []
             for down in self.down_layers:
@@ -138,10 +102,5 @@ class UNet(nn.Module):
                 x = up(x, x_down[-i - 1])
             logits = self.outc(x)
             return logits
-        elif self.residual < 101:
-            x = F.pad(x, (9, 9, 10, 11), "reflect")
-            x = self.model(x)
-            x = x[:, :, 10:-11, 9:-9]
-            return x
         else:
             x = self.model(x)

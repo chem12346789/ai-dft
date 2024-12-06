@@ -22,27 +22,19 @@ class DoubleConv(nn.Module):
 
         if norm_layer == "BatchNorm2d":
             self.double_conv = nn.Sequential(
-                nn.Conv2d(
-                    in_channels, mid_channels, kernel_size=3, padding=1, bias=False
-                ),
+                nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1),
                 nn.BatchNorm2d(mid_channels, affine=affine, track_running_stats=False),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(
-                    mid_channels, out_channels, kernel_size=3, padding=1, bias=False
-                ),
+                nn.ReLU(),
+                nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1),
                 nn.BatchNorm2d(out_channels, affine=affine, track_running_stats=False),
-                nn.ReLU(inplace=True),
+                nn.ReLU(),
             )
         elif norm_layer == "NoNorm2d":
             self.double_conv = nn.Sequential(
-                nn.Conv2d(
-                    in_channels, mid_channels, kernel_size=3, padding=1, bias=False
-                ),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(
-                    mid_channels, out_channels, kernel_size=3, padding=1, bias=False
-                ),
-                nn.ReLU(inplace=True),
+                nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1),
+                nn.ReLU(),
             )
         else:
             raise ValueError(f"norm_layer {norm_layer} not recognized")
@@ -96,10 +88,15 @@ class Up(nn.Module):
         """Forward pass"""
         x1 = self.up(x1)
         # input is CHW
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
+        diff_y = x2.size()[2] - x1.size()[2]
+        diff_x = x2.size()[3] - x1.size()[3]
 
-        pad_list = (diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2)
+        pad_list = (
+            diff_x // 2,
+            diff_x - diff_x // 2,
+            diff_y // 2,
+            diff_y - diff_y // 2,
+        )
         x1 = F.pad(x1, pad_list, mode="reflect")
         # if you have padding issues, see
         # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
