@@ -127,7 +127,7 @@ class Extractor(nn.Module):
 
     def forward(self, inputs):
         batch = inputs.shape[0]
-        # inputs.shape = (batch, 75, 302, 1)
+        # inputs.shape = (batch, 194, 194, 1)
         results = inputs
         results = self.dense1(inputs)
         # results.shape = (batch, 75, 302, hidden_channels)
