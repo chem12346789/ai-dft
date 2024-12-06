@@ -180,7 +180,7 @@ class CC_DFT_DATA:
                     self.grad_ccsd = g.kernel()
 
                     np.savez_compressed(
-                        Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
+                        Path(f"{DATA_CC_PATH}/data_{self.name}.npz"),
                         dm1_cc=self.dm1_cc,
                         e_cc=self.e_cc,
                         grad_ccsd=self.grad_ccsd,
@@ -231,7 +231,7 @@ class CC_DFT_DATA:
 
             if require_grad:
                 np.savez_compressed(
-                    Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
+                    Path(f"{DATA_CC_PATH}/data_{self.name}.npz"),
                     dm1_cc=self.dm1_cc,
                     e_cc=self.e_cc,
                     grad_ccsd=self.grad_ccsd,
@@ -247,7 +247,7 @@ class CC_DFT_DATA:
                 )
             else:
                 np.savez_compressed(
-                    Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
+                    Path(f"{DATA_CC_PATH}/data_{self.name}.npz"),
                     dm1_cc=self.dm1_cc,
                     e_cc=self.e_cc,
                     time_cc=self.time_cc,
@@ -310,7 +310,7 @@ class CC_DFT_DATA:
             self.mat_hs = LA.fractional_matrix_power(self.mat_s, -0.5).real
 
             np.savez_compressed(
-                Path(f"{MAIN_PATH}/data/test/data_{self.name}.npz"),
+                Path(f"{DATA_CC_PATH}/data_{self.name}.npz"),
                 dm1_cc=self.dm1_cc,
                 e_cc=self.e_cc,
                 time_cc=self.time_cc,
