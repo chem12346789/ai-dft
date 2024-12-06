@@ -97,7 +97,7 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
     experiment.config.update(experiment_dict)
 
     print(f"Start training at {modeldict.dir_checkpoint}")
-    pbar0 = trange(args.epoch + 1, miniter=10, mininterval=200, maxinterval=2000)
+    pbar0 = trange(args.epoch + 1, mininterval=20, maxinterval=2000)
     for epoch in pbar0:
         (
             train_loss_pot,

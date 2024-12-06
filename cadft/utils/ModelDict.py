@@ -461,4 +461,3 @@ class ModelDictUnet(ModelDict):
 
         exc_scf = grids.matrix_to_vector(output_mat)
         return np.sum(exc_scf * scf_rho_r * grids.weights)
-
