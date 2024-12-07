@@ -67,7 +67,7 @@ for (
     [64],  # hidden_size
     [1],  # output_size
     [5],  # num_layer
-    ["0.-1"],  # residual
+    ["1.-1"],  # residual
     [
         # "2024-12-05-00-15-54",
         "NEW"
