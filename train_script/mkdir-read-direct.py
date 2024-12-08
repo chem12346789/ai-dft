@@ -44,7 +44,7 @@ for (
     [64],  # hidden_size
     [1],  # output_size
     [5],  # num_layer
-    ["1.-1"],  # residual
+    [10],  # residual
     ["New"],  # load_model
     [
         (0, 0),

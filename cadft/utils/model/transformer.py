@@ -2,16 +2,11 @@
 Generate list of model.
 """
 
-from pathlib import Path
-import datetime
-
-import numpy as np
 import torch
-import torch.optim as optim
 from torch import nn
 
-from cadft.utils.env_var import CHECKPOINTS_PATH
-from cadft.utils.DataBase import process_input
+
+RAD_LEN = 194
 
 
 class Attention(nn.Module):
@@ -88,7 +83,7 @@ class ABlock(nn.Module):
 class Extractor(nn.Module):
     def __init__(self, **kwargs):
         super(Extractor, self).__init__()
-        self.in_channel = kwargs.get("in_channel", 40)
+        self.in_channel = kwargs.get("in_channel", RAD_LEN)
         self.hidden_channels = kwargs.get("hidden_channels", 512)
         self.depth = kwargs.get("depth", 12)
         self.mlp_ratio = kwargs.get("mlp_ratio", 4.0)
@@ -111,15 +106,15 @@ class Extractor(nn.Module):
                 for _ in range(self.depth)
             ]
         )
-        self.head = nn.Linear(self.hidden_channels, 40, bias=False)
+        self.head = nn.Linear(self.hidden_channels, RAD_LEN, bias=False)
 
     def forward(self, inputs):
         # batch = inputs.shape[0]
-        # # inputs.shape = (batch, 1, 40, 194)
+        # # inputs.shape = (batch, 1, RAD_LEN, 194)
         inputs = inputs[:, 0, :, :]
-        # inputs.shape = (batch, 40, 194)
+        # inputs.shape = (batch, RAD_LEN, 194)
         inputs = torch.permute(inputs, (0, 2, 1))
-        # inputs.shape = (batch, 194, 40)
+        # inputs.shape = (batch, 194, RAD_LEN)
         results = inputs
         results = self.dense1(inputs)
         # results.shape = (batch, 194, hidden_channels)
@@ -132,11 +127,11 @@ class Extractor(nn.Module):
         results = self.dense2(results)
         # results.shape = (batch, 194, hidden_channels)
         results = self.head(results)
-        # results.shape = (batch, 194, 40)
+        # results.shape = (batch, 194, RAD_LEN)
         results = torch.permute(results, (0, 2, 1))
-        # inputs.shape = (batch, 40, 194)
+        # inputs.shape = (batch, RAD_LEN, 194)
         results = results.unsqueeze(1)
-        # results.shape = (batch, 1, 40, 194)
+        # results.shape = (batch, 1, RAD_LEN, 194)
         return results
 
 
