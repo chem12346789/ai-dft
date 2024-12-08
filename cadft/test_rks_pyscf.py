@@ -16,7 +16,7 @@ import numpy as np
 from cadft import CC_DFT_DATA
 from cadft.utils import MAIN_PATH, DATA_PATH
 from cadft.utils import calculate_density_dipole, calculate_force
-from cadft.utils.DataBase import process_input
+from cadft.utils import rotate
 
 AU2KCALMOL = 627.5096080306
 
@@ -48,6 +48,7 @@ def test_rks_pyscf(
     df_dict["name"].append(name)
 
     # 2.0 Prepare
+    rotate(molecular, verbose=True)
     dft2cc = CC_DFT_DATA(
         molecular,
         name=name,

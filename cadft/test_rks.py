@@ -13,6 +13,7 @@ from cadft import CC_DFT_DATA
 from cadft.utils import DIIS
 from cadft.utils import MAIN_PATH, DATA_PATH
 from cadft.utils import calculate_density_dipole
+from cadft.utils import rotate
 
 AU2KCALMOL = 627.5096080306
 
@@ -31,6 +32,7 @@ def test_rks(
     Test the model. Restrict Khon-Sham (no spin).
     """
     # 2.0 Prepare
+    rotate(molecular, verbose=True)
     dft2cc = CC_DFT_DATA(
         molecular,
         name=name,

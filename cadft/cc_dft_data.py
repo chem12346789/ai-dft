@@ -7,7 +7,6 @@ import numpy as np
 from scipy import linalg as LA
 
 from cadft.utils import gen_basis
-from cadft.utils import rotate
 from cadft.utils import (
     mrks_diis,
     umrks_diis,
@@ -35,8 +34,6 @@ class CC_DFT_DATA:
         self.name = name
         self.basis = basis
         self.if_basis_str = if_basis_str
-
-        rotate(molecular, verbose=True)
 
         self.mol = pyscf.M(
             atom=molecular,

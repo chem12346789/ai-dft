@@ -4,6 +4,7 @@ from itertools import product
 
 from cadft import CC_DFT_DATA, add_args, gen_logger
 from cadft import extend
+from cadft.utils import rotate
 
 
 parser = argparse.ArgumentParser(
@@ -37,6 +38,8 @@ for (
 
     if molecular is None:
         continue
+
+    rotate(molecular, verbose=True)
 
     dft2cc = CC_DFT_DATA(
         molecular,
