@@ -38,9 +38,11 @@ def mrks_diis(
     """
     Generate 1-RDM.
     """
-    self.data_save_path = DATA_SAVE_PATH / f"{self.name}"
-    Path(self.data_save_path).mkdir(parents=True, exist_ok=True)
+    data_save_path = DATA_SAVE_PATH / f"{self.name}"
+    Path(data_save_path).mkdir(parents=True, exist_ok=True)
+
     n_slices = 150
+    n_batchs = self.mol.nao // n_slices + 1
 
     mf = pyscf.scf.RHF(self.mol)
     mf.kernel()
@@ -56,12 +58,10 @@ def mrks_diis(
     print(h1e.shape)
     print("mo", mo)
 
-    n_batchs = self.mol.nao // n_slices + 1
-
     mat_s = self.mol.intor("int1e_ovlp")
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
 
-    grids = Grid(self.mol, level=1)
+    grids = Grid(self.mol)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
@@ -103,19 +103,19 @@ def mrks_diis(
         """
         return new * (1 - frac_old_) + old * frac_old_
 
-    if load_inv and Path(self.data_save_path / "exc_grids.npy").exists():
+    if load_inv and (data_save_path / "exc_grids.npy").exists():
         print("Load data from saved_data: exc_grids, exc_over_rho_grids.")
-        exc_grids = np.load(self.data_save_path / "exc_grids.npy")
-        exc_over_rho_grids = np.load(self.data_save_path / "exc_over_rho_grids.npy")
+        exc_grids = np.load(data_save_path / "exc_grids.npy")
+        exc_over_rho_grids = np.load(data_save_path / "exc_over_rho_grids.npy")
         print("Load data from saved_data: emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
-        emax = np.load(self.data_save_path / "emax.npy")
-        taup_rho_wf = np.load(self.data_save_path / "taup_rho_wf.npy")
-        tau_rho_wf = np.load(self.data_save_path / "tau_rho_wf.npy")
-        v_vxc_e_taup = np.load(self.data_save_path / "v_vxc_e_taup.npy")
+        emax = np.load(data_save_path / "emax.npy")
+        taup_rho_wf = np.load(data_save_path / "taup_rho_wf.npy")
+        tau_rho_wf = np.load(data_save_path / "tau_rho_wf.npy")
+        v_vxc_e_taup = np.load(data_save_path / "v_vxc_e_taup.npy")
 
-        if load_inv and Path(self.data_save_path / "dm1_cc.npy").exists():
-            dm1_cc = np.load(self.data_save_path / "dm1_cc.npy")
-            e_cc = np.load(self.data_save_path / "e_cc.npy")
+        if load_inv and (data_save_path / "dm1_cc.npy").exists():
+            dm1_cc = np.load(data_save_path / "dm1_cc.npy")
+            e_cc = np.load(data_save_path / "e_cc.npy")
         else:
             mf = pyscf.scf.RHF(self.mol)
             mf.kernel()
@@ -135,8 +135,8 @@ def mrks_diis(
             else:
                 dm1_cc = mycc.make_rdm1(ao_repr=True)
                 e_cc = mycc.e_tot
-            np.save(self.data_save_path / "dm1_cc.npy", dm1_cc)
-            np.save(self.data_save_path / "e_cc.npy", e_cc)
+            np.save(data_save_path / "dm1_cc.npy", dm1_cc)
+            np.save(data_save_path / "e_cc.npy", e_cc)
         rho_cc = pyscf.dft.numint.eval_rho(self.mol, ao_0, dm1_cc) + 1e-14
         exc_grids = np.zeros_like(rho_cc)
     else:
@@ -243,10 +243,10 @@ def mrks_diis(
         del dm12
         gc.collect()
 
-        np.save(self.data_save_path / "exc_grids.npy", exc_grids)
-        np.save(self.data_save_path / "exc_over_rho_grids.npy", exc_over_rho_grids)
-        np.save(self.data_save_path / "dm1_cc.npy", dm1_cc)
-        np.save(self.data_save_path / "e_cc.npy", e_cc)
+        np.save(data_save_path / "exc_grids.npy", exc_grids)
+        np.save(data_save_path / "exc_over_rho_grids.npy", exc_over_rho_grids)
+        np.save(data_save_path / "dm1_cc.npy", dm1_cc)
+        np.save(data_save_path / "e_cc.npy", e_cc)
 
         if cc_triple:
             dm1_cc_mo = ccsd_t_rdm.make_rdm1(
@@ -366,10 +366,10 @@ def mrks_diis(
         print(f"rho_cc: {np.linalg.norm(rho_cc):>.5f}")
         print(f"e_bar_r_wf: {np.linalg.norm(e_bar_r_wf):>.5f}")
 
-        np.save(self.data_save_path / "emax.npy", emax)
-        np.save(self.data_save_path / "taup_rho_wf.npy", taup_rho_wf)
-        np.save(self.data_save_path / "tau_rho_wf.npy", tau_rho_wf)
-        np.save(self.data_save_path / "v_vxc_e_taup.npy", v_vxc_e_taup)
+        np.save(data_save_path / "emax.npy", emax)
+        np.save(data_save_path / "taup_rho_wf.npy", taup_rho_wf)
+        np.save(data_save_path / "tau_rho_wf.npy", tau_rho_wf)
+        np.save(data_save_path / "v_vxc_e_taup.npy", v_vxc_e_taup)
 
     print(
         f"int1e_grids will consume about {len(coords) * self.mol.nao**2 * 8 / 1024**3:.2f} GB memory on cpu."
@@ -377,18 +377,13 @@ def mrks_diis(
     int1e_grids = self.mol.intor("int1e_grids", grids=coords)
     print(int1e_grids.shape)
 
-    # if (
-    #     load_inv
-    #     and Path(
-    #         self.data_save_path / "dm1_inv.npy"
-    #     ).exists()
-    # ):
-    if False:
+    if load_inv and (data_save_path / "dm1_inv.npy").exists():
+        # if False:
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
-        dm1_inv = np.load(self.data_save_path / "dm1_inv.npy")
-        vxc_inv = np.load(self.data_save_path / "vxc_inv.npy")
-        tau_rho_ks = np.load(self.data_save_path / "tau_rho_ks.npy")
-        taup_rho_ks = np.load(self.data_save_path / "taup_rho_ks.npy")
+        dm1_inv = np.load(data_save_path / "dm1_inv.npy")
+        vxc_inv = np.load(data_save_path / "vxc_inv.npy")
+        tau_rho_ks = np.load(data_save_path / "tau_rho_ks.npy")
+        taup_rho_ks = np.load(data_save_path / "taup_rho_ks.npy")
     else:
         eigvecs_inv = mf.mo_energy.copy()
         mo_inv = mf.mo_coeff.copy()
@@ -509,10 +504,10 @@ def mrks_diis(
 
         # print(f"After inv,\n {torch.cuda.memory_summary()}.\n")
 
-        np.save(self.data_save_path / "dm1_inv.npy", dm1_inv)
-        np.save(self.data_save_path / "vxc_inv.npy", vxc_inv)
-        np.save(self.data_save_path / "tau_rho_ks.npy", tau_rho_ks)
-        np.save(self.data_save_path / "taup_rho_ks.npy", taup_rho_ks)
+        np.save(data_save_path / "dm1_inv.npy", dm1_inv)
+        np.save(data_save_path / "vxc_inv.npy", vxc_inv)
+        np.save(data_save_path / "tau_rho_ks.npy", tau_rho_ks)
+        np.save(data_save_path / "taup_rho_ks.npy", taup_rho_ks)
 
     kin_correct = np.sum((tau_rho_wf - tau_rho_ks) * weights)
     kin_correct1 = np.sum((taup_rho_wf - taup_rho_ks) * weights)

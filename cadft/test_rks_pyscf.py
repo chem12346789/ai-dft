@@ -48,45 +48,50 @@ def test_rks_pyscf(
     df_dict["name"].append(name)
 
     # 2.0 Prepare
-    rotate(molecular, verbose=True)
+    rotate(molecular, rotation="r", verbose=True)
     dft2cc = CC_DFT_DATA(
         molecular,
         name=name,
         basis=args.basis,
         if_basis_str=args.if_basis_str,
     )
-    dft2cc.test_mol(require_grad, level=args.level)
+    dft2cc.test_mol(require_grad)
     mdft = pyscf.scf.RKS(dft2cc.mol)
 
     # 2.1 SCF loop to get the density matrix
     time_start = timer()
 
-    def get_veff(ks, mol=None, dm=None, dm_last=0, vhf_last=0, hermi=1):
+    def get_veff_modified(ks, mol=None, dm=None, dm_last=0, vhf_last=0, hermi=1):
         # print("Using modified get_veff", flush=True)
         if mol is None:
             mol = ks.mol
+
         if dm is None:
             dm = ks.make_rdm1()
 
-        ground_state = isinstance(dm, np.ndarray) and dm.ndim == 2
-        ni = ks._numint
+        if mol.spin == 0:
+            vhf = pyscf.dft.rks.get_veff(ks, mol, dm, dm_last, vhf_last, hermi)
+        else:
+            vhf = pyscf.dft.uks.get_veff(ks, mol, dm, dm_last, vhf_last, hermi)
 
-        max_memory = ks.max_memory - lib.current_memory()[0]
-        n, exc, vxc = ni.nr_rks(mol, ks.grids, ks.xc, dm, max_memory=max_memory)
+        ecoul = vhf.ecoul
+        exc = vhf.exc
+        vj = vhf.vj
+        vk = vhf.vk
 
         if from_data:
-            scf_rho_r = ni.eval_rho(dft2cc.mol, dft2cc.ao_0, dm)
-            middle_mat = data_real["vxc"]
+            scf_rho_r = pyscf.dft.numint.eval_rho(dft2cc.mol, dft2cc.ao_0, dm)
+            middle_mat = data_real["vxc1_lda"]
             vxc_scf = dft2cc.grids.matrix_to_vector(middle_mat)
             output_mat = data_real["exc1_tr_lda"]
             exc_scf = dft2cc.grids.matrix_to_vector(output_mat)
-            vxc += pyscf.dft.numint.eval_mat(
+            vhf += pyscf.dft.numint.eval_mat(
                 dft2cc.mol, dft2cc.ao_0, dft2cc.grids.weights, vxc_scf, vxc_scf
             )
             exc += np.sum(exc_scf * scf_rho_r * dft2cc.grids.weights)
         else:
             vxc_scf = modeldict.get_v(ks, dft2cc.grids, dm)
-            vxc += pyscf.dft.numint.eval_mat(
+            vhf += pyscf.dft.numint.eval_mat(
                 dft2cc.mol, dft2cc.ao_0, dft2cc.grids.weights, vxc_scf, vxc_scf
             )
             exc += modeldict.get_e(ks, dft2cc.grids, dm)
@@ -97,56 +102,11 @@ def test_rks_pyscf(
         # )
         # vxc += 100 * v_p
 
-        if not ni.libxc.is_hybrid_xc(ks.xc):
-            vk = None
-            if (
-                ks._eri is None
-                and ks.direct_scf
-                and getattr(vhf_last, "vj", None) is not None
-            ):
-                ddm = np.asarray(dm) - np.asarray(dm_last)
-                vj = ks.get_j(mol, ddm, hermi)
-                vj += vhf_last.vj
-            else:
-                vj = ks.get_j(mol, dm, hermi)
-            vxc += vj
-        else:
-            omega, alpha, hyb = ni.rsh_and_hybrid_coeff(ks.xc, spin=mol.spin)
-            if (
-                ks._eri is None
-                and ks.direct_scf
-                and getattr(vhf_last, "vk", None) is not None
-            ):
-                ddm = np.asarray(dm) - np.asarray(dm_last)
-                vj, vk = ks.get_jk(mol, ddm, hermi)
-                vk *= hyb
-                if omega != 0:  # For range separated Coulomb
-                    vklr = ks.get_k(mol, ddm, hermi, omega=omega)
-                    vklr *= alpha - hyb
-                    vk += vklr
-                vj += vhf_last.vj
-                vk += vhf_last.vk
-            else:
-                vj, vk = ks.get_jk(mol, dm, hermi)
-                vk *= hyb
-                if omega != 0:
-                    vklr = ks.get_k(mol, dm, hermi, omega=omega)
-                    vklr *= alpha - hyb
-                    vk += vklr
-            vxc += vj - vk * 0.5
+        vxc = lib.tag_array(vhf, ecoul=ecoul, exc=exc, vj=vj, vk=vk)
 
-            if ground_state:
-                exc -= np.einsum("ij,ji", dm, vk).real * 0.5 * 0.5
-
-        if ground_state:
-            ecoul = np.einsum("ij,ji", dm, vj).real * 0.5
-        else:
-            ecoul = None
-
-        vxc = lib.tag_array(vxc, ecoul=ecoul, exc=exc, vj=vj, vk=vk)
         return vxc
 
-    mdft.get_veff = types.MethodType(get_veff, mdft)
+    mdft.get_veff = types.MethodType(get_veff_modified, mdft)
     mdft.xc = "lda,vwn"
     if args.precision == "float32":
         mdft.conv_tol = 1e-4
