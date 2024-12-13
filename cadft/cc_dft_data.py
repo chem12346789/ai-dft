@@ -204,10 +204,10 @@ class CC_DFT_DATA:
             mdft.kernel()
             self.dm1_dft = mdft.make_rdm1(ao_repr=True)
             self.e_dft = mdft.e_tot
-            self.time_dft = timer() - time_start
             if require_grad:
                 g = mdft.nuc_grad_method()
                 self.grad_dft = g.kernel()
+            self.time_dft = timer() - time_start
 
             time_start = timer()
             mf = pyscf.scf.RHF(self.mol)
