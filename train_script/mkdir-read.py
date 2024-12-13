@@ -64,18 +64,18 @@ for (
     [32],
     [10],
     [1],  # input_size
-    [64],  # hidden_size
-    [1],  # output_size
-    [5],  # num_layer
-    ["0.-1"],  # residual
+    [32],  # hidden_size
+    [-1],  # output_size
+    [4],  # num_layer
+    [0],  # residual
     [
         # "2024-12-05-00-15-54",
         "NEW"
     ],  # load_model
     [(0, 0)],
     [
-        # "False",
-        "True",
+        "False",
+        # "True",
     ],
     ["float32"],
 ):

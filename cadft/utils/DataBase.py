@@ -64,7 +64,7 @@ class BasicDataset:
     def __getitem__(self, idx):
         dict_out = {}
         for key, val in self.dict_batch.items():
-            dict_out[key] = val[idx]
+            dict_out[key] = val[self.ids[idx]]
         return dict_out
 
     def load_to_gpu(self):

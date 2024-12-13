@@ -2,16 +2,12 @@
 Generate list of model.
 """
 
-from pathlib import Path
-import datetime
-
-import numpy as np
 import torch
-import torch.optim as optim
 from torch import nn
 
-from cadft.utils.env_var import CHECKPOINTS_PATH
-from cadft.utils.DataBase import process_input
+
+RAD_LEN = 40
+ANG_LEN = 194
 
 
 class Attention(nn.Module):
@@ -30,7 +26,7 @@ class Attention(nn.Module):
     def forward(self, inputs):
         # inputs.shape = (batch, seq_len, channel)
         results = self.dense1(inputs)
-        # results.shape = (batch, 194, 3 * channel)
+        # results.shape = (batch, ANG_LEN, 3 * channel)
         b, s, _ = results.shape
         results = torch.reshape(
             results, (b, s, 3, self.num_heads, self.channel // self.num_heads)
@@ -88,10 +84,9 @@ class ABlock(nn.Module):
 class Extractor(nn.Module):
     def __init__(self, **kwargs):
         super(Extractor, self).__init__()
-        self.in_channel = kwargs.get("in_channel", 40)
-        self.hidden_channels = kwargs.get("hidden_channels", 512)
-        self.depth = kwargs.get("depth", 12)
-        self.mlp_ratio = kwargs.get("mlp_ratio", 4.0)
+        self.in_channel = kwargs.get("in_channel", RAD_LEN)
+        self.hidden_channels = kwargs.get("hidden_channels")
+        self.depth = kwargs.get("depth")
         self.qkv_bias = kwargs.get("qkv_bias", False)
         self.num_heads = kwargs.get("num_heads", 8)
 
@@ -105,45 +100,45 @@ class Extractor(nn.Module):
                     channel=self.hidden_channels,
                     qkv_bias=self.qkv_bias,
                     num_heads=self.num_heads,
-                    length=194,
+                    length=ANG_LEN,
                     **kwargs,
                 )
                 for _ in range(self.depth)
             ]
         )
-        self.head = nn.Linear(self.hidden_channels, 40, bias=False)
+        self.head = nn.Linear(self.hidden_channels, RAD_LEN, bias=False)
 
     def forward(self, inputs):
         # batch = inputs.shape[0]
-        # # inputs.shape = (batch, 1, 40, 194)
+        # # inputs.shape = (batch, 1, RAD_LEN, ANG_LEN)
         inputs = inputs[:, 0, :, :]
-        # inputs.shape = (batch, 40, 194)
+        # inputs.shape = (batch, RAD_LEN, ANG_LEN)
         inputs = torch.permute(inputs, (0, 2, 1))
-        # inputs.shape = (batch, 194, 40)
+        # inputs.shape = (batch, ANG_LEN, RAD_LEN)
         results = inputs
         results = self.dense1(inputs)
-        # results.shape = (batch, 194, hidden_channels)
+        # results.shape = (batch, ANG_LEN, hidden_channels)
         results = self.gelu(results)
         # do attention only when the feature shape is small enough
         for i in range(self.depth):
-            # result.shape = (batch, 194, hidden_channels)
+            # result.shape = (batch, ANG_LEN, hidden_channels)
             results = self.layer_blocks[i](results)
-            # results.shape = (batch, 194, hidden_channels)
+            # results.shape = (batch, ANG_LEN, hidden_channels)
         results = self.dense2(results)
-        # results.shape = (batch, 194, hidden_channels)
+        # results.shape = (batch, ANG_LEN, hidden_channels)
         results = self.head(results)
-        # results.shape = (batch, 194, 40)
+        # results.shape = (batch, ANG_LEN, RAD_LEN)
         results = torch.permute(results, (0, 2, 1))
-        # inputs.shape = (batch, 40, 194)
+        # inputs.shape = (batch, RAD_LEN, ANG_LEN)
         results = results.unsqueeze(1)
-        # results.shape = (batch, 1, 40, 194)
+        # results.shape = (batch, 1, RAD_LEN, ANG_LEN)
         return results
 
 
 class PredictorSmall(nn.Module):
     def __init__(self, **kwargs):
         super(PredictorSmall, self).__init__()
-        hidden_channels = kwargs.get("hidden_channels", 256)
+        hidden_channels = kwargs.get("hidden_channels", 128)
         depth = kwargs.get("depth", 3)
         self.predictor = Extractor(
             hidden_channels=hidden_channels, depth=depth, **kwargs

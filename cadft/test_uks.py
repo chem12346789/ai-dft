@@ -13,6 +13,7 @@ from cadft import CC_DFT_DATA
 from cadft.utils import DIIS
 from cadft.utils import MAIN_PATH, DATA_PATH
 from cadft.utils import calculate_density_dipole
+from cadft.utils import rotate
 
 AU2KCALMOL = 627.5096080306
 
@@ -46,6 +47,7 @@ def test_uks(
             print(f"No file: {name:>40}")
             return
 
+    rotate(molecular, verbose=True)
     dft2cc = CC_DFT_DATA(
         molecular,
         name=name,
@@ -53,7 +55,7 @@ def test_uks(
         if_basis_str=args.if_basis_str,
         spin=spin,
     )
-    dft2cc.utest_mol(level=args.level)
+    dft2cc.utest_mol()
     nocc = dft2cc.mol.nelec
     mdft = pyscf.scf.UKS(dft2cc.mol)
 

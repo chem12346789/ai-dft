@@ -23,8 +23,9 @@ def gmrks_diis(self, frac_old, load_inv=True):
     """
     Generate 1-RDM.
     """
-    self.data_save_path = DATA_SAVE_PATH / f"{self.name}"
-    Path(self.data_save_path).mkdir(parents=True, exist_ok=True)
+    return
+    data_save_path = DATA_SAVE_PATH / f"{self.name}"
+    Path(data_save_path).mkdir(parents=True, exist_ok=True)
     n_slices = 150
 
     # self.mol.spin = 4
@@ -68,7 +69,7 @@ def gmrks_diis(self, frac_old, load_inv=True):
     mat_hs = LA.fractional_matrix_power(mat_s, -0.5).real
     mat_hs_sao = LA.block_diag(mat_hs, mat_hs)
 
-    grids = Grid(self.mol, level=1)
+    grids = Grid(self.mol)
     coords = grids.coords
     weights = grids.weights
     ao_value = pyscf.dft.numint.eval_ao(self.mol, coords, deriv=2)
@@ -160,10 +161,10 @@ def gmrks_diis(self, frac_old, load_inv=True):
     else:
         self.spin_list = [0, 1]
 
-    if load_inv and Path(self.data_save_path / "exc_grids.npy").exists():
+    if load_inv and Path(data_save_path / "exc_grids.npy").exists():
         print("Load data from saved_data: exc_grids, exc_over_rho_grids.")
-        exc_grids = np.load(self.data_save_path / "exc_grids.npy")
-        exc_over_rho_grids = np.load(self.data_save_path / "exc_over_rho_grids.npy")
+        exc_grids = np.load(data_save_path / "exc_grids.npy")
+        exc_over_rho_grids = np.load(data_save_path / "exc_over_rho_grids.npy")
     else:
         print("Calculating exc_grids")
         dm2_cc = mycc.make_rdm2(ao_repr=True)
@@ -267,16 +268,16 @@ def gmrks_diis(self, frac_old, load_inv=True):
         )
         print(f"Error: {(ene_cc_ele- e_cc):.5f} mHa")
 
-        np.save(self.data_save_path / "exc_grids.npy", exc_grids)
-        np.save(self.data_save_path / "exc_over_rho_grids.npy", exc_over_rho_grids)
+        np.save(data_save_path / "exc_grids.npy", exc_grids)
+        np.save(data_save_path / "exc_over_rho_grids.npy", exc_over_rho_grids)
 
     # if False:
-    if load_inv and Path(self.data_save_path / "emax.npy").exists():
+    if load_inv and Path(data_save_path / "emax.npy").exists():
         print("Load data from saved_data: emax, taup_rho_wf, tau_rho_wf, v_vxc_e_taup.")
-        emax = np.load(self.data_save_path / "emax.npy")
-        taup_rho_wf = np.load(self.data_save_path / "taup_rho_wf.npy")
-        tau_rho_wf = np.load(self.data_save_path / "tau_rho_wf.npy")
-        v_vxc_e_taup = np.load(self.data_save_path / "v_vxc_e_taup.npy")
+        emax = np.load(data_save_path / "emax.npy")
+        taup_rho_wf = np.load(data_save_path / "taup_rho_wf.npy")
+        tau_rho_wf = np.load(data_save_path / "tau_rho_wf.npy")
+        v_vxc_e_taup = np.load(data_save_path / "v_vxc_e_taup.npy")
     else:
         mo_a = mf.mo_coeff[ao_silce_a, :]
         mo_b = mf.mo_coeff[ao_silce_b, :]
@@ -443,23 +444,23 @@ def gmrks_diis(self, frac_old, load_inv=True):
         print(f"rho_cc: {np.linalg.norm(rho_cc):>.10f}")
         print(f"e_bar_r_wf: {np.linalg.norm(e_bar_r_wf):>.10f}")
 
-        np.save(self.data_save_path / "emax.npy", emax)
-        np.save(self.data_save_path / "taup_rho_wf.npy", taup_rho_wf)
-        np.save(self.data_save_path / "tau_rho_wf.npy", tau_rho_wf)
-        np.save(self.data_save_path / "v_vxc_e_taup.npy", v_vxc_e_taup)
+        np.save(data_save_path / "emax.npy", emax)
+        np.save(data_save_path / "taup_rho_wf.npy", taup_rho_wf)
+        np.save(data_save_path / "tau_rho_wf.npy", tau_rho_wf)
+        np.save(data_save_path / "v_vxc_e_taup.npy", v_vxc_e_taup)
 
     print(
         f"int1e_grids will consume about {len(coords) * self.mol.nao**2 * 8 / 1024**3:.2f} GB memory on cpu."
     )
     int1e_grids = self.mol.intor("int1e_grids", grids=coords)
 
-    # if load_inv and Path(self.data_save_path / "dm1_inv.npy").exists():
+    # if load_inv and Path(data_save_path / "dm1_inv.npy").exists():
     if False:
         print("Load data from saved_data: dm1_inv, vxc_inv, tau_rho_ks, taup_rho_ks.")
-        dm1_inv = np.load(self.data_save_path / "dm1_inv.npy")
-        vxc_inv = np.load(self.data_save_path / "vxc_inv.npy")
-        tau_rho_ks = np.load(self.data_save_path / "tau_rho_ks.npy")
-        taup_rho_ks = np.load(self.data_save_path / "taup_rho_ks.npy")
+        dm1_inv = np.load(data_save_path / "dm1_inv.npy")
+        vxc_inv = np.load(data_save_path / "vxc_inv.npy")
+        tau_rho_ks = np.load(data_save_path / "tau_rho_ks.npy")
+        taup_rho_ks = np.load(data_save_path / "taup_rho_ks.npy")
     else:
         eigvecs_inv = mf.mo_energy.copy()
         mo_inv = mf.mo_coeff.copy()
@@ -649,10 +650,10 @@ def gmrks_diis(self, frac_old, load_inv=True):
 
         # print(f"After inv,\n {torch.cuda.memory_summary()}.\n")
 
-        np.save(self.data_save_path / "dm1_inv.npy", dm1_inv)
-        np.save(self.data_save_path / "vxc_inv.npy", vxc_inv)
-        np.save(self.data_save_path / "tau_rho_ks.npy", tau_rho_ks)
-        np.save(self.data_save_path / "taup_rho_ks.npy", taup_rho_ks)
+        np.save(data_save_path / "dm1_inv.npy", dm1_inv)
+        np.save(data_save_path / "vxc_inv.npy", vxc_inv)
+        np.save(data_save_path / "tau_rho_ks.npy", tau_rho_ks)
+        np.save(data_save_path / "taup_rho_ks.npy", taup_rho_ks)
 
     kin_correct = np.sum((tau_rho_wf - tau_rho_ks) * weights)
     kin_correct1 = np.sum((taup_rho_wf - taup_rho_ks) * weights)

@@ -3,6 +3,7 @@
 import argparse
 import os
 
+from regex import F
 from tqdm import trange
 import torch
 
@@ -167,7 +168,8 @@ def train_model(TRAIN_STR_DICT, EVAL_STR_DICT):
                 f"t/e1 {np.mean(train_loss_pot):.2e}/{np.mean(eval_loss_pot):.2e} "
                 f"t/e2 {np.mean(train_loss_ene):.2e}/{np.mean(eval_loss_ene):.2e} "
                 f"t/e3 {np.mean(train_loss_ene_tot):.2e}/{np.mean(eval_loss_ene_tot):.2e} "
-                f"lr1/2 {lr1_2}"
+                f"lr1/2 {lr1_2}",
+                refresh=False,
             )
 
         if (epoch % (args.eval_step * 50) == 0) and (epoch != 0):

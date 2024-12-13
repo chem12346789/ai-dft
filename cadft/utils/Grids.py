@@ -149,13 +149,12 @@ class Grid(dft.gen_grid.Grids):
     This class is modified from pyscf.dft.gen_grid.Grids. Some default parameters are changed.
     """
 
-    def __init__(self, mol, level=3, period=2):
+    def __init__(self, mol, level=1, period=2):
         super().__init__(mol)
-        # self.n_rad, self.n_ang = (
-        #     RAD_GRIDS[level, period],
-        #     LEBEDEV_ORDER[ANG_ORDER[level, period]],
-        # )
-        self.n_rad, self.n_ang = 194, 194
+        self.n_rad, self.n_ang = (
+            RAD_GRIDS[level, period],
+            LEBEDEV_ORDER[ANG_ORDER[level, period]],
+        )
         self.natm = mol.natm
         self.coord_list = []
         self.atom_grid = {}
@@ -171,11 +170,6 @@ class Grid(dft.gen_grid.Grids):
         self.radi_method = dft.radi.gauss_chebyshev
         modified_build(self)
 
-        self.index_2d = np.arange(len(self.coords)).reshape(
-            self.natm, self.n_ang, self.n_rad
-        )
-        self.index_2d = np.transpose(self.index_2d, axes=[0, 2, 1])
-
     def vector_to_matrix(self, vector: np.ndarray):
         """
         Documentation for a method.
@@ -190,19 +184,3 @@ class Grid(dft.gen_grid.Grids):
         Documentation for a method.
         """
         return np.transpose(matrix, (0, 2, 1)).flatten()
-
-    def matrix_to_vector_atom(self, matrix: np.ndarray, atom_number: int):
-        """
-        Documentation for a method.
-        """
-        atom_x = np.zeros(self.n_rad * self.n_ang)
-        atom_y = np.zeros(self.n_rad * self.n_ang)
-        atom_z = np.zeros(self.n_rad * self.n_ang)
-        vector = np.zeros(self.n_rad * self.n_ang)
-        index_range = np.ndindex(self.n_rad, self.n_ang)
-        for i, (j, k) in enumerate(index_range):
-            vector[i] = matrix[atom_number, j, k]
-            atom_x[i] = self.coords[:, 0][self.index_2d[atom_number, j, k]]
-            atom_y[i] = self.coords[:, 1][self.index_2d[atom_number, j, k]]
-            atom_z[i] = self.coords[:, 2][self.index_2d[atom_number, j, k]]
-        return atom_x, atom_y, atom_z, vector
