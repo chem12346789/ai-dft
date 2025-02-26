@@ -14,7 +14,7 @@ class CC_DFT_DATA:
 
     def __init__(
         self,
-        molecular=Mol["methane"],
+        molecular,
         name="methane",
         basis="sto-3g",
         if_basis_str=False,
